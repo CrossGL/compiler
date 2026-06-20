@@ -1,0 +1,1 @@
+$.targetDecision.selectedTargetMissingCapabilityCount: expected selected target summary missingCapabilityCount 0, got 1

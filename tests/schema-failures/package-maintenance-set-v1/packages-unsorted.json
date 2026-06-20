@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "packages": [
+    "packages/zeta.crossgl-package.json",
+    "packages/alpha.crossgl-package.json"
+  ]
+}

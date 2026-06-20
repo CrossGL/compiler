@@ -1,0 +1,1 @@
+$.targetResourceBindings[3]: missing matching source resource ('compute', 'values2', 'texture')

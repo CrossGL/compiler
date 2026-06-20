@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "module": "GraphicsAbiVaryingMismatchFixture",
+  "target": "vulkan",
+  "entryPoints": [
+    {
+      "stage": "vertex",
+      "sourceName": "vs_main",
+      "backendName": "vertex_vs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-varying-producer-consumer.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    },
+    {
+      "stage": "fragment",
+      "sourceName": "fs_main",
+      "backendName": "fragment_fs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-varying-producer-consumer.cgl",
+        "line": 2,
+        "column": 1,
+        "offset": 10,
+        "length": 4,
+        "endLine": 2,
+        "endColumn": 5,
+        "endOffset": 14
+      }
+    }
+  ],
+  "vertexInputs": [],
+  "varyings": [
+    {
+      "interpolation": "smooth",
+      "producer": {
+        "stage": "vertex",
+        "entryPoint": "vertex_vs_main",
+        "name": "vColor",
+        "type": "vec3",
+        "location": 0,
+        "direction": "output"
+      },
+      "consumer": {
+        "stage": "fragment",
+        "entryPoint": "fragment_fs_main",
+        "name": "vColor",
+        "type": "vec4",
+        "location": 0,
+        "direction": "input"
+      }
+    }
+  ],
+  "fragmentOutputs": [],
+  "builtins": [],
+  "resources": [],
+  "abiRecords": []
+}

@@ -1,0 +1,1 @@
+$.artifactRequirementsProjection.nativeArtifactDescriptorHealth: expected native artifact descriptor health 'ok', got 'drift'

@@ -1,0 +1,10 @@
+shader BadNonuniformTypeShader {
+  compute {
+    layout(set = 0, binding = 0) buffer float* values[2];
+    void main() {
+      float descriptor = 0.0;
+      float value = values[nonuniform(descriptor)][0];
+      return;
+    }
+  }
+}

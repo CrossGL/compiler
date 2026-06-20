@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "module": "GraphicsAbiOpenGLBindingClassMismatch",
+  "target": "opengl",
+  "entryPoints": [
+    {
+      "stage": "fragment",
+      "sourceName": "fs_main",
+      "backendName": "fragment_fs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-opengl-binding-class.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    }
+  ],
+  "vertexInputs": [],
+  "varyings": [],
+  "fragmentOutputs": [],
+  "builtins": [],
+  "resources": [
+    {
+      "stage": "fragment",
+      "name": "albedo",
+      "kind": "texture",
+      "type": "sampler2D",
+      "arrayDimensions": [],
+      "set": 0,
+      "binding": 1,
+      "addressSpace": "texture",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-opengl-binding-class.cgl",
+        "line": 2,
+        "column": 1,
+        "offset": 10,
+        "length": 4,
+        "endLine": 2,
+        "endColumn": 5,
+        "endOffset": 14
+      }
+    }
+  ],
+  "abiRecords": [
+    {
+      "target": "opengl",
+      "stage": "fragment",
+      "entryPoint": "fragment_fs_main",
+      "name": "albedo",
+      "kind": "texture",
+      "sourceType": "sampler2D",
+      "addressSpace": "texture",
+      "abi": "programResourceBinding",
+      "bindingClass": "storage-buffer",
+      "argumentIndex": 1,
+      "set": 0,
+      "binding": 1,
+      "arrayDimensions": [],
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-opengl-binding-class.cgl",
+        "line": 3,
+        "column": 1,
+        "offset": 20,
+        "length": 4,
+        "endLine": 3,
+        "endColumn": 5,
+        "endOffset": 24
+      }
+    }
+  ]
+}

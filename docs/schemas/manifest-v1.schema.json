@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/manifest-v1.schema.json",
+  "title": "CrossGL Package Manifest JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "compiler",
+    "module",
+    "target",
+    "sourceHash",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "compiler": {
+      "$ref": "#/$defs/compiler"
+    },
+    "module": {
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/targetName"
+    },
+    "sourceHash": {
+      "$ref": "#/$defs/sourceHash"
+    },
+    "packageArtifactRequirements": {
+      "$ref": "#/$defs/packageArtifactRequirements"
+    },
+    "targetLegalizationToolRequirements": {
+      "$ref": "#/$defs/targetLegalizationToolRequirements"
+    },
+    "artifacts": {
+      "$ref": "#/$defs/artifacts"
+    }
+  },
+  "$defs": {
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "packageMode": {
+      "type": "string",
+      "enum": [
+        "native",
+        "source-package"
+      ]
+    },
+    "compiler": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "llvmVersion"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "const": "CrossGL-Compiler"
+        },
+        "version": {
+          "type": "string"
+        },
+        "llvmVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "sourceHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "sha256"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    },
+    "packageArtifactRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "packageMode",
+        "requiredPathArtifacts",
+        "requiresNativeBinaryStatus",
+        "allowsPlannedNativeBinary",
+        "allowsPlannedNativeSourceEvidence"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        },
+        "requiredPathArtifacts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "backendSource",
+              "backendAssembly",
+              "intermediate",
+              "nativeBinary"
+            ]
+          }
+        },
+        "requiresNativeBinaryStatus": {
+          "type": "boolean"
+        },
+        "allowsPlannedNativeBinary": {
+          "type": "boolean"
+        },
+        "allowsPlannedNativeSourceEvidence": {
+          "type": "boolean"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "targetLegalizationToolRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "packageMode",
+        "requiredToolCount",
+        "missingToolCount",
+        "requiredToolIds",
+        "missingToolIds",
+        "optionalNativeToolMissing",
+        "optionalNativeToolStatus",
+        "toolRequirementEvidenceIds"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        },
+        "requiredToolCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missingToolCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "requiredToolIds": {
+          "$ref": "#/$defs/toolRequirementIds"
+        },
+        "missingToolIds": {
+          "$ref": "#/$defs/toolRequirementIds"
+        },
+        "optionalNativeToolMissing": {
+          "type": "boolean"
+        },
+        "optionalNativeToolStatus": {
+          "type": "string",
+          "enum": [
+            "available",
+            "missing",
+            "not-required"
+          ]
+        },
+        "toolRequirementEvidenceIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/targetLegalizationEvidenceId"
+          }
+        }
+      }
+    },
+    "toolRequirementIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/toolRequirementId"
+      }
+    },
+    "toolRequirementId": {
+      "type": "string",
+      "pattern": "^(metal|vulkan|directx|opengl)\\.(native-tool|toolchain|validation)\\.[A-Za-z0-9_.-]+$"
+    },
+    "targetLegalizationEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+$"
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "backendSource": {
+          "type": "string"
+        },
+        "backendAssembly": {
+          "type": "string"
+        },
+        "graphicsAbi": {
+          "type": "string"
+        },
+        "intermediate": {
+          "type": "string"
+        },
+        "nativeBinary": {
+          "type": "string"
+        },
+        "nativeProfile": {
+          "type": "string"
+        },
+        "nativeArtifactDescriptor": {
+          "type": "string"
+        },
+        "nativeBinaryStatus": {
+          "type": "string",
+          "enum": [
+            "planned",
+            "emitted",
+            "validated"
+          ]
+        },
+        "debugMetadata": {
+          "type": "string"
+        },
+        "hirSourceMap": {
+          "type": "string"
+        },
+        "backendSourceMap": {
+          "type": "string"
+        },
+        "sourceRemap": {
+          "type": "string"
+        },
+        "targetExplanation": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

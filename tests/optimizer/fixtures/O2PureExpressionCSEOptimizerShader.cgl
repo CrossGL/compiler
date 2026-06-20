@@ -1,0 +1,27 @@
+shader O2PureExpressionCSEOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    float pureReuse(float left, float right, float bias) {
+      float first = (left + right) * bias;
+      float second = (left + right) * bias;
+      float third = max(left + right, bias);
+      float fourth = max(left + right, bias);
+      return first + second + third + fourth;
+    }
+
+    float storeBoundary(float left, float right, uint index) {
+      float before = left + right;
+      values[index] = before;
+      float after = left + right;
+      return before + after + after;
+    }
+
+    void main() {
+      values[0] = pureReuse(values[0], values[1], 0.5);
+      values[1] = storeBoundary(values[1], values[2], 1u);
+      return;
+    }
+  }
+}

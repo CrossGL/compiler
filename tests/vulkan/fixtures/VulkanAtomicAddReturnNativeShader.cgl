@@ -1,0 +1,47 @@
+shader VulkanAtomicAddReturnNativeShader {
+  const int GROUP_SIZE = 4;
+
+  struct CompatCounters {
+    int active_count;
+    uint spawn_count;
+  }
+
+  compute {
+    layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+    layout(set = 0, binding = 0) buffer atomic<int>* counters;
+    layout(set = 0, binding = 1) buffer atomic<uint>* unsignedCounters;
+    layout(set = 0, binding = 2) buffer int* values;
+    layout(set = 0, binding = 3) buffer uint* unsignedValues;
+    layout(set = 0, binding = 4) buffer CompatCounters compat;
+    var<workgroup> tile: atomic<int>[GROUP_SIZE];
+    var<workgroup> unsignedTile: atomic<uint>[GROUP_SIZE];
+
+    void main() {
+      int index = 0;
+      uint localDelta = uint(1.0);
+
+      int oldBuffer = atomicAdd(counters[index], 1);
+      int oldShared = atomicAdd(tile[index], 2);
+      uint oldUnsigned = atomicAdd(unsignedCounters[index], localDelta);
+      int oldCompat = atomicAdd(compat[0].active_count, 1);
+
+      int assignedOld = 0;
+      assignedOld = atomicAdd(counters[index], 1);
+      uint assignedUnsigned = uint(0.0);
+      assignedUnsigned = atomicAdd(unsignedTile[index], localDelta);
+      uint assignedCompat = atomicAdd(compat[0].spawn_count, localDelta);
+
+      atomicAdd(counters[index], 1);
+
+      values[0] = oldBuffer;
+      values[1] = oldShared;
+      values[2] = assignedOld;
+      values[3] = oldCompat;
+      unsignedValues[0] = oldUnsigned;
+      unsignedValues[1] = assignedUnsigned;
+      unsignedValues[2] = assignedCompat;
+      return;
+    }
+  }
+}

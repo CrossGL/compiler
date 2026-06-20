@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "module": "SourceFreeDirectXEmittedDxilRuntimeExample",
+  "target": "directx",
+  "nativeBinary": "backend/directx/SourceFreeDirectXEmittedDxilRuntimeExample.dxil",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "source_free_directx_emitted_dxil_main"
+    }
+  ],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "OutputBuffer",
+      "kind": "storageBuffer",
+      "type": "float4",
+      "set": 0,
+      "binding": 0
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "source_free_directx_emitted_dxil_main",
+      "name": "OutputBuffer",
+      "kind": "storageBuffer",
+      "sourceType": "float4",
+      "addressSpace": "uav",
+      "abi": {
+        "space": 0,
+        "register": "u0"
+      },
+      "bindingClass": "uav",
+      "descriptorType": "UAV",
+      "hlslType": "RWStructuredBuffer<float4>"
+    }
+  ],
+  "targetFeatures": [
+    {
+      "target": "directx",
+      "kind": "package",
+      "name": "source-package"
+    }
+  ]
+}

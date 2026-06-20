@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "project.config.missing-include-dir",
+      "message": "fixture diagnostic",
+      "location": {
+        "file": "crossgl.project.json",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 7,
+        "endLine": 1,
+        "endColumn": 8,
+        "endOffset": 7
+      },
+      "missingCapabilities": [
+        "include"
+      ]
+    }
+  ]
+}

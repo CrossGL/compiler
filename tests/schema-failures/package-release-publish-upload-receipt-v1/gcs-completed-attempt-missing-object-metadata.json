@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "manifestPath": "build/package-release-publish-upload-manifest.json",
+  "receiptPath": "build/package-release-publish-upload-receipt.json",
+  "receiptWritten": true,
+  "uploadMode": "gcs",
+  "success": true,
+  "requestCount": 1,
+  "requestBytes": 16,
+  "attemptCount": 1,
+  "attemptBytes": 16,
+  "completedAttemptCount": 1,
+  "completedAttemptBytes": 16,
+  "attempts": [
+    {
+      "status": "uploaded",
+      "provider": "gcs",
+      "overwrite": false,
+      "idempotencyKey": "8f6999dd705f09ed331bdee11f0c8ad0691e3e3983db6ea4cd892ccf83e2e91a",
+      "preconditionKind": "ifGenerationMatch",
+      "preconditionValue": "0",
+      "generation": "",
+      "metageneration": "",
+      "crc32c": "",
+      "md5Hash": "",
+      "errorMessage": "",
+      "request": {
+        "targetKind": "gcs",
+        "stagedPath": "build/stage/backend/metal/SimpleShader.metallib",
+        "destinationPath": "backend/metal/SimpleShader.metallib",
+        "bucket": "crossgl-release-dry-run",
+        "objectName": "compiler/packages/backend/metal/SimpleShader.metallib",
+        "uploadUri": "gs://crossgl-release-dry-run/compiler/packages/backend/metal/SimpleShader.metallib",
+        "credentialsEnv": "GOOGLE_APPLICATION_CREDENTIALS",
+        "sizeBytes": 16,
+        "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

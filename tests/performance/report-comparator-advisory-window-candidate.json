@@ -1,0 +1,266 @@
+{
+  "baselinePolicy": {
+    "comparisonWindow": {
+      "sampleCount": 3,
+      "unit": "elapsedNs",
+      "warmupCount": 1
+    },
+    "hostClass": "linux-x86_64",
+    "hostLabel": "ci-linux-x86_64-pool-a",
+    "optLevel": "mixed:Debug,O2",
+    "targetProfile": "crossgl-milestone6-smoke",
+    "toolchainClass": "crossgl-cglc-fixture",
+    "toolchainLabel": "cglc",
+    "toolchainVersion": "0.6.0-fixture"
+  },
+  "cases": [
+    {
+      "case": "storage-buffer-compute::directx::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "fixtureCategory": "storage-buffers",
+      "fixtureName": "storage-buffer-compute",
+      "optLevel": "O2",
+      "profile": "release",
+      "skipped": false,
+      "target": "directx",
+      "timing": {
+        "elapsedNs": 105,
+        "runs": [
+          {
+            "durationNs": 103,
+            "exitStatus": 0,
+            "iteration": 1,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          {
+            "durationNs": 105,
+            "exitStatus": 0,
+            "iteration": 2,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          {
+            "durationNs": 107,
+            "exitStatus": 0,
+            "iteration": 3,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          }
+        ],
+        "sampleCount": 3,
+        "warmupCount": 1,
+        "warmups": [
+          {
+            "durationNs": 95,
+            "exitStatus": 0,
+            "iteration": 1,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          }
+        ]
+      },
+      "unavailableTools": []
+    },
+    {
+      "case": "texture-sample::opengl::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "fixtureCategory": "texture-sampling",
+      "fixtureName": "texture-sample",
+      "optLevel": "O2",
+      "profile": "release",
+      "skipped": false,
+      "target": "opengl",
+      "timing": {
+        "elapsedNs": 190,
+        "runs": [
+          {
+            "durationNs": 188,
+            "exitStatus": 0,
+            "iteration": 1,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          {
+            "durationNs": 190,
+            "exitStatus": 0,
+            "iteration": 2,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          {
+            "durationNs": 192,
+            "exitStatus": 0,
+            "iteration": 3,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          }
+        ],
+        "sampleCount": 3,
+        "warmupCount": 1,
+        "warmups": [
+          {
+            "durationNs": 180,
+            "exitStatus": 0,
+            "iteration": 1,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          }
+        ]
+      },
+      "unavailableTools": []
+    },
+    {
+      "case": "debug-control::directx::debug",
+      "commandProfile": {
+        "name": "debug"
+      },
+      "fixtureCategory": "control-flow",
+      "fixtureName": "debug-control",
+      "optLevel": "Debug",
+      "profile": "debug",
+      "skipped": false,
+      "target": "directx",
+      "timing": {
+        "elapsedNs": 300,
+        "runs": [
+          {
+            "durationNs": 298,
+            "exitStatus": 0,
+            "iteration": 1,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          {
+            "durationNs": 300,
+            "exitStatus": 0,
+            "iteration": 2,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          },
+          {
+            "durationNs": 302,
+            "exitStatus": 0,
+            "iteration": 3,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          }
+        ],
+        "sampleCount": 3,
+        "warmupCount": 1,
+        "warmups": [
+          {
+            "durationNs": 290,
+            "exitStatus": 0,
+            "iteration": 1,
+            "outputBytes": 0,
+            "stderrBytes": 0,
+            "stdoutBytes": 0
+          }
+        ]
+      },
+      "unavailableTools": []
+    }
+  ],
+  "corpusVersion": "milestone6-smoke-v1",
+  "metadata": {
+    "measurementWindow": {
+      "sampleCount": 3,
+      "unit": "elapsedNs",
+      "warmupCount": 1
+    },
+    "runtimeEnvironment": {
+      "machine": "x86_64",
+      "platform": "Linux-fixture",
+      "pythonExecutable": "/usr/bin/python3",
+      "pythonImplementation": "CPython",
+      "pythonVersion": "3.11.0",
+      "system": "Linux",
+      "systemRelease": "fixture"
+    }
+  },
+  "schemaVersion": 1,
+  "summary": {
+    "caseCategories": [
+      "control-flow",
+      "storage-buffers",
+      "texture-sampling"
+    ],
+    "caseCount": 3,
+    "caseCountByCategory": {
+      "control-flow": 1,
+      "storage-buffers": 1,
+      "texture-sampling": 1
+    },
+    "caseCountByCommandProfile": {
+      "debug": 1,
+      "release": 2
+    },
+    "caseCountByProfile": {
+      "debug": 1,
+      "release": 2
+    },
+    "caseCountByTarget": {
+      "directx": 2,
+      "opengl": 1
+    },
+    "commandProfiles": [
+      "debug",
+      "release"
+    ],
+    "measuredRunCount": 9,
+    "measurementWindow": {
+      "sampleCount": 3,
+      "unit": "elapsedNs",
+      "warmupCount": 1
+    },
+    "skippedCount": 0,
+    "timedCaseCount": 3,
+    "timingWindow": {
+      "consistent": true,
+      "expectedMeasuredRunCount": 9,
+      "expectedSampleCount": 3,
+      "expectedWarmupCount": 1,
+      "expectedWarmupRunCount": 3,
+      "measuredRunCount": 9,
+      "mismatchedCaseCount": 0,
+      "mismatchedCases": [],
+      "timedCaseCount": 3,
+      "warmupRunCount": 3
+    },
+    "unavailableToolCount": 0,
+    "warmupRunCount": 3,
+    "optLevels": [
+      "Debug",
+      "O2"
+    ],
+    "caseCountByOptLevel": {
+      "Debug": 1,
+      "O2": 2
+    }
+  },
+  "tool": "benchmark_performance_corpus",
+  "toolAvailability": {
+    "cglc": {
+      "available": true,
+      "class": "crossgl-cglc-fixture",
+      "status": "available",
+      "version": "0.6.0-fixture"
+    }
+  }
+}

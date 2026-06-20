@@ -1,0 +1,10 @@
+shader BadTextureLodShader {
+  compute {
+    uniform sampler2D colorMap;
+    sampler linearSampler;
+    void main() {
+      vec4 color = textureLod(colorMap, linearSampler, vec2(0.5, 0.5), true);
+      return;
+    }
+  }
+}

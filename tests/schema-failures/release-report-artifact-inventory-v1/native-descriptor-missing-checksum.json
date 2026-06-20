@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "reports/package-release-bundle.json",
+  "publishPlanPath": null,
+  "stageReportPath": null,
+  "success": true,
+  "artifactRecordCount": 1,
+  "bundleArtifactRecordCount": 1,
+  "publishPlanArtifactRecordCount": 0,
+  "publishStageArtifactRecordCount": 0,
+  "stagedArtifactRecordCount": 0,
+  "totalArtifactRecordBytes": 0,
+  "records": [
+    {
+      "sourceRecordKind": "release-bundle",
+      "packagePath": "packages/InventoryShader.cglb",
+      "packageArtifactPath": "backend/metal/InventoryShader.native-artifact.json",
+      "stagedPath": null,
+      "destinationPath": null,
+      "sizeBytes": null,
+      "sha256": null
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

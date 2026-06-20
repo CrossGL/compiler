@@ -1,0 +1,23 @@
+shader MetalLocalArrayDynamicVectorShader {
+  const int COUNT = 3;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* outputs;
+    layout(set = 0, binding = 1) buffer int* indices;
+
+    vec4 readValue(vec4 values[COUNT], int index) {
+      return values[index];
+    }
+
+    void main() {
+      vec4 localValues[COUNT];
+      localValues[0] = outputs[0];
+      localValues[1] = outputs[1];
+      localValues[2] = outputs[2];
+      int index = indices[0];
+      outputs[3] = readValue(localValues, index);
+      return;
+    }
+  }
+}

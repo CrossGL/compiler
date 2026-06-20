@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "project": {
+    "root": ".",
+    "targets": [
+      "cgl",
+      "directx"
+    ]
+  },
+  "summary": {
+    "artifactCount": 2,
+    "artifactsByTarget": {
+      "cgl": 1,
+      "directx": 1
+    },
+    "sourceRemapCount": 2,
+    "sourceRemapMappingCount": 3,
+    "sourceRemapsByGranularity": {
+      "line": 2
+    },
+    "sourceRemapsByTarget": {
+      "cgl": 1,
+      "directx": 1
+    },
+    "sourceRemapsBySourceBackend": {
+      "cgl": 2
+    },
+    "sourceRemapsByVariant": {
+      "debug": 2
+    }
+  },
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "variant": "debug",
+      "target": "cgl",
+      "path": "out/cgl/simple.cgl",
+      "status": "translated",
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "out/cgl/simple.source-remap.json",
+        "target": "cgl",
+        "sourceBackend": "cgl",
+        "variant": "debug",
+        "generatedFile": "out/cgl/simple.cgl",
+        "mappingGranularity": "line",
+        "mappingCount": 2,
+        "sizeBytes": 982,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92"
+        }
+      }
+    },
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "variant": "debug",
+      "target": "directx",
+      "path": "out/directx/simple.hlsl",
+      "status": "translated",
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "source-remap-v1-crosstl-project-directx-line.json",
+        "target": "directx",
+        "sourceBackend": "cgl",
+        "variant": "debug",
+        "generatedFile": "out/directx/simple.hlsl",
+        "mappingGranularity": "line",
+        "mappingCount": 1,
+        "sizeBytes": 543,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "6024fb5f723fb243cd8b261eadda888f68217c8d7436b6c2f163de81b188995a"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+$.targetResourceBindings[0].descriptorType: expected directx texture resource descriptorType 'SRV', got 'UAV'

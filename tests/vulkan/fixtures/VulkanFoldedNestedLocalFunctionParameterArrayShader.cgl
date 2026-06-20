@@ -1,0 +1,34 @@
+shader VulkanFoldedNestedLocalFunctionParameterArrayShader {
+  const int BASE_COLS = 2;
+  const int COLS = BASE_COLS + 1;
+  const int ROWS = 1 + 1;
+  const int FIRST_ROW = 0;
+  const int SECOND_ROW = ROWS - 1;
+  const int FIRST_COL = 0;
+  const int LAST_COL = COLS - 1;
+  const int OUTPUT_INDEX = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    float readCorner(float grid[ROWS][COLS]) {
+      return grid[SECOND_ROW][LAST_COL];
+    }
+
+    float sumCorners(float grid[ROWS][COLS]) {
+      float first = grid[FIRST_ROW][FIRST_COL];
+      float second = readCorner(grid);
+      return first + second;
+    }
+
+    void main() {
+      float grid[ROWS][COLS];
+      grid[FIRST_ROW][FIRST_COL] = values[FIRST_ROW];
+      grid[SECOND_ROW][LAST_COL] = values[SECOND_ROW];
+      float result = sumCorners(grid);
+      values[OUTPUT_INDEX] = result;
+      return;
+    }
+  }
+}

@@ -1,0 +1,32 @@
+shader DirectXAtomicAddReturnShader {
+  const int GROUP_SIZE = 4;
+
+  compute {
+    layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer atomic<int>* counters;
+    layout(set = 0, binding = 1) buffer atomic<uint>* unsignedCounters;
+    layout(set = 0, binding = 2) buffer int* observed;
+    layout(set = 0, binding = 3) buffer uint* unsignedObserved;
+
+    var<workgroup> tile: atomic<int>[GROUP_SIZE];
+    var<workgroup> unsignedTile: atomic<uint>[GROUP_SIZE];
+
+    void main() {
+      int index = int(gl_GlobalInvocationID.x);
+      uint unsignedIndex = gl_LocalInvocationID.x;
+      int delta = int(gl_LocalInvocationID.x) + 1;
+      uint unsignedDelta = unsignedIndex;
+
+      int oldCounter = atomicAdd(counters[index], delta);
+      oldCounter = atomicAdd(counters[index], 1);
+      uint oldUnsigned = atomicAdd(unsignedCounters[unsignedIndex], unsignedDelta);
+      int oldShared = atomicAdd(tile[index], 1);
+      uint oldUnsignedShared = atomicAdd(unsignedTile[unsignedIndex], unsignedDelta);
+
+      atomicAdd(counters[index], delta);
+      observed[index] = oldCounter + oldShared;
+      unsignedObserved[unsignedIndex] = oldUnsigned + oldUnsignedShared;
+      return;
+    }
+  }
+}

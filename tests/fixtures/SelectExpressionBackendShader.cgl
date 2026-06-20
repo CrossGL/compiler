@@ -1,0 +1,16 @@
+shader SelectExpressionBackendShader {
+    compute {
+        layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+        layout(set = 0, binding = 0) buffer int* values;
+
+        void main() {
+            int dynamicIndex = values[0];
+            bool base = dynamicIndex > 0;
+            int selectedInt = base ? dynamicIndex + 1 : dynamicIndex + 2;
+            bool selectedBool = base ? dynamicIndex > 3 : dynamicIndex > 4;
+            values[1] = selectedInt;
+            values[2] = selectedBool ? 1 : 0;
+            return;
+        }
+    }
+}

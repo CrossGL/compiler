@@ -1,0 +1,1 @@
+$.manualTextureCompareKernels[0].weightsZeroSum: expected static-non-normalized zero-sum flag False, got True

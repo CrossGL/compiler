@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "tool": "benchmark_performance_corpus",
+  "corpusVersion": "milestone6-smoke-v1",
+  "baselinePolicy": {
+    "comparisonWindow": {
+      "sampleCount": 2,
+      "unit": "elapsedNs",
+      "warmupCount": 0
+    },
+    "hostClass": "linux-x86_64",
+    "hostLabel": "ci-linux-x86_64-pool-a",
+    "optLevel": "O2",
+    "targetProfile": "crossgl-milestone6-smoke",
+    "toolchainClass": "crossgl-cglc-fixture",
+    "toolchainLabel": "cglc",
+    "toolchainVersion": "0.6.0-fixture"
+  },
+  "metadata": {
+    "runtimeEnvironment": {
+      "machine": "x86_64",
+      "platform": "Linux-fixture",
+      "pythonExecutable": "/usr/bin/python3",
+      "pythonImplementation": "CPython",
+      "pythonVersion": "3.11.0",
+      "system": "Linux",
+      "systemRelease": "fixture"
+    }
+  },
+  "cases": [
+    {
+      "case": "storage-buffer-compute::directx::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "fixtureCategory": "storage-buffers",
+      "fixtureName": "storage-buffer-compute",
+      "optLevel": "O2",
+      "profile": "release",
+      "skipped": false,
+      "target": "directx",
+      "timing": {
+        "elapsedNs": 105
+      },
+      "unavailableTools": []
+    }
+  ],
+  "summary": {
+    "caseCount": 1,
+    "caseCategories": [
+      "storage-buffers"
+    ],
+    "caseCountByCategory": {
+      "storage-buffers": 1
+    },
+    "caseCountByCommandProfile": {
+      "release": 1
+    },
+    "caseCountByOptLevel": {
+      "O2": 1
+    },
+    "caseCountByProfile": {
+      "release": 1
+    },
+    "caseCountByTarget": {
+      "directx": 1
+    },
+    "commandProfiles": [
+      "release"
+    ],
+    "optLevels": [
+      "O2"
+    ],
+    "skippedCount": 0,
+    "timedCaseCount": 1,
+    "unavailableToolCount": 0
+  },
+  "toolAvailability": {
+    "cglc": {
+      "available": true,
+      "class": "crossgl-cglc-fixture",
+      "status": "available",
+      "version": "0.6.0-fixture"
+    }
+  },
+  "toolchains": {
+    "cglc": {
+      "class": "crossgl-cglc-fixture",
+      "version": "0.7.0-fixture"
+    }
+  }
+}

@@ -1,0 +1,46 @@
+shader StorageImageDescriptorArrayHIRShader {
+  const int IMAGE_COUNT = 2;
+  const int FOLDED_SLOT = IMAGE_COUNT - 1;
+
+  compute {
+    layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2D colorImages[2];
+    layout(set = 0, binding = 1) uniform image2DArray colorAtlases[IMAGE_COUNT];
+    layout(set = 0, binding = 2) uniform iimage2D labelImages[IMAGE_COUNT];
+    layout(set = 0, binding = 3) uniform iimage2DArray labelAtlases[2];
+    layout(set = 0, binding = 4) uniform uimage2D maskImages[IMAGE_COUNT];
+    layout(set = 0, binding = 5) uniform uimage2DArray maskAtlases[2];
+    layout(set = 0, binding = 6) buffer int* slots;
+    layout(set = 0, binding = 7) buffer vec4* colors;
+    layout(set = 0, binding = 8) buffer ivec4* labels;
+    layout(set = 0, binding = 9) buffer uvec4* masks;
+
+    void main() {
+      uint index = gl_GlobalInvocationID.x;
+      int x = int(gl_GlobalInvocationID.x);
+      int y = int(gl_GlobalInvocationID.y);
+      int dynamicSlot = slots[index];
+      ivec2 pixel = ivec2(x, y);
+      ivec3 arrayPixel = ivec3(pixel, dynamicSlot);
+
+      vec4 color2D = imageLoad(colorImages[0], pixel);
+      vec4 colorArray = imageLoad(colorAtlases[FOLDED_SLOT], arrayPixel);
+      ivec4 label2D = imageLoad(labelImages[dynamicSlot], pixel);
+      ivec4 labelArray = imageLoad(labelAtlases[1], arrayPixel);
+      uvec4 mask2D = imageLoad(maskImages[FOLDED_SLOT], pixel);
+      uvec4 maskArray = imageLoad(maskAtlases[dynamicSlot], arrayPixel);
+
+      imageStore(colorImages[0], pixel, color2D);
+      imageStore(colorAtlases[FOLDED_SLOT], arrayPixel, colorArray);
+      imageStore(labelImages[dynamicSlot], pixel, label2D);
+      imageStore(labelAtlases[1], arrayPixel, labelArray);
+      imageStore(maskImages[FOLDED_SLOT], pixel, mask2D);
+      imageStore(maskAtlases[dynamicSlot], arrayPixel, maskArray);
+
+      colors[index] = color2D + colorArray;
+      labels[index] = label2D + labelArray;
+      masks[index] = mask2D + maskArray;
+      return;
+    }
+  }
+}

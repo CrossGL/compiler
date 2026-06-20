@@ -1,0 +1,29 @@
+shader VulkanStorageImageNonUniformDescriptorArrayShader {
+  const int IMAGE_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 2, local_size_y = 2, local_size_z = 1) in;
+
+    layout(set = 0, binding = 0) uniform image2D colorImages[IMAGE_COUNT];
+    layout(set = 0, binding = 1) uniform uimage2DArray maskAtlases[IMAGE_COUNT];
+    layout(set = 0, binding = 2) buffer int* slots;
+    layout(set = 0, binding = 3) buffer vec4* colors;
+    layout(set = 0, binding = 4) buffer uvec4* masks;
+
+    void main() {
+      int slot = slots[0];
+      ivec2 pixel = ivec2(0, 0);
+      ivec3 atlasPixel = ivec3(pixel, 0);
+
+      vec4 color = imageLoad(colorImages[nonuniform(slot)], pixel);
+      imageStore(colorImages[nonuniform(slot)], pixel, color);
+
+      uvec4 mask = imageLoad(maskAtlases[nonuniform(slot)], atlasPixel);
+      imageStore(maskAtlases[nonuniform(slot)], atlasPixel, mask);
+
+      colors[0] = color;
+      masks[0] = mask;
+      return;
+    }
+  }
+}

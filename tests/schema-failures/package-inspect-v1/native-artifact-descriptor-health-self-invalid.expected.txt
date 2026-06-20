@@ -1,0 +1,1 @@
+$.nativeArtifactDescriptor.health: expected native artifact descriptor health from checks 'ok', got 'invalid'

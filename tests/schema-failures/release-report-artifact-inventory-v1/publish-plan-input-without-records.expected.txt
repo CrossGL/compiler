@@ -1,0 +1,1 @@
+$.publishPlanArtifactRecordCount: non-null $.publishPlanPath requires at least one publish-plan record

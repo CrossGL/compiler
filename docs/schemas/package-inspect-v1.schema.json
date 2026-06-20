@@ -1,0 +1,2073 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/package-inspect-v1.schema.json",
+  "title": "CrossGL Package Inspect JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "packagePath"
+  ],
+  "oneOf": [
+    {
+      "$ref": "#/$defs/successDocument"
+    },
+    {
+      "$ref": "#/$defs/failureDocument"
+    }
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "packagePath": {
+      "type": "string"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "packageFormat": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "directory",
+        null
+      ]
+    },
+    "summary": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/summary"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "debugArtifacts": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/debugArtifacts"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "vulkanNativeProfile": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/vulkanNativeProfile"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nativeArtifactDescriptor": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/nativeArtifactDescriptor"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "graphicsAbi": {
+      "$ref": "#/$defs/graphicsAbi"
+    },
+    "artifactRequirementsProjection": {
+      "$ref": "#/$defs/artifactRequirementsProjection"
+    },
+    "targetLegalizationEvidence": {
+      "$ref": "#/$defs/targetLegalizationEvidence"
+    },
+    "packageArtifactRequirements": {
+      "$ref": "#/$defs/packageArtifactRequirements"
+    },
+    "publication": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/publication"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "rootFiles": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/fileRecord"
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifactRecord"
+      }
+    },
+    "manifest": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "reflection": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "diagnosticCounts": {
+      "$ref": "#/$defs/diagnosticCounts"
+    },
+    "diagnostics": {
+      "oneOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "successDocument": {
+      "required": [
+        "packageFormat",
+        "summary",
+        "rootFiles",
+        "artifacts",
+        "manifest",
+        "reflection",
+        "diagnostics"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "success"
+            ]
+          },
+          {
+            "required": [
+              "diagnosticCounts"
+            ]
+          }
+        ]
+      },
+      "properties": {
+        "packageFormat": {
+          "const": "directory"
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        },
+        "debugArtifacts": {
+          "$ref": "#/$defs/debugArtifacts"
+        },
+        "vulkanNativeProfile": {
+          "$ref": "#/$defs/vulkanNativeProfile"
+        },
+        "nativeArtifactDescriptor": {
+          "$ref": "#/$defs/nativeArtifactDescriptor"
+        },
+        "graphicsAbi": {
+          "$ref": "#/$defs/graphicsAbi"
+        },
+        "artifactRequirementsProjection": {
+          "$ref": "#/$defs/artifactRequirementsProjection"
+        },
+        "targetLegalizationEvidence": {
+          "$ref": "#/$defs/targetLegalizationEvidence"
+        },
+        "packageArtifactRequirements": {
+          "$ref": "#/$defs/packageArtifactRequirements"
+        },
+        "publication": {
+          "$ref": "#/$defs/publication"
+        },
+        "rootFiles": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fileRecord"
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifactRecord"
+          }
+        },
+        "manifest": {
+          "type": "object"
+        },
+        "reflection": {
+          "type": "object"
+        },
+        "diagnostics": {
+          "type": "object"
+        }
+      }
+    },
+    "failureDocument": {
+      "required": [
+        "success",
+        "packageFormat",
+        "summary",
+        "diagnosticCounts",
+        "diagnostics"
+      ],
+      "properties": {
+        "success": {
+          "const": false
+        },
+        "packageFormat": {
+          "type": "null"
+        },
+        "summary": {
+          "type": "null"
+        },
+        "diagnosticCounts": {
+          "$ref": "#/$defs/diagnosticCounts"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      }
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "diagnosticCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note",
+        "warning",
+        "error"
+      ],
+      "properties": {
+        "note": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "warning": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "error": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "diagnosticSeverity": {
+      "type": "string",
+      "enum": [
+        "note",
+        "warning",
+        "error"
+      ]
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "location"
+      ],
+      "properties": {
+        "severity": {
+          "$ref": "#/$defs/diagnosticSeverity"
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "target": {
+          "type": "string"
+        },
+        "missingCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "graphicsAbiSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module",
+        "target",
+        "entryPointCount",
+        "vertexInputCount",
+        "varyingCount",
+        "fragmentOutputCount",
+        "builtinCount",
+        "resourceCount",
+        "abiRecordCount"
+      ],
+      "properties": {
+        "module": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "entryPointCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "vertexInputCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "varyingCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "fragmentOutputCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "builtinCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "resourceCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "abiRecordCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "graphicsAbiDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "message"
+      ],
+      "properties": {
+        "severity": {
+          "const": "error"
+        },
+        "code": {
+          "type": "string",
+          "pattern": "^package[.]graphicsAbi[.]"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "graphicsAbi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactPresent",
+        "path",
+        "exists",
+        "health",
+        "validation",
+        "schemaVersion",
+        "summary",
+        "diagnosticCounts",
+        "diagnostics"
+      ],
+      "properties": {
+        "artifactPresent": {
+          "const": true
+        },
+        "path": {
+          "type": "string"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "missing",
+            "invalid",
+            "drift",
+            "ok"
+          ]
+        },
+        "validation": {
+          "const": "lightweight-structural"
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/graphicsAbiSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diagnosticCounts": {
+          "$ref": "#/$defs/diagnosticCounts"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/graphicsAbiDiagnostic"
+          }
+        }
+      }
+    },
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "packageMode": {
+      "type": "string",
+      "enum": [
+        "native",
+        "source-package"
+      ]
+    },
+    "targetLegalizationPackageMode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "native",
+        "source-package",
+        "unsupported",
+        "unknown",
+        null
+      ]
+    },
+    "packageDecisionReason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "native-package-available",
+        "source-package-available",
+        "package-build-available",
+        "unsupported",
+        null
+      ]
+    },
+    "nullableStringArray": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "nullableNonNegativeInteger": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "nullableToolIdArray": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(metal|vulkan|directx|opengl)\\.(native-tool|toolchain|validation)\\.[A-Za-z0-9_.-]+$"
+      }
+    },
+    "nullableOptionalNativeToolStatus": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "available",
+        "missing",
+        "not-required",
+        null
+      ]
+    },
+    "targetLegalizationSidecarEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactPresent",
+        "artifactExists",
+        "target",
+        "packageMode",
+        "packageDecisionReason",
+        "requiredToolCount",
+        "missingToolCount",
+        "requiredToolIds",
+        "missingToolIds",
+        "optionalNativeToolMissing",
+        "optionalNativeToolStatus",
+        "toolRequirementEvidenceIds",
+        "legalizationCoreEvidenceIds",
+        "packageArtifactRequirementEvidenceIds"
+      ],
+      "properties": {
+        "artifactPresent": {
+          "type": "boolean"
+        },
+        "artifactExists": {
+          "type": "boolean"
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "metal",
+            "vulkan",
+            "directx",
+            "opengl",
+            null
+          ]
+        },
+        "packageMode": {
+          "$ref": "#/$defs/targetLegalizationPackageMode"
+        },
+        "packageDecisionReason": {
+          "$ref": "#/$defs/packageDecisionReason"
+        },
+        "requiredToolCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "missingToolCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "requiredToolIds": {
+          "$ref": "#/$defs/nullableToolIdArray"
+        },
+        "missingToolIds": {
+          "$ref": "#/$defs/nullableToolIdArray"
+        },
+        "optionalNativeToolMissing": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "optionalNativeToolStatus": {
+          "$ref": "#/$defs/nullableOptionalNativeToolStatus"
+        },
+        "toolRequirementEvidenceIds": {
+          "$ref": "#/$defs/nullableStringArray"
+        },
+        "legalizationCoreEvidenceIds": {
+          "$ref": "#/$defs/nullableStringArray"
+        },
+        "packageArtifactRequirementEvidenceIds": {
+          "$ref": "#/$defs/nullableStringArray"
+        }
+      }
+    },
+    "targetLegalizationManifestToolRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "present",
+        "target",
+        "packageMode",
+        "requiredToolCount",
+        "missingToolCount",
+        "requiredToolIds",
+        "missingToolIds",
+        "optionalNativeToolMissing",
+        "optionalNativeToolStatus",
+        "toolRequirementEvidenceIds"
+      ],
+      "properties": {
+        "present": {
+          "type": "boolean"
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "metal",
+            "vulkan",
+            "directx",
+            "opengl",
+            null
+          ]
+        },
+        "packageMode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "native",
+            "source-package",
+            null
+          ]
+        },
+        "requiredToolCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "missingToolCount": {
+          "$ref": "#/$defs/nullableNonNegativeInteger"
+        },
+        "requiredToolIds": {
+          "$ref": "#/$defs/nullableToolIdArray"
+        },
+        "missingToolIds": {
+          "$ref": "#/$defs/nullableToolIdArray"
+        },
+        "optionalNativeToolMissing": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "optionalNativeToolStatus": {
+          "$ref": "#/$defs/nullableOptionalNativeToolStatus"
+        },
+        "toolRequirementEvidenceIds": {
+          "$ref": "#/$defs/nullableStringArray"
+        }
+      }
+    },
+    "targetLegalizationEvidenceChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifestToolRequirementsTargetMatchesPackage",
+        "manifestToolRequirementsPackageModeMatchesRequirements",
+        "manifestToolRequirementEvidenceIdsPresent",
+        "debugMetadataTargetMatchesPackage",
+        "targetExplanationTargetMatchesPackage",
+        "debugMetadataPackageModeMatchesRequirements",
+        "targetExplanationPackageModeMatchesRequirements",
+        "debugMetadataToolRequirementsMatchManifest",
+        "targetExplanationToolRequirementsMatchManifest",
+        "packageArtifactRequirementEvidenceIdsPresent"
+      ],
+      "properties": {
+        "manifestToolRequirementsTargetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "manifestToolRequirementsPackageModeMatchesRequirements": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "manifestToolRequirementEvidenceIdsPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "debugMetadataTargetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetExplanationTargetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "debugMetadataPackageModeMatchesRequirements": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetExplanationPackageModeMatchesRequirements": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "debugMetadataToolRequirementsMatchManifest": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetExplanationToolRequirementsMatchManifest": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "packageArtifactRequirementEvidenceIdsPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "targetLegalizationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "health",
+        "packageMode",
+        "packageModeSource",
+        "manifestToolRequirements",
+        "debugMetadata",
+        "targetExplanation",
+        "packageArtifactRequirementEvidenceIds",
+        "missingEvidence",
+        "checks"
+      ],
+      "properties": {
+        "health": {
+          "type": "string",
+          "enum": [
+            "not-present",
+            "incomplete",
+            "partial",
+            "drift",
+            "ok"
+          ]
+        },
+        "packageMode": {
+          "$ref": "#/$defs/targetLegalizationPackageMode"
+        },
+        "packageModeSource": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "manifest.packageArtifactRequirements",
+            "debugMetadata.targetDecision.selectedTargetPackageMode",
+            "targetExplanation.targets[].packageMode",
+            null
+          ]
+        },
+        "manifestToolRequirements": {
+          "$ref": "#/$defs/targetLegalizationManifestToolRequirements"
+        },
+        "debugMetadata": {
+          "$ref": "#/$defs/targetLegalizationSidecarEvidence"
+        },
+        "targetExplanation": {
+          "$ref": "#/$defs/targetLegalizationSidecarEvidence"
+        },
+        "packageArtifactRequirementEvidenceIds": {
+          "$ref": "#/$defs/nullableStringArray"
+        },
+        "missingEvidence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "checks": {
+          "$ref": "#/$defs/targetLegalizationEvidenceChecks"
+        }
+      }
+    },
+    "requiredPathArtifactName": {
+      "type": "string",
+      "enum": [
+        "backendSource",
+        "backendAssembly",
+        "intermediate",
+        "nativeBinary"
+      ]
+    },
+    "requiredPathArtifactRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/requiredPathArtifactName"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "packageArtifactRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "packageMode",
+        "requiredPathArtifacts",
+        "requiresNativeBinaryStatus",
+        "allowsPlannedNativeBinary",
+        "allowsPlannedNativeSourceEvidence",
+        "location"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        },
+        "requiredPathArtifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/requiredPathArtifactRecord"
+          }
+        },
+        "evidenceIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "requiresNativeBinaryStatus": {
+          "type": "boolean"
+        },
+        "allowsPlannedNativeBinary": {
+          "type": "boolean"
+        },
+        "allowsPlannedNativeSourceEvidence": {
+          "type": "boolean"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "targetLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "packageModeLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "requiredPathArtifactsLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "evidenceIdsLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module",
+        "target",
+        "nativeBinaryStatus",
+        "artifactCount",
+        "debugArtifactsPresent"
+      ],
+      "properties": {
+        "module": {
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "nativeBinaryStatus": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "planned",
+            "emitted",
+            "validated",
+            null
+          ]
+        },
+        "artifactCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "debugArtifactsPresent": {
+          "type": "boolean"
+        },
+        "reflection": {
+          "$ref": "#/$defs/reflectionSummary"
+        }
+      }
+    },
+    "targetLegalizationTargetFeatureEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.(capability\\.(required|missing)\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+|abi\\.(required|missing)\\.[A-Za-z0-9_.-]+)$"
+    },
+    "reflectionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "targetFeatureCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "targetFeatureEvidenceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/targetLegalizationTargetFeatureEvidenceId"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "nullableBoolean": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "nullableString": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "nullableInteger": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "sidecarKind": {
+      "type": "string",
+      "enum": [
+        "staging",
+        "previous"
+      ]
+    },
+    "nullableSidecarKind": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "staging",
+        "previous",
+        null
+      ]
+    },
+    "debugArtifactChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hirSourceLocationsMatch",
+        "sourceMapUnfiltered",
+        "sourceMapUnpaged",
+        "sourceMapRecordsDisabled",
+        "sourceMapCategoryCountsConsistent",
+        "recordsTotalCountMatchesCategoryCounts"
+      ],
+      "properties": {
+        "hirSourceLocationsMatch": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceMapUnfiltered": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceMapUnpaged": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceMapRecordsDisabled": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceMapCategoryCountsConsistent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "recordsTotalCountMatchesCategoryCounts": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "sourceRemapProvenanceChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityMatchesContract",
+        "targetMatchesPackage",
+        "generatedFilePresent",
+        "mappingGranularityMatchesContract",
+        "mappingCountPositive",
+        "sourcePathPresent",
+        "sourceHashPresent",
+        "sourceSizeBytesPresent",
+        "sourceRemapTargetMatchesContract",
+        "sourceRemapMappingGranularityMatchesContract",
+        "sourceRemapSourceBackendValid",
+        "sourceRemapVariantValid"
+      ],
+      "properties": {
+        "identityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "generatedFilePresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingGranularityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingCountPositive": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourcePathPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceHashPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceSizeBytesPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapTargetMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapMappingGranularityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapSourceBackendValid": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapVariantValid": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "sourceRemapProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactPresent",
+        "exists",
+        "health",
+        "path",
+        "schemaVersion",
+        "kind",
+        "contractVersion",
+        "target",
+        "generatedFile",
+        "mappingGranularity",
+        "mappingCount",
+        "sourcePath",
+        "sourceSha256",
+        "sourceSizeBytes",
+        "checks"
+      ],
+      "properties": {
+        "artifactPresent": {
+          "type": "boolean"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "drift",
+            "incomplete",
+            "not-present"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "kind": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "contractVersion": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "target": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "generatedFile": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "sourcePath": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceSha256": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceSizeBytes": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "sourceRemapTarget": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapMappingGranularity": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapSourceBackend": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapVariant": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "checks": {
+          "$ref": "#/$defs/sourceRemapProvenanceChecks"
+        }
+      }
+    },
+    "backendSourceMapChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identityMatchesContract",
+        "targetMatchesPackage",
+        "moduleMatchesPackage",
+        "mappingGranularityMatchesContract",
+        "sourceBackendPresent",
+        "targetBackendMatchesBackendLanguage",
+        "backendLanguagePresent",
+        "backendLineCountPresent",
+        "backendLineCountMatchesSource",
+        "backendSpansWithinSource",
+        "mappingCountMatchesMappings",
+        "sourceRemapPathPackageRelative",
+        "sourceRemapGeneratedFilePackageRelative",
+        "sourceRemapHashPresent",
+        "sourceRemapMappingCountPositive",
+        "sourceRemapTargetMatchesContract",
+        "sourceRemapMappingGranularityMatchesContract",
+        "sourceRemapSourceBackendValid",
+        "sourceRemapVariantValid",
+        "sourceRemapMatchesProvenance"
+      ],
+      "properties": {
+        "identityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "moduleMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingGranularityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceBackendPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetBackendMatchesBackendLanguage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLanguagePresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLineCountPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendLineCountMatchesSource": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendSpansWithinSource": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "mappingCountMatchesMappings": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapPathPackageRelative": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapGeneratedFilePackageRelative": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapHashPresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapMappingCountPositive": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapTargetMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapMappingGranularityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapSourceBackendValid": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapVariantValid": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceRemapMatchesProvenance": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "backendSourceMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactPresent",
+        "exists",
+        "health",
+        "path",
+        "schemaVersion",
+        "kind",
+        "target",
+        "module",
+        "mappingGranularity",
+        "sourceBackend",
+        "targetBackend",
+        "backendLanguage",
+        "backendLineCount",
+        "backendSourceLineCount",
+        "mappingCount",
+        "mappingRecordCount",
+        "backendMaxMappedLine",
+        "sourceRemapPresent",
+        "sourceRemapPath",
+        "sourceRemapGeneratedFile",
+        "sourceRemapTarget",
+        "sourceRemapMappingGranularity",
+        "sourceRemapMappingCount",
+        "sourceRemapSourceBackend",
+        "sourceRemapVariant",
+        "sourceRemapSha256",
+        "sourceRemapSizeBytes",
+        "checks"
+      ],
+      "properties": {
+        "artifactPresent": {
+          "type": "boolean"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "drift",
+            "incomplete",
+            "not-present"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "kind": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "target": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "module": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceBackend": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "targetBackend": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "backendLanguage": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "backendLineCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "backendSourceLineCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "mappingCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "mappingRecordCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "backendMaxMappedLine": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "sourceRemapPresent": {
+          "type": "boolean"
+        },
+        "sourceRemapPath": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapGeneratedFile": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapTarget": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapMappingGranularity": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapMappingCount": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "sourceRemapSourceBackend": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapVariant": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapSha256": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceRemapSizeBytes": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "checks": {
+          "$ref": "#/$defs/backendSourceMapChecks"
+        }
+      }
+    },
+    "debugArtifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "debugMetadataArtifactPresent",
+        "hirSourceMapArtifactPresent",
+        "debugMetadataExists",
+        "hirSourceMapExists",
+        "health",
+        "checks"
+      ],
+      "properties": {
+        "debugMetadataArtifactPresent": {
+          "type": "boolean"
+        },
+        "hirSourceMapArtifactPresent": {
+          "type": "boolean"
+        },
+        "debugMetadataExists": {
+          "type": "boolean"
+        },
+        "hirSourceMapExists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "drift",
+            "incomplete"
+          ]
+        },
+        "sourceRemap": {
+          "$ref": "#/$defs/sourceRemapProvenance"
+        },
+        "backendSourceMap": {
+          "$ref": "#/$defs/backendSourceMap"
+        },
+        "checks": {
+          "$ref": "#/$defs/debugArtifactChecks"
+        }
+      }
+    },
+    "vulkanNativeProfileChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetMatchesPackage",
+        "moduleMatchesPackage",
+        "nativeBinaryMatchesManifest",
+        "backendAssemblyMatchesManifest",
+        "emittedDisassemblyExists",
+        "spirvProfilePresent"
+      ],
+      "properties": {
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "moduleMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "nativeBinaryMatchesManifest": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "backendAssemblyMatchesManifest": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "emittedDisassemblyExists": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "spirvProfilePresent": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "vulkanNativeProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applicable",
+        "nativeProfileArtifactPresent",
+        "nativeProfileExists",
+        "health",
+        "schemaVersion",
+        "api",
+        "profileName",
+        "vulkanVersion",
+        "spirvVersion",
+        "generator",
+        "nativeBinary",
+        "backendAssembly",
+        "disassemblyStatus",
+        "disassemblyPath",
+        "disassemblyExists",
+        "checks"
+      ],
+      "properties": {
+        "applicable": {
+          "type": "boolean"
+        },
+        "nativeProfileArtifactPresent": {
+          "type": "boolean"
+        },
+        "nativeProfileExists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "drift",
+            "incomplete",
+            "not-applicable"
+          ]
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "api": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "profileName": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "vulkanVersion": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "spirvVersion": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "generator": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "nativeBinary": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "backendAssembly": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "disassemblyStatus": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "disassemblyPath": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "disassemblyExists": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "checks": {
+          "$ref": "#/$defs/vulkanNativeProfileChecks"
+        }
+      }
+    },
+    "nativeArtifactDescriptorChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "descriptorIdentityMatchesContract",
+        "targetMatchesPackage",
+        "nativeBinaryStatusMatchesPackage",
+        "sourcePathMatchesManifest",
+        "sourceHashMatchesFile",
+        "artifactPathMatchesManifest",
+        "artifactHashMatchesFile",
+        "sizeBytesMatchesFile",
+        "validationStatusMatchesNativeStatus"
+      ],
+      "properties": {
+        "descriptorIdentityMatchesContract": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "targetMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "nativeBinaryStatusMatchesPackage": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourcePathMatchesManifest": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sourceHashMatchesFile": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "artifactPathMatchesManifest": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "artifactHashMatchesFile": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "sizeBytesMatchesFile": {
+          "$ref": "#/$defs/nullableBoolean"
+        },
+        "validationStatusMatchesNativeStatus": {
+          "$ref": "#/$defs/nullableBoolean"
+        }
+      }
+    },
+    "nativeArtifactDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactPresent",
+        "descriptorExists",
+        "health",
+        "path",
+        "schemaVersion",
+        "kind",
+        "contractVersion",
+        "target",
+        "binaryKind",
+        "sourcePath",
+        "sourceHash",
+        "artifactPath",
+        "artifactHash",
+        "sizeBytes",
+        "optimizationLevel",
+        "validationStatus",
+        "nativeBinaryStatus",
+        "checks"
+      ],
+      "properties": {
+        "artifactPresent": {
+          "type": "boolean"
+        },
+        "descriptorExists": {
+          "type": "boolean"
+        },
+        "health": {
+          "type": "string",
+          "enum": [
+            "ok",
+            "drift",
+            "invalid",
+            "incomplete",
+            "not-present"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "schemaVersion": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "kind": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "contractVersion": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "target": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "binaryKind": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourcePath": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sourceHash": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "artifactPath": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "artifactHash": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "optimizationLevel": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "optimizationEvidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/nativeArtifactOptimizationEvidence"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "validationStatus": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "nativeBinaryStatus": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "checks": {
+          "$ref": "#/$defs/nativeArtifactDescriptorChecks"
+        }
+      }
+    },
+    "nativeArtifactOptimizationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestedLevel",
+        "effectiveLevel",
+        "policy",
+        "status"
+      ],
+      "properties": {
+        "requestedLevel": {
+          "$ref": "#/$defs/nativeArtifactOptimizationLevel"
+        },
+        "effectiveLevel": {
+          "$ref": "#/$defs/nativeArtifactOptimizationLevel"
+        },
+        "policy": {
+          "$ref": "#/$defs/nativeArtifactOptimizerPolicy"
+        },
+        "status": {
+          "$ref": "#/$defs/nativeArtifactOptimizerStatus"
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "toolFlag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceSource": {
+          "$ref": "#/$defs/nativeArtifactOptimizerEvidenceSource"
+        },
+        "debugInfo": {
+          "type": "boolean"
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "nativeArtifactOptimizationLevel": {
+      "type": "string",
+      "enum": [
+        "none",
+        "debug",
+        "O0",
+        "O1",
+        "O2",
+        "O3",
+        "Os",
+        "Oz",
+        "unknown"
+      ]
+    },
+    "nativeArtifactOptimizerStatus": {
+      "type": "string",
+      "enum": [
+        "applied",
+        "metadata-only",
+        "skipped-disabled",
+        "skipped-tool-missing",
+        "not-run",
+        "unavailable"
+      ]
+    },
+    "nativeArtifactOptimizerPolicy": {
+      "type": "string",
+      "enum": [
+        "use-when-available",
+        "disabled-by-opt-level",
+        "crossgl-to-dxc-optimization-map",
+        "metal-conservative-native-package-v1",
+        "source-package-planned",
+        "metadata-only",
+        "unavailable"
+      ]
+    },
+    "nativeArtifactOptimizerEvidenceSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "native-profile",
+            "toolchain-provenance",
+            "compiler-policy",
+            "descriptor"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/nativeArtifactNormalizedPath"
+        }
+      }
+    },
+    "nativeArtifactNormalizedPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "nativeArtifactDescriptorHealth": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "drift",
+        "invalid",
+        "incomplete",
+        "not-present"
+      ]
+    },
+    "artifactRequirementsProjectionBasis": {
+      "type": "string",
+      "enum": [
+        "recorded-packageArtifactRequirements",
+        "legacy-missing-packageArtifactRequirements",
+        "recorded-nativeArtifactDescriptor-health"
+      ]
+    },
+    "artifactRequirementsProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis",
+        "reportOnly",
+        "packageArtifactRequirementsPresent",
+        "packageArtifactRequirementsSource",
+        "nativeBinaryStatusMatchesRequirements",
+        "legacyManifestAbsence",
+        "nativeArtifactDescriptorArtifactPresent",
+        "nativeArtifactDescriptorHealth",
+        "nativeArtifactDescriptorPath"
+      ],
+      "properties": {
+        "basis": {
+          "$ref": "#/$defs/artifactRequirementsProjectionBasis"
+        },
+        "reportOnly": {
+          "type": "boolean",
+          "const": true
+        },
+        "packageArtifactRequirementsPresent": {
+          "type": "boolean"
+        },
+        "packageArtifactRequirementsSource": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "manifest.packageArtifactRequirements",
+            null
+          ]
+        },
+        "nativeBinaryStatusMatchesRequirements": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "legacyManifestAbsence": {
+          "type": "boolean"
+        },
+        "nativeArtifactDescriptorArtifactPresent": {
+          "type": "boolean"
+        },
+        "nativeArtifactDescriptorHealth": {
+          "$ref": "#/$defs/nativeArtifactDescriptorHealth"
+        },
+        "nativeArtifactDescriptorPath": {
+          "$ref": "#/$defs/nullableString"
+        }
+      }
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "requestedPath",
+        "sidecarKind",
+        "sidecarToken",
+        "sidecarAttempt",
+        "siblingSidecarCount",
+        "siblingSidecars"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "published",
+            "staged",
+            "previous"
+          ]
+        },
+        "requestedPath": {
+          "type": "string"
+        },
+        "sidecarKind": {
+          "$ref": "#/$defs/nullableSidecarKind"
+        },
+        "sidecarToken": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sidecarAttempt": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "siblingSidecarCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "siblingSidecars": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sidecarRecord"
+          }
+        }
+      }
+    },
+    "sidecarRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "token",
+        "attempt",
+        "directory"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/sidecarKind"
+        },
+        "token": {
+          "type": "string"
+        },
+        "attempt": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "directory": {
+          "type": "boolean"
+        }
+      }
+    },
+    "nullableSize": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nullableSha256": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "length": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "rootFileProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "packageRootFile"
+        },
+        "source": {
+          "type": "string",
+          "const": "packageRoot"
+        }
+      }
+    },
+    "artifactProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "source",
+        "manifestKey"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "manifestArtifact"
+        },
+        "source": {
+          "type": "string",
+          "const": "manifest.artifacts"
+        },
+        "manifestKey": {
+          "type": "string"
+        }
+      }
+    },
+    "fileRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "path",
+        "provenance",
+        "exists",
+        "sizeBytes",
+        "sha256"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/rootFileProvenance"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nullableSize"
+        },
+        "sha256": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "artifactRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "path",
+        "provenance",
+        "packageRelative",
+        "exists",
+        "sizeBytes",
+        "sha256"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/artifactProvenance"
+        },
+        "packageRelative": {
+          "type": "boolean"
+        },
+        "exists": {
+          "type": "boolean"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nullableSize"
+        },
+        "sha256": {
+          "$ref": "#/$defs/nullableSha256"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    }
+  }
+}

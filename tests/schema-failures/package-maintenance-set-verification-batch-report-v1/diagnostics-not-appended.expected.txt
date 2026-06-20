@@ -1,0 +1,1 @@
+$.diagnostics: expected nested verification diagnostics to be preserved at the end of the aggregate diagnostic list

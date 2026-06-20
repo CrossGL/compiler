@@ -1,0 +1,39 @@
+shader OpenGLStorageImageDescriptorArrayShader {
+  const int COUNT = 2;
+
+  compute {
+    layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2D colorImages[COUNT];
+    layout(set = 0, binding = 1) uniform iimage2D labelImages[2];
+    layout(set = 0, binding = 2) uniform uimage2D maskImages[COUNT];
+    layout(set = 0, binding = 3) uniform image2DArray colorAtlases[2];
+    layout(set = 0, binding = 4) uniform iimage2DArray labelAtlases[COUNT];
+    layout(set = 0, binding = 5) uniform uimage2DArray maskAtlases[2];
+
+    void main() {
+      ivec2 pixel = ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y));
+      int slot = int(gl_GlobalInvocationID.x);
+      int layer = int(gl_GlobalInvocationID.z);
+      ivec3 atlasPixel = ivec3(pixel, layer);
+
+      vec4 color = imageLoad(colorImages[slot], pixel);
+      imageStore(colorImages[1], pixel, color);
+
+      ivec4 label = imageLoad(labelImages[slot], pixel);
+      imageStore(labelImages[0], pixel, label);
+
+      uvec4 mask = imageLoad(maskImages[slot], pixel);
+      imageStore(maskImages[1], pixel, mask);
+
+      vec4 atlasColor = imageLoad(colorAtlases[slot], atlasPixel);
+      imageStore(colorAtlases[0], atlasPixel, atlasColor);
+
+      ivec4 atlasLabel = imageLoad(labelAtlases[slot], atlasPixel);
+      imageStore(labelAtlases[1], atlasPixel, atlasLabel);
+
+      uvec4 atlasMask = imageLoad(maskAtlases[slot], atlasPixel);
+      imageStore(maskAtlases[0], atlasPixel, atlasMask);
+      return;
+    }
+  }
+}

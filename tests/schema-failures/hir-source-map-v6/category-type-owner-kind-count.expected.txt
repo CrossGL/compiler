@@ -1,0 +1,1 @@
+$.categoryCounts.typeOwnerKinds: expected sum of entry counts 2, got 1

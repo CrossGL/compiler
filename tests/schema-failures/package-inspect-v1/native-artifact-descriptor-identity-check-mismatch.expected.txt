@@ -1,0 +1,1 @@
+$.nativeArtifactDescriptor.checks.descriptorIdentityMatchesContract: expected native artifact descriptor descriptorIdentityMatchesContract True, got False

@@ -1,0 +1,19 @@
+shader DirectXStorageImage2DShader {
+  compute {
+    layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2D colorImage;
+    layout(set = 0, binding = 1) uniform iimage2D labelImage;
+    layout(set = 0, binding = 2) uniform uimage2D maskImage;
+    void main() {
+      ivec2 pixel = ivec2(int(gl_GlobalInvocationID.x),
+                          int(gl_GlobalInvocationID.y));
+      vec4 color = imageLoad(colorImage, pixel);
+      imageStore(colorImage, pixel, color);
+      ivec4 label = imageLoad(labelImage, pixel);
+      imageStore(labelImage, pixel, label);
+      uvec4 mask = imageLoad(maskImage, pixel);
+      imageStore(maskImage, pixel, mask);
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.targets[0].optimization.levels: expected registry v0 optimization levels ['O0', 'O1', 'O2'], got ['O0', 'O1']

@@ -1,0 +1,1 @@
+$.targetResourceBindings[0].storageBufferLayout.fields[1].storageSizeBytes: expected >= sizeBytes 16, got 8

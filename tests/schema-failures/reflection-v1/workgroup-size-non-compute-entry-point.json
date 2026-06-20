@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "fragment",
+      "sourceName": "main",
+      "backendName": "fragment_main",
+      "returnType": "vec4",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [],
+  "targetResourceBindings": [],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [
+    {
+      "stage": "fragment",
+      "entryPoint": "fragment_main",
+      "x": "1",
+      "y": "1",
+      "z": "1",
+      "sourceX": "1",
+      "sourceY": "1",
+      "sourceZ": "1"
+    }
+  ],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

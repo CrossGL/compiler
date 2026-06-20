@@ -1,0 +1,26 @@
+shader IntrinsicComputeShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* scalars;
+    layout(set = 0, binding = 1) buffer vec4* vectors;
+
+    void main() {
+      float scalarAbs = abs(scalars[0]);
+      float sine = sin(scalarAbs);
+      float root = sqrt(sine + 1.0);
+      float curved = pow(root, scalars[1]);
+      float lower = min(curved, 1.0);
+      float upper = max(lower, 0.0);
+      float frac = fract(upper);
+      float scalarLength = length(frac);
+      float vectorLength = length(vectors[0]);
+      float alignment = dot(vectors[0], vectors[1]);
+      vec4 direction = normalize(vectors[0]);
+      vec4 reflected = reflect(direction, normalize(vectors[1]));
+      vec4 mixed = mix(direction, reflected, 0.25);
+      scalars[2] = scalarLength + vectorLength + alignment;
+      vectors[2] = mixed;
+      return;
+    }
+  }
+}

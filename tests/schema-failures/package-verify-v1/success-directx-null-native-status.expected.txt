@@ -1,0 +1,1 @@
+$.summary.nativeBinaryStatus: directx successful verification requires nativeBinaryStatus

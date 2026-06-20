@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/package-sidecars-v1.schema.json",
+  "title": "CrossGL Package Sidecars JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "packagePath",
+    "requestedExists",
+    "publication"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "packagePath": {
+      "type": "string"
+    },
+    "requestedExists": {
+      "type": "boolean"
+    },
+    "publication": {
+      "$ref": "#/$defs/publication"
+    }
+  },
+  "$defs": {
+    "sidecarKind": {
+      "type": "string",
+      "enum": [
+        "staging",
+        "previous"
+      ]
+    },
+    "nullableSidecarKind": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "staging",
+        "previous",
+        null
+      ]
+    },
+    "nullableString": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "nullableInteger": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "publication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "requestedPath",
+        "sidecarKind",
+        "sidecarToken",
+        "sidecarAttempt",
+        "siblingSidecarCount",
+        "siblingSidecars"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "published",
+            "staged",
+            "previous"
+          ]
+        },
+        "requestedPath": {
+          "type": "string"
+        },
+        "sidecarKind": {
+          "$ref": "#/$defs/nullableSidecarKind"
+        },
+        "sidecarToken": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "sidecarAttempt": {
+          "$ref": "#/$defs/nullableInteger"
+        },
+        "siblingSidecarCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "siblingSidecars": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sidecarRecord"
+          }
+        }
+      }
+    },
+    "sidecarRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "kind",
+        "token",
+        "attempt",
+        "directory"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/sidecarKind"
+        },
+        "token": {
+          "type": "string"
+        },
+        "attempt": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "directory": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

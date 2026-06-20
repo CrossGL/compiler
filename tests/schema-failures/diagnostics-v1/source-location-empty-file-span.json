@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "parse.fixture",
+      "message": "fixture diagnostic",
+      "location": {
+        "file": "",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 3,
+        "endLine": 1,
+        "endColumn": 4,
+        "endOffset": 3
+      }
+    }
+  ]
+}

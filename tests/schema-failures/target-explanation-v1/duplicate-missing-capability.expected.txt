@@ -1,0 +1,1 @@
+$.targets[0].missingCapabilities: duplicate missing capability 'directx.backend.hlsl-lowering'

@@ -1,0 +1,1 @@
+$.publication.sidecarKind: expected publication sidecar kind 'staging', got 'previous'

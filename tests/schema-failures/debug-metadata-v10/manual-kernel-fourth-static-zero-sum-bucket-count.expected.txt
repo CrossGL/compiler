@@ -1,0 +1,1 @@
+$.manualTextureCompareKernelBuckets.staticZeroSum: expected $.manualTextureCompareKernelSummary.staticZeroSumCount 4, got 3

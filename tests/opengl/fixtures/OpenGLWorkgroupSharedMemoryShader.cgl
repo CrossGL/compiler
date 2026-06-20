@@ -1,0 +1,16 @@
+shader OpenGLWorkgroupSharedMemoryShader {
+    const int TILE_SIZE = 8;
+
+    compute {
+        layout(local_size_x = TILE_SIZE, local_size_y = 2, local_size_z = 1) in;
+
+        shared float tile[TILE_SIZE];
+
+        void main() {
+            tile[0] = 1.0;
+            float first = tile[0];
+            tile[1] = first + 1.0;
+            return;
+        }
+    }
+}

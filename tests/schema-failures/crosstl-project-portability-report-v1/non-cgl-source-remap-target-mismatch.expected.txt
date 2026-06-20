@@ -1,0 +1,1 @@
+$.artifacts[0].sourceRemap.target: expected to match artifact target 'metal'

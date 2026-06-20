@@ -1,0 +1,94 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "directx",
+    "targetProfile": {
+      "target": "directx",
+      "profile": "directx.v0.unsupported",
+      "packageMode": "unsupported"
+    },
+    "packageMode": "unsupported",
+    "packageDecisionProvenance": "source-package-only",
+    "supportStatus": "unsupported",
+    "moduleSupported": false,
+    "requiredCapabilities": [
+      "directx.backend.dxil-validator",
+      "directx.backend.hlsl-lowering",
+      "directx.package.source-artifact"
+    ],
+    "missingCapabilities": [
+      "directx.backend.dxil-validator"
+    ],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.directx.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
+    "diagnostics": [
+      {
+        "code": "target.source-package-selected",
+        "severity": "error",
+        "message": "DirectX v0 cannot validate this source package.",
+        "target": "directx",
+        "missingCapabilities": [
+          "directx.backend.dxil-validator"
+        ],
+        "evidenceIds": [
+          "target-legalization.v1.directx.diagnostic.source-package"
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "id": "hlsl-source-package-projection",
+        "order": 0,
+        "status": "blocked",
+        "description": "No semantics-preserving v0 rewrite is available.",
+        "evidenceIds": [
+          "target-legalization.v1.directx.rewrite.blocked"
+        ]
+      }
+    ],
+    "abiFacts": {
+      "state": "unsupported",
+      "facts": [
+        {
+          "id": "target-profile.unsupported",
+          "kind": "native-profile",
+          "status": "missing",
+          "target": "directx",
+          "evidenceIds": [
+            "target-legalization.v1.directx.abi.unsupported"
+          ]
+        }
+      ],
+      "evidenceIds": [
+        "target-legalization.v1.directx.abi.unsupported"
+      ]
+    },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.directx.resource-bindings.empty"
+    ],
+    "evidenceIds": [
+      "target-legalization.v1.directx.abi.unsupported",
+      "target-legalization.v1.directx.decision",
+      "target-legalization.v1.directx.diagnostic.source-package",
+      "target-legalization.v1.directx.package-provenance.source-package-only",
+      "target-legalization.v1.directx.resource-bindings.empty",
+      "target-legalization.v1.directx.rewrite.blocked",
+      "target-legalization.v1.directx.tool-requirements.empty"
+    ]
+  }
+}

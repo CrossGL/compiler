@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "module": "GraphicsAbiInterfaceRecordsFixture",
+  "target": "vulkan",
+  "entryPoints": [
+    {
+      "stage": "vertex",
+      "sourceName": "vs_main",
+      "backendName": "vertex_vs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-interface-records.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    },
+    {
+      "stage": "fragment",
+      "sourceName": "fs_main",
+      "backendName": "fragment_fs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/invalid-interface-records.cgl",
+        "line": 2,
+        "column": 1,
+        "offset": 10,
+        "length": 4,
+        "endLine": 2,
+        "endColumn": 5,
+        "endOffset": 14
+      }
+    }
+  ],
+  "vertexInputs": [
+    {
+      "stage": "vertex",
+      "entryPoint": "vertex_vs_main",
+      "name": "position",
+      "type": "vec3",
+      "location": 0,
+      "format": "float32x3",
+      "semantic": "POSITION"
+    },
+    {
+      "stage": "vertex",
+      "entryPoint": "vertex_vs_main",
+      "name": "normal",
+      "type": "vec3",
+      "location": 0,
+      "format": "float32x3",
+      "semantic": "NORMAL"
+    }
+  ],
+  "varyings": [],
+  "fragmentOutputs": [
+    {
+      "stage": "fragment",
+      "entryPoint": "fragment_fs_main",
+      "name": "outColor",
+      "type": "vec4",
+      "location": 0,
+      "format": "rgba32f"
+    },
+    {
+      "stage": "fragment",
+      "entryPoint": "fragment_fs_main",
+      "name": "outBloom",
+      "type": "vec4",
+      "location": 0,
+      "format": "rgba16f"
+    }
+  ],
+  "builtins": [
+    {
+      "stage": "vertex",
+      "entryPoint": "vertex_vs_main",
+      "name": "position",
+      "builtin": "position",
+      "type": "vec4",
+      "direction": "output"
+    },
+    {
+      "stage": "vertex",
+      "entryPoint": "vertex_vs_main",
+      "name": "clipPosition",
+      "builtin": "position",
+      "type": "vec4",
+      "direction": "output"
+    }
+  ],
+  "resources": [],
+  "abiRecords": []
+}

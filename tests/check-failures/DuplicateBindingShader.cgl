@@ -1,0 +1,12 @@
+shader DuplicateBindingShader {
+  struct Params {
+    float value;
+  }
+  compute {
+    layout(set = 0, binding = 3) uniform Params params;
+    layout(set = 0, binding = 3) buffer float* values;
+    void main() {
+      return;
+    }
+  }
+}

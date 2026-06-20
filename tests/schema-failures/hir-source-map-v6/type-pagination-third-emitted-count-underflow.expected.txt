@@ -1,0 +1,1 @@
+$.pagination.typeEmittedCount: expected $.hirSourceLocations.types length 3, got 2

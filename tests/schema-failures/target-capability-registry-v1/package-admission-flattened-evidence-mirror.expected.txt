@@ -1,0 +1,1 @@
+$.targets[0].capabilities[2].evidence: expected flattened evidence to mirror structured package-admission evidence

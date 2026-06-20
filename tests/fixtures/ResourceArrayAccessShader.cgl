@@ -1,0 +1,22 @@
+shader ResourceArrayAccessShader {
+  const int MAP_COUNT = 3;
+
+  struct Light {
+    vec3 direction;
+    float intensity;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform Light lights[2];
+    layout(set = 0, binding = 1) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D shadowMaps[MAP_COUNT];
+    layout(set = 0, binding = 5) sampler comparisonSamplers[2];
+    void main() {
+      vec4 shadow = shadowMaps[1].sample(comparisonSamplers[0], vec2(0.5, 0.5));
+      float intensity = lights[1].intensity;
+      values[0] = shadow * intensity;
+      return;
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "package.verify.fixture",
+      "message": "fixture diagnostic",
+      "location": {
+        "file": "fixture.cgl",
+        "line": 1,
+        "column": 4,
+        "offset": 2,
+        "length": 3,
+        "endLine": 1,
+        "endColumn": 3,
+        "endOffset": 5
+      }
+    }
+  ]
+}

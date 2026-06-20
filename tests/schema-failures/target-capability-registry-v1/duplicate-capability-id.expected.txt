@@ -1,0 +1,1 @@
+$.targets[0].capabilities: duplicate capability id 'metal.native-artifact.metallib'

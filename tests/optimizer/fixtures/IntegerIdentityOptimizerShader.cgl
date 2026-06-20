@@ -1,0 +1,47 @@
+shader IntegerIdentityOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer uint* unsignedValues;
+    layout(set = 0, binding = 2) buffer float* floatValues;
+
+    void main() {
+      int dynamicIndex = values[0];
+      uint unsignedIndex = unsignedValues[0];
+      float floatBase = floatValues[0];
+
+      int unaryInt = +dynamicIndex;
+      uint unaryUint = +unsignedIndex;
+      float floatUnaryPlus = +floatBase;
+
+      int addRightZero = dynamicIndex + 0;
+      int addLeftZero = 0 + dynamicIndex;
+      int addUnaryNegativeZero = dynamicIndex + -0;
+      int subtractRightZero = dynamicIndex - 0;
+      int multiplyRightOne = dynamicIndex * 1;
+      int multiplyLeftOne = 1 * dynamicIndex;
+      int divideRightOne = dynamicIndex / 1;
+
+      uint unsignedAddRightZero = unsignedIndex + 0u;
+      uint unsignedAddLeftZero = 0u + unsignedIndex;
+      uint unsignedAddUnaryNegativeZero = unsignedIndex + -0u;
+      uint unsignedSubtractRightZero = unsignedIndex - 0u;
+      uint unsignedMultiplyRightOne = unsignedIndex * 1u;
+      uint unsignedMultiplyLeftOne = 1u * unsignedIndex;
+      uint unsignedDivideRightOne = unsignedIndex / 1u;
+
+      values[1] = unaryInt;
+      unsignedValues[1] = unaryUint;
+      floatValues[1] = floatUnaryPlus;
+      values[2] = addRightZero + addLeftZero + addUnaryNegativeZero +
+                  subtractRightZero + multiplyRightOne + multiplyLeftOne +
+                  divideRightOne;
+      unsignedValues[2] = unsignedAddRightZero + unsignedAddLeftZero +
+                          unsignedAddUnaryNegativeZero +
+                          unsignedSubtractRightZero +
+                          unsignedMultiplyRightOne +
+                          unsignedMultiplyLeftOne + unsignedDivideRightOne;
+      return;
+    }
+  }
+}

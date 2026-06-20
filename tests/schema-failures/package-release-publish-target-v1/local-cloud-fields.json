@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "targetKind": "local-filesystem",
+  "enabled": true,
+  "targetPath": "build/releases",
+  "bucket": "crossgl-release-dry-run",
+  "prefix": "compiler/packages",
+  "credentialsEnv": "GOOGLE_APPLICATION_CREDENTIALS"
+}

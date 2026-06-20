@@ -1,0 +1,428 @@
+{
+  "schemaVersion": 1,
+  "registryVersion": "v0",
+  "targetCount": 4,
+  "capabilityCount": 12,
+  "targets": [
+    {
+      "target": "metal",
+      "displayName": "Metal",
+      "packageMode": "native",
+      "emittedBaselineCapabilities": [
+        "metal.backend.native-metal-package"
+      ],
+      "optimization": {
+        "capability": "metal.optimization.hir-pipeline",
+        "supported": true,
+        "levels": [
+          "O0",
+          "O1",
+          "O2"
+        ],
+        "evidence": [
+          "fixture"
+        ]
+      },
+      "nativeArtifact": {
+        "capability": "metal.native-artifact.metallib",
+        "status": "supported",
+        "artifactFormat": "metallib",
+        "pathArtifacts": [
+          "backendSource",
+          "intermediate",
+          "nativeBinary"
+        ],
+        "requiresNativeBinaryStatus": false,
+        "allowsPlannedNativeBinary": false,
+        "evidence": [
+          "fixture"
+        ]
+      },
+      "packageAdmission": {
+        "capability": "metal.package-admission.native-source-package",
+        "packageMode": "native",
+        "nativeSupportClass": "native",
+        "nativeImplemented": true,
+        "sourcePackageSelectable": false,
+        "packageBuildSupported": true,
+        "admittedPackageModes": [
+          "native"
+        ],
+        "baselineBackendCapability": "metal.backend.native-metal-package",
+        "nativeArtifactCapability": "metal.native-artifact.metallib",
+        "packageDecisionReason": "native-package-available",
+        "packageRankScore": 0,
+        "packageArtifactRequirementsSource": "tools/package_target_contracts.json",
+        "packageArtifactRequirements": {
+          "packageMode": "native",
+          "requiredPathArtifacts": [
+            "backendSource",
+            "intermediate",
+            "nativeBinary"
+          ],
+          "requiresNativeBinaryStatus": false,
+          "allowsPlannedNativeBinary": false,
+          "allowsPlannedNativeSourceEvidence": false,
+          "evidenceIds": [
+            "target-legalization.v1.metal.package-artifacts.native",
+            "target-legalization.v1.metal.package-artifact.required.backendSource",
+            "target-legalization.v1.metal.package-artifact.required.intermediate",
+            "target-legalization.v1.metal.package-artifact.required.nativeBinary"
+          ]
+        },
+        "evidence": [
+          "include/crossgl/Backend/TargetCapabilityInventory.h",
+          "src/Backend/TargetCapabilities.cpp",
+          "tools/package_target_contracts.json",
+          "cglc_package_target_contracts"
+        ]
+      },
+      "capabilities": [
+        {
+          "id": "metal.native-artifact.metallib",
+          "area": "native-artifact",
+          "status": "supported",
+          "summary": "fixture",
+          "evidence": [
+            "fixture"
+          ]
+        },
+        {
+          "id": "metal.optimization.hir-pipeline",
+          "area": "optimization",
+          "status": "supported",
+          "summary": "fixture",
+          "evidence": [
+            "mismatched-fixture"
+          ]
+        },
+        {
+          "id": "metal.package-admission.native-source-package",
+          "area": "package-admission",
+          "status": "supported",
+          "summary": "Metal admits native package builds through the native Metal backend and does not expose source-package selection.",
+          "evidence": [
+            "include/crossgl/Backend/TargetCapabilityInventory.h",
+            "src/Backend/TargetCapabilities.cpp",
+            "tools/package_target_contracts.json",
+            "cglc_package_target_contracts"
+          ]
+        }
+      ]
+    },
+    {
+      "target": "vulkan",
+      "displayName": "Vulkan",
+      "packageMode": "native",
+      "emittedBaselineCapabilities": [
+        "vulkan.backend.vulkan-prototype-package"
+      ],
+      "optimization": {
+        "capability": "vulkan.optimization.hir-pipeline",
+        "supported": true,
+        "levels": [
+          "O0",
+          "O1",
+          "O2"
+        ],
+        "evidence": [
+          "fixture"
+        ]
+      },
+      "nativeArtifact": {
+        "capability": "vulkan.native-artifact.spirv",
+        "status": "supported",
+        "artifactFormat": "spirv",
+        "pathArtifacts": [
+          "backendAssembly",
+          "nativeBinary"
+        ],
+        "requiresNativeBinaryStatus": false,
+        "allowsPlannedNativeBinary": false,
+        "evidence": [
+          "fixture"
+        ]
+      },
+      "packageAdmission": {
+        "capability": "vulkan.package-admission.native-source-package",
+        "packageMode": "native",
+        "nativeSupportClass": "prototype-native",
+        "nativeImplemented": true,
+        "sourcePackageSelectable": false,
+        "packageBuildSupported": true,
+        "admittedPackageModes": [
+          "native"
+        ],
+        "baselineBackendCapability": "vulkan.backend.vulkan-prototype-package",
+        "nativeArtifactCapability": "vulkan.native-artifact.spirv",
+        "packageDecisionReason": "native-package-available",
+        "packageRankScore": 0,
+        "packageArtifactRequirementsSource": "tools/package_target_contracts.json",
+        "packageArtifactRequirements": {
+          "packageMode": "native",
+          "requiredPathArtifacts": [
+            "backendAssembly",
+            "nativeBinary"
+          ],
+          "requiresNativeBinaryStatus": false,
+          "allowsPlannedNativeBinary": false,
+          "allowsPlannedNativeSourceEvidence": false,
+          "evidenceIds": [
+            "target-legalization.v1.vulkan.package-artifacts.native",
+            "target-legalization.v1.vulkan.package-artifact.required.backendAssembly",
+            "target-legalization.v1.vulkan.package-artifact.required.nativeBinary"
+          ]
+        },
+        "evidence": [
+          "include/crossgl/Backend/TargetCapabilityInventory.h",
+          "src/Backend/TargetCapabilities.cpp",
+          "tools/package_target_contracts.json",
+          "cglc_package_target_contracts"
+        ]
+      },
+      "capabilities": [
+        {
+          "id": "vulkan.native-artifact.spirv",
+          "area": "native-artifact",
+          "status": "supported",
+          "summary": "fixture",
+          "evidence": [
+            "fixture"
+          ]
+        },
+        {
+          "id": "vulkan.optimization.hir-pipeline",
+          "area": "optimization",
+          "status": "supported",
+          "summary": "fixture",
+          "evidence": [
+            "fixture"
+          ]
+        },
+        {
+          "id": "vulkan.package-admission.native-source-package",
+          "area": "package-admission",
+          "status": "supported",
+          "summary": "Vulkan admits prototype native package builds through the SPIR-V backend and does not expose source-package selection.",
+          "evidence": [
+            "include/crossgl/Backend/TargetCapabilityInventory.h",
+            "src/Backend/TargetCapabilities.cpp",
+            "tools/package_target_contracts.json",
+            "cglc_package_target_contracts"
+          ]
+        }
+      ]
+    },
+    {
+      "target": "directx",
+      "displayName": "DirectX",
+      "packageMode": "source-package",
+      "emittedBaselineCapabilities": [
+        "directx.backend.hlsl-lowering"
+      ],
+      "optimization": {
+        "capability": "directx.optimization.hir-pipeline",
+        "supported": true,
+        "levels": [
+          "O0",
+          "O1",
+          "O2"
+        ],
+        "evidence": [
+          "fixture"
+        ]
+      },
+      "nativeArtifact": {
+        "capability": "directx.native-artifact.dxil",
+        "status": "planned",
+        "artifactFormat": "dxil",
+        "pathArtifacts": [
+          "backendSource",
+          "nativeBinary"
+        ],
+        "requiresNativeBinaryStatus": true,
+        "allowsPlannedNativeBinary": true,
+        "evidence": [
+          "fixture"
+        ]
+      },
+      "packageAdmission": {
+        "capability": "directx.package-admission.native-source-package",
+        "packageMode": "source-package",
+        "nativeSupportClass": "planned-native",
+        "nativeImplemented": false,
+        "sourcePackageSelectable": true,
+        "packageBuildSupported": true,
+        "admittedPackageModes": [
+          "source-package"
+        ],
+        "baselineBackendCapability": "directx.backend.hlsl-lowering",
+        "nativeArtifactCapability": "directx.native-artifact.dxil",
+        "packageDecisionReason": "source-package-available",
+        "packageRankScore": 1,
+        "packageArtifactRequirementsSource": "tools/package_target_contracts.json",
+        "packageArtifactRequirements": {
+          "packageMode": "source-package",
+          "requiredPathArtifacts": [
+            "backendSource",
+            "nativeBinary"
+          ],
+          "requiresNativeBinaryStatus": true,
+          "allowsPlannedNativeBinary": true,
+          "allowsPlannedNativeSourceEvidence": true,
+          "evidenceIds": [
+            "target-legalization.v1.directx.package-artifacts.source-package",
+            "target-legalization.v1.directx.package-artifact.required.backendSource",
+            "target-legalization.v1.directx.package-artifact.required.nativeBinary",
+            "target-legalization.v1.directx.package-artifact.native-binary-status.required",
+            "target-legalization.v1.directx.package-artifact.planned-native-binary.allowed",
+            "target-legalization.v1.directx.package-artifact.planned-native-source-evidence.allowed"
+          ]
+        },
+        "evidence": [
+          "include/crossgl/Backend/TargetCapabilityInventory.h",
+          "src/Backend/TargetCapabilities.cpp",
+          "tools/package_target_contracts.json",
+          "cglc_package_target_contracts"
+        ]
+      },
+      "capabilities": [
+        {
+          "id": "directx.native-artifact.dxil",
+          "area": "native-artifact",
+          "status": "planned",
+          "summary": "fixture",
+          "evidence": [
+            "fixture"
+          ]
+        },
+        {
+          "id": "directx.optimization.hir-pipeline",
+          "area": "optimization",
+          "status": "supported",
+          "summary": "fixture",
+          "evidence": [
+            "fixture"
+          ]
+        },
+        {
+          "id": "directx.package-admission.native-source-package",
+          "area": "package-admission",
+          "status": "supported",
+          "summary": "DirectX admits source-package builds while DXIL native package admission remains planned.",
+          "evidence": [
+            "include/crossgl/Backend/TargetCapabilityInventory.h",
+            "src/Backend/TargetCapabilities.cpp",
+            "tools/package_target_contracts.json",
+            "cglc_package_target_contracts"
+          ]
+        }
+      ]
+    },
+    {
+      "target": "opengl",
+      "displayName": "OpenGL",
+      "packageMode": "source-package",
+      "emittedBaselineCapabilities": [
+        "opengl.backend.glsl-lowering"
+      ],
+      "optimization": {
+        "capability": "opengl.optimization.hir-pipeline",
+        "supported": true,
+        "levels": [
+          "O0",
+          "O1",
+          "O2"
+        ],
+        "evidence": [
+          "fixture"
+        ]
+      },
+      "nativeArtifact": {
+        "capability": "opengl.native-artifact.glsl-source",
+        "status": "planned",
+        "artifactFormat": "glsl-source",
+        "pathArtifacts": [
+          "backendSource"
+        ],
+        "requiresNativeBinaryStatus": true,
+        "allowsPlannedNativeBinary": true,
+        "evidence": [
+          "fixture"
+        ]
+      },
+      "packageAdmission": {
+        "capability": "opengl.package-admission.native-source-package",
+        "packageMode": "source-package",
+        "nativeSupportClass": "planned-native",
+        "nativeImplemented": false,
+        "sourcePackageSelectable": true,
+        "packageBuildSupported": true,
+        "admittedPackageModes": [
+          "source-package"
+        ],
+        "baselineBackendCapability": "opengl.backend.glsl-lowering",
+        "nativeArtifactCapability": "opengl.native-artifact.glsl-source",
+        "packageDecisionReason": "source-package-available",
+        "packageRankScore": 1,
+        "packageArtifactRequirementsSource": "tools/package_target_contracts.json",
+        "packageArtifactRequirements": {
+          "packageMode": "source-package",
+          "requiredPathArtifacts": [
+            "backendSource",
+            "nativeBinary"
+          ],
+          "requiresNativeBinaryStatus": true,
+          "allowsPlannedNativeBinary": true,
+          "allowsPlannedNativeSourceEvidence": true,
+          "evidenceIds": [
+            "target-legalization.v1.opengl.package-artifacts.source-package",
+            "target-legalization.v1.opengl.package-artifact.required.backendSource",
+            "target-legalization.v1.opengl.package-artifact.required.nativeBinary",
+            "target-legalization.v1.opengl.package-artifact.native-binary-status.required",
+            "target-legalization.v1.opengl.package-artifact.planned-native-binary.allowed",
+            "target-legalization.v1.opengl.package-artifact.planned-native-source-evidence.allowed"
+          ]
+        },
+        "evidence": [
+          "include/crossgl/Backend/TargetCapabilityInventory.h",
+          "src/Backend/TargetCapabilities.cpp",
+          "tools/package_target_contracts.json",
+          "cglc_package_target_contracts"
+        ]
+      },
+      "capabilities": [
+        {
+          "id": "opengl.native-artifact.glsl-source",
+          "area": "native-artifact",
+          "status": "planned",
+          "summary": "fixture",
+          "evidence": [
+            "fixture"
+          ]
+        },
+        {
+          "id": "opengl.optimization.hir-pipeline",
+          "area": "optimization",
+          "status": "supported",
+          "summary": "fixture",
+          "evidence": [
+            "fixture"
+          ]
+        },
+        {
+          "id": "opengl.package-admission.native-source-package",
+          "area": "package-admission",
+          "status": "supported",
+          "summary": "OpenGL admits source-package builds while GLSL native artifact admission remains planned.",
+          "evidence": [
+            "include/crossgl/Backend/TargetCapabilityInventory.h",
+            "src/Backend/TargetCapabilities.cpp",
+            "tools/package_target_contracts.json",
+            "cglc_package_target_contracts"
+          ]
+        }
+      ]
+    }
+  ]
+}

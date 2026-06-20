@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "diagnostics": [
+    {
+      "severity": "note",
+      "code": "runtime.example.directx.emitted_dxil.fixture",
+      "message": "source-free emitted DirectX DXIL runtime fixture"
+    }
+  ]
+}

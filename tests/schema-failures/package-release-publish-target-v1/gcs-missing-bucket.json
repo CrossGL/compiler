@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "targetKind": "gcs",
+  "enabled": false,
+  "prefix": "compiler/packages",
+  "credentialsEnv": "GOOGLE_APPLICATION_CREDENTIALS"
+}

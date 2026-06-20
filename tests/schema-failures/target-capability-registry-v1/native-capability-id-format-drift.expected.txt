@@ -1,0 +1,1 @@
+$.targets[0].nativeArtifact.capability: expected registry v0 native artifact capability 'metal.native-artifact.metallib', got 'metal.native-artifact.spirv'

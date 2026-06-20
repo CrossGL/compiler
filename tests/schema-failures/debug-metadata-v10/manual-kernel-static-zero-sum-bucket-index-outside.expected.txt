@@ -1,0 +1,1 @@
+$.manualTextureCompareKernelBuckets.staticZeroSum: index 2 is outside manualTextureCompareKernels

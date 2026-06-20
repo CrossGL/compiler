@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 6,
+  "filters": {
+    "activeCount": 0
+  },
+  "pagination": {
+    "activeCount": 1,
+    "expressionOffset": 0,
+    "typeOffset": 0,
+    "typeLimit": 0,
+    "expressionTotalCount": 0,
+    "expressionEmittedCount": 0,
+    "expressionHasMore": false,
+    "expressionNextOffset": 0,
+    "typeTotalCount": 1,
+    "typeEmittedCount": 1,
+    "typeHasMore": false,
+    "typeNextOffset": 1
+  },
+  "categoryCounts": {
+    "expressionTotalCount": 0,
+    "typeTotalCount": 1,
+    "recordTotalCount": 1,
+    "expressionKinds": [],
+    "statementKinds": [],
+    "typeOwnerKinds": [
+      {
+        "name": "expression",
+        "count": 1
+      }
+    ]
+  },
+  "records": {
+    "enabled": false,
+    "activeCount": 0,
+    "offset": 0,
+    "totalCount": 1,
+    "emittedCount": 0,
+    "hasMore": false,
+    "nextOffset": 0,
+    "items": []
+  },
+  "hirSourceLocations": {
+    "expressionCount": 0,
+    "expressionWithLocationCount": 0,
+    "typeCount": 1,
+    "typeWithLocationCount": 1,
+    "expressions": [],
+    "types": [
+      {
+        "index": 0,
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "function": "main",
+        "ownerKind": "expression",
+        "ownerName": "value",
+        "type": "float",
+        "location": {
+          "file": "fixture.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 5,
+          "endLine": 1,
+          "endColumn": 6,
+          "endOffset": 5
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,1 @@
+$.targets[0].nativeArtifact.requiresNativeBinaryStatus: expected registry v0 native-binary-status policy False, got True

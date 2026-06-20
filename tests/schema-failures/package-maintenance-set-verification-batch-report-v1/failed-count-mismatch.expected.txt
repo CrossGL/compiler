@@ -1,0 +1,1 @@
+$.failedCount: expected failed verification count 1, got 0

@@ -1,0 +1,1 @@
+$.categoryCounts.typeOwnerKinds: category names must be sorted

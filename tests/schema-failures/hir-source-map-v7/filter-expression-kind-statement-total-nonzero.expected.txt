@@ -1,0 +1,1 @@
+$.categoryCounts.statementTotalCount: expected expressionKind filter excludes statement records 0, got 1

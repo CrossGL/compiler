@@ -1,0 +1,21 @@
+shader DirectXStorageImage2DArrayShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+    layout(set = 0, binding = 3) uniform image2DArray colorAtlas;
+    layout(set = 0, binding = 4) uniform iimage2DArray labelAtlas;
+    layout(set = 0, binding = 5) uniform uimage2DArray maskAtlas;
+    void main() {
+      ivec2 pixel = ivec2(int(gl_GlobalInvocationID.x),
+                          int(gl_GlobalInvocationID.y));
+      int layer = int(gl_GlobalInvocationID.z);
+      ivec3 texel = ivec3(pixel, layer);
+      vec4 color = imageLoad(colorAtlas, texel);
+      imageStore(colorAtlas, texel, color);
+      ivec4 label = imageLoad(labelAtlas, texel);
+      imageStore(labelAtlas, texel, label);
+      uvec4 mask = imageLoad(maskAtlas, texel);
+      imageStore(maskAtlas, texel, mask);
+      return;
+    }
+  }
+}

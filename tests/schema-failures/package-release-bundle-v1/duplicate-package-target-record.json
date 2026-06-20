@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "promotionManifestPath": "release/package-release-promotion-manifest.json",
+  "summaryPath": "release/package-maintenance-set-verification-batch-summary.json",
+  "batchPath": "release/package-maintenance-set-verification-batch.json",
+  "status": "eligible",
+  "releaseEligible": true,
+  "blockerCount": 0,
+  "blockers": [],
+  "packageCount": 2,
+  "artifactCount": 2,
+  "existingArtifactCount": 2,
+  "missingArtifactCount": 0,
+  "totalArtifactBytes": 8,
+  "packages": [
+    {
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "nativeBinaryStatus": "emitted",
+      "packageArtifactRequirements": {
+        "target": "metal",
+        "packageMode": "native",
+        "requiredPathArtifacts": [
+          "backendSource"
+        ],
+        "requiresNativeBinaryStatus": true,
+        "allowsPlannedNativeBinary": false,
+        "allowsPlannedNativeSourceEvidence": false
+      },
+      "artifactCount": 1,
+      "existingArtifactCount": 1,
+      "missingArtifactCount": 0,
+      "totalArtifactBytes": 4,
+      "artifacts": [
+        {
+          "name": "backendSource",
+          "path": "artifacts/basic.metal",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "reflection": {
+        "targetFeatureCount": 1,
+        "targetFeatureEvidenceIds": [
+          "target-legalization.v1.metal.abi.required.package-release-fixture"
+        ]
+      }
+    },
+    {
+      "packagePath": "packages/basic-copy",
+      "module": "Basic",
+      "target": "metal",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "nativeBinaryStatus": "emitted",
+      "packageArtifactRequirements": {
+        "target": "metal",
+        "packageMode": "native",
+        "requiredPathArtifacts": [
+          "backendSource"
+        ],
+        "requiresNativeBinaryStatus": true,
+        "allowsPlannedNativeBinary": false,
+        "allowsPlannedNativeSourceEvidence": false
+      },
+      "artifactCount": 1,
+      "existingArtifactCount": 1,
+      "missingArtifactCount": 0,
+      "totalArtifactBytes": 4,
+      "artifacts": [
+        {
+          "name": "backendSource",
+          "path": "artifacts/basic-copy.metal",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "reflection": {
+        "targetFeatureCount": 1,
+        "targetFeatureEvidenceIds": [
+          "target-legalization.v1.metal.abi.required.package-release-fixture"
+        ]
+      }
+    }
+  ]
+}

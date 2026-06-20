@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "planPath": "release/package-release-publish-plan.json",
+  "releaseEligible": true,
+  "packageCount": 1,
+  "artifactCount": 1,
+  "totalArtifactBytes": 4,
+  "packages": [
+    {
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "nativeBinaryStatus": null,
+      "packageArtifactRequirements": null,
+      "artifactCount": 1,
+      "totalArtifactBytes": 4,
+      "artifacts": [
+        {
+          "name": "nativeBinary",
+          "packagePath": "packages/basic",
+          "module": "Basic",
+          "target": "metal",
+          "sourcePath": "packages/basic/artifacts/basic.metallib",
+          "packageArtifactPath": "artifacts/basic.metallib",
+          "destinationPath": "packages/basic/artifacts/basic.metallib",
+          "sizeBytes": 4,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "reflection": {
+        "targetFeatureCount": 1,
+        "targetFeatureEvidenceIds": [
+          "target-legalization.v1.metal.abi.required.package-release-fixture"
+        ]
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "nativeBinary",
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourcePath": "packages/basic/artifacts/basic.metallib",
+      "packageArtifactPath": "artifacts/basic.metallib",
+      "destinationPath": "packages/basic/artifacts/basic.metallib",
+      "sizeBytes": 4,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ]
+}

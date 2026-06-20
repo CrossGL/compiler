@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schema-defs/target-record-v1.json",
+  "title": "CrossGL Shared Target Record Definitions v1",
+  "$defs": {
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl",
+        "wgsl"
+      ]
+    },
+    "packageTargetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "capabilityList": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidenceIdList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl|wgsl)\\.[A-Za-z0-9_.-]+$"
+      }
+    },
+    "diagnosticEvidenceIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl|wgsl)\\.diagnostic\\.[A-Za-z0-9_.-]+$"
+      }
+    },
+    "toolIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(metal|vulkan|directx|opengl|wgsl)\\.(native-tool|toolchain|validation)\\.[A-Za-z0-9_.-]+$"
+      }
+    },
+    "optionalNativeToolStatus": {
+      "type": "string",
+      "enum": [
+        "available",
+        "missing",
+        "not-required"
+      ]
+    },
+    "decisionReasonCodeList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9][a-z0-9_.:-]*$"
+      }
+    },
+    "linkList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "targetRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "targetBackend",
+        "nativeImplemented",
+        "sourcePackageSupported",
+        "packageBuildSupported",
+        "packageMode",
+        "packageDecisionReason",
+        "decisionReasonCodes",
+        "packageRankScore",
+        "artifactLinks",
+        "reportLinks",
+        "remediation",
+        "requiredCapabilityCount",
+        "missingCapabilityCount",
+        "legalizationCoreEvidenceIds",
+        "requiredCapabilities",
+        "missingCapabilities"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "targetBackend": {
+          "$ref": "#/$defs/targetName"
+        },
+        "nativeImplemented": {
+          "type": "boolean"
+        },
+        "sourcePackageSupported": {
+          "type": "boolean"
+        },
+        "packageBuildSupported": {
+          "type": "boolean"
+        },
+        "supportStatus": {
+          "type": "string",
+          "enum": [
+            "native",
+            "source-package",
+            "unsupported"
+          ]
+        },
+        "legalizationState": {
+          "type": "string",
+          "enum": [
+            "legalized",
+            "rejected"
+          ]
+        },
+        "packageMode": {
+          "type": "string",
+          "enum": [
+            "native",
+            "source-package",
+            "unsupported"
+          ]
+        },
+        "packageDecisionProvenance": {
+          "type": "string",
+          "enum": [
+            "native-package-available",
+            "source-package-only",
+            "unsupported",
+            "unsupported-source-form",
+            "unsupported-native-form",
+            "unsupported-raw-hir"
+          ]
+        },
+        "packageDecisionReason": {
+          "type": "string",
+          "enum": [
+            "native-package-available",
+            "source-package-available",
+            "package-build-available",
+            "unsupported"
+          ]
+        },
+        "decisionReasonCodes": {
+          "$ref": "#/$defs/decisionReasonCodeList"
+        },
+        "packageRankScore": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "artifactLinks": {
+          "$ref": "#/$defs/linkList"
+        },
+        "reportLinks": {
+          "$ref": "#/$defs/linkList"
+        },
+        "remediation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredCapabilityCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missingCapabilityCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "legalizationCoreEvidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        },
+        "diagnosticEvidenceIds": {
+          "$ref": "#/$defs/diagnosticEvidenceIdList"
+        },
+        "requiredToolCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missingToolCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "optionalNativeToolMissing": {
+          "type": "boolean"
+        },
+        "optionalNativeToolStatus": {
+          "$ref": "#/$defs/optionalNativeToolStatus"
+        },
+        "toolRequirementEvidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        },
+        "packageArtifactRequirementEvidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        },
+        "requiredToolIds": {
+          "$ref": "#/$defs/toolIdList"
+        },
+        "missingToolIds": {
+          "$ref": "#/$defs/toolIdList"
+        },
+        "requiredCapabilities": {
+          "$ref": "#/$defs/capabilityList"
+        },
+        "missingCapabilities": {
+          "$ref": "#/$defs/capabilityList"
+        }
+      }
+    }
+  }
+}

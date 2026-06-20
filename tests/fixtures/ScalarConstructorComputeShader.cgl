@@ -1,0 +1,16 @@
+shader ScalarConstructorComputeShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    void main() {
+      float source = values[0];
+      int signedValue = int(source);
+      uint unsignedValue = uint(source);
+      float signedBack = float(signedValue);
+      float unsignedBack = float(unsignedValue);
+      values[1] = signedBack + unsignedBack;
+      return;
+    }
+  }
+}

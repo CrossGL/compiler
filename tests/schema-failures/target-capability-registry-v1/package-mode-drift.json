@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "registryVersion": "v0",
+  "targetCount": 1,
+  "capabilityCount": 3,
+  "targets": [
+    {
+      "target": "metal",
+      "displayName": "Metal",
+      "packageMode": "source-package",
+      "emittedBaselineCapabilities": [
+        "metal.backend.native-metal-package",
+        "metal.sourceLanguage.MSL",
+        "metal.binaryFormat.metallib",
+        "metal.toolchain.xcrun-metal",
+        "metal.toolchain.xcrun-metallib"
+      ],
+      "optimization": {
+        "capability": "metal.optimization.hir-pipeline",
+        "supported": true,
+        "levels": [
+          "O0",
+          "O1",
+          "O2"
+        ],
+        "evidence": [
+          "fixture"
+        ]
+      },
+      "nativeArtifact": {
+        "capability": "metal.native-artifact.metallib",
+        "status": "supported",
+        "artifactFormat": "metallib",
+        "pathArtifacts": [
+          "backendSource",
+          "intermediate",
+          "nativeBinary"
+        ],
+        "requiresNativeBinaryStatus": false,
+        "allowsPlannedNativeBinary": false,
+        "evidence": [
+          "fixture"
+        ]
+      },
+      "packageAdmission": {
+        "capability": "metal.package-admission.native-source-package",
+        "packageMode": "native",
+        "nativeSupportClass": "native",
+        "nativeImplemented": true,
+        "sourcePackageSelectable": false,
+        "packageBuildSupported": true,
+        "admittedPackageModes": [
+          "native"
+        ],
+        "baselineBackendCapability": "metal.backend.native-metal-package",
+        "nativeArtifactCapability": "metal.native-artifact.metallib",
+        "packageDecisionReason": "native-package-available",
+        "packageRankScore": 0,
+        "packageArtifactRequirementsSource": "tools/package_target_contracts.json",
+        "packageArtifactRequirements": {
+          "packageMode": "native",
+          "requiredPathArtifacts": [
+            "backendSource",
+            "intermediate",
+            "nativeBinary"
+          ],
+          "requiresNativeBinaryStatus": false,
+          "allowsPlannedNativeBinary": false,
+          "allowsPlannedNativeSourceEvidence": false,
+          "evidenceIds": [
+            "target-legalization.v1.metal.package-artifacts.native",
+            "target-legalization.v1.metal.package-artifact.required.backendSource",
+            "target-legalization.v1.metal.package-artifact.required.intermediate",
+            "target-legalization.v1.metal.package-artifact.required.nativeBinary"
+          ]
+        },
+        "evidence": [
+          "include/crossgl/Backend/TargetCapabilityInventory.h",
+          "src/Backend/TargetCapabilities.cpp",
+          "tools/package_target_contracts.json",
+          "cglc_package_target_contracts"
+        ]
+      },
+      "capabilities": [
+        {
+          "id": "metal.native-artifact.metallib",
+          "area": "native-artifact",
+          "status": "supported",
+          "summary": "fixture",
+          "evidence": [
+            "fixture"
+          ]
+        },
+        {
+          "id": "metal.optimization.hir-pipeline",
+          "area": "optimization",
+          "status": "supported",
+          "summary": "fixture",
+          "evidence": [
+            "fixture"
+          ]
+        },
+        {
+          "id": "metal.package-admission.native-source-package",
+          "area": "package-admission",
+          "status": "supported",
+          "summary": "Metal admits native package builds through the native Metal backend and does not expose source-package selection.",
+          "evidence": [
+            "include/crossgl/Backend/TargetCapabilityInventory.h",
+            "src/Backend/TargetCapabilities.cpp",
+            "tools/package_target_contracts.json",
+            "cglc_package_target_contracts"
+          ]
+        }
+      ]
+    }
+  ]
+}

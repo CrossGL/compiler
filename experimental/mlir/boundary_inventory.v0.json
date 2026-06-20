@@ -1,0 +1,1812 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl-mlir-boundary-inventory-v0",
+  "status": "report-only",
+  "scope": "fixture-limited pseudo-to-real-MLIR boundary inventory",
+  "productionLinked": false,
+  "realMlirRequired": false,
+  "sourceAuthority": {
+    "canonicalSemanticIr": "C++ HIR",
+    "hirNamespace": "hir",
+    "operationPrefix": "hir.",
+    "blockedNamespace": "crossgl.",
+    "authorityAnchors": [
+      "include/crossgl/HIR/HIR.h",
+      "tools/cross_repo_language_contract.json",
+      "docs/language/crosstl-frontend-language-spec-v0.json"
+    ],
+    "fixtureInventory": "experimental/mlir/fixture_inventory.json"
+  },
+  "boundaryRules": {
+    "emissionStatus": "boundary-inventory-only",
+    "defaultOffGate": "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=OFF",
+    "optionalToolGate": [
+      "CROSSGL_ENABLE_MLIR_EXPERIMENTAL=ON",
+      "MLIR_FOUND=TRUE"
+    ],
+    "productionTargetsMustExclude": [
+      "crossgl_compiler",
+      "cglc"
+    ],
+    "mustNotChange": [
+      "production HIR",
+      "target legalization",
+      "package schemas",
+      "backend emitters",
+      "legacy pseudo-MLIR dumps"
+    ]
+  },
+  "operations": [
+    {
+      "operation": "hir.module",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Owns the admitted shader module and fixture source file provenance.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "package_artifact_contracts"
+      ],
+      "requiredFixtureFacts": [
+        "source_file",
+        "shader_module"
+      ]
+    },
+    {
+      "operation": "hir.compute_stage",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries the compute stage boundary for admitted entry-point fixtures.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "stage_entry_points"
+      ],
+      "requiredFixtureFacts": [
+        "compute_stage",
+        "stage"
+      ]
+    },
+    {
+      "operation": "hir.entry_point",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Names the canonical HIR entry function and void return type facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_entry_points"
+      ],
+      "requiredFixtureFacts": [
+        "entry_point",
+        "entryPoint"
+      ]
+    },
+    {
+      "operation": "hir.workgroup_size",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records the compute local size without becoming resource lowering.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "workgroup_size",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "resourceFacts.localSize"
+      ]
+    },
+    {
+      "operation": "hir.constant",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records module-scope constant declarations, folded default values, and specialization constant ids before backend lowering.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants"
+      ],
+      "fixtures": [
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "typed_hir_facts",
+        "constant_defaults",
+        "specialization_ids"
+      ],
+      "requiredFixtureFacts": [
+        "specialization_constant_declaration",
+        "constant_declaration",
+        "typeFacts.constant_name",
+        "typeFacts.constant_type",
+        "typeFacts.constant_default_value",
+        "typeFacts.constant_folded_value",
+        "typeFacts.specialization_constant_id"
+      ]
+    },
+    {
+      "operation": "hir.return",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries return statement source locations for admitted compute functions.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "return_statement"
+      ]
+    },
+    {
+      "operation": "hir.vertex_stage",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries the vertex stage boundary and entry-point provenance for the graphics stage I/O fixture.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "stage_entry_points"
+      ],
+      "requiredFixtureFacts": [
+        "vertex_stage",
+        "stage"
+      ]
+    },
+    {
+      "operation": "hir.fragment_stage",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries the fragment stage boundary and entry-point provenance for the graphics stage I/O fixture.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "stage_entry_points"
+      ],
+      "requiredFixtureFacts": [
+        "fragment_stage",
+        "stage"
+      ]
+    },
+    {
+      "operation": "hir.stage_input",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records graphics stage input struct provenance and target-independent entry-point I/O type facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_io_metadata"
+      ],
+      "requiredFixtureFacts": [
+        "vertex_input_struct",
+        "fragment_input_struct",
+        "typeFacts.vertex_entry_point_io_structs",
+        "typeFacts.fragment_entry_point_io_structs"
+      ]
+    },
+    {
+      "operation": "hir.stage_output",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records graphics stage output struct provenance, including vertex position and fragment color output carriers.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_io_metadata"
+      ],
+      "requiredFixtureFacts": [
+        "vertex_output_struct",
+        "fragment_output_struct",
+        "vertex_stage_output_position",
+        "typeFacts.vertex_position_builtin_vec4",
+        "typeFacts.fragment_output_vec4"
+      ]
+    },
+    {
+      "operation": "hir.stage_varying",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Links vertex stage output varying facts to matching fragment stage input varying facts without lowering backend locations.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_io_metadata"
+      ],
+      "requiredFixtureFacts": [
+        "vertex_stage_output_varyings",
+        "fragment_stage_input_varyings",
+        "typeFacts.stage_varying_vec2_vec4"
+      ]
+    },
+    {
+      "operation": "hir.fragment_output",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Records fragment color output metadata as target-independent stage I/O evidence.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "graphics_stage_io_metadata"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "stage_io_metadata"
+      ],
+      "requiredFixtureFacts": [
+        "fragment_stage_output_color",
+        "typeFacts.fragment_output_vec4"
+      ]
+    },
+    {
+      "operation": "hir.source_location_anchor",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Collects the common source-location provenance facts every admitted fixture must preserve before any real MLIR projection is accepted.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "module_stages_and_entry_points"
+      ],
+      "fixtures": [
+        "tests/fixtures/MinimalComputeShader.cgl",
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "source_map_debug_contracts"
+      ],
+      "requiredFixtureFacts": [
+        "source_file",
+        "shader_module",
+        "compute_stage",
+        "entry_point",
+        "layout_local_size",
+        "return_statement"
+      ]
+    },
+    {
+      "operation": "hir.scalar_declare",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents straight-line scalar local declarations and their source locations.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "local_variable_declarations",
+        "float_scalar"
+      ]
+    },
+    {
+      "operation": "hir.scalar_expr",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents admitted scalar arithmetic, casts, comparisons, unary expressions, and assignment result facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "types_structs_arrays_and_constants",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl",
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "float_scalar"
+      ]
+    },
+    {
+      "operation": "hir.scalar_compare",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Separates scalar comparison result parity for the straight-line scalar fixture from generic scalar expression coverage.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/ScalarExpressionComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "scalar_expression_statements",
+        "comparison_expression_result_type"
+      ]
+    },
+    {
+      "operation": "hir.resource",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries set and binding descriptor facts for admitted resource fixtures.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "resource_bindings",
+        "package_artifact_contracts"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_declaration",
+        "resourceFacts.descriptors[].stage",
+        "resourceFacts.descriptors[].name",
+        "resourceFacts.descriptors[].kind",
+        "resourceFacts.descriptors[].set",
+        "resourceFacts.descriptors[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].stage",
+        "resourceFacts.targetIndependentResourceMetadata[].name",
+        "resourceFacts.targetIndependentResourceMetadata[].kind",
+        "resourceFacts.targetIndependentResourceMetadata[].set",
+        "resourceFacts.targetIndependentResourceMetadata[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].targetIndependent"
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries the admitted single non-array float storage-buffer type and access facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_element_type",
+        "resourceFacts.storageBuffers[].name",
+        "resourceFacts.storageBuffers[].type",
+        "resourceFacts.storageBuffers[].elementType",
+        "resourceFacts.storageBuffers[].addressSpace",
+        "resourceFacts.storageBuffers[].writeAccess",
+        "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+        "resourceFacts.targetIndependentResourceMetadata[].elementType",
+        "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+        "resourceFacts.targetIndependentResourceMetadata[].access"
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer.descriptor_array",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs one fixed-size storage-buffer descriptor-array resource with literal descriptor indices; it does not admit runtime descriptor arrays, dynamic indexing, nonuniform indexing, or backend descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage"
+      ],
+      "preserves": [
+        "resource_bindings",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_declaration",
+        "storage_buffer_element_type",
+        "resourceFacts.descriptors[].descriptorArray",
+        "resourceFacts.descriptors[].arraySize",
+        "resourceFacts.descriptors[].indexingMode",
+        "resourceFacts.descriptors[].fixedDescriptorIndices",
+        "resourceFacts.storageBuffers[].descriptorArray",
+        "resourceFacts.storageBuffers[].arraySize",
+        "resourceFacts.storageBuffers[].indexingMode",
+        "resourceFacts.storageBuffers[].fixedDescriptorIndices",
+        "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+        "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+        "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+        "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.sampled_resource.descriptor_array",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs one fixed-size sampled texture plus sampler descriptor-array fixture with literal descriptor indices; storage-image descriptor-array facts are cataloged separately, and runtime descriptor arrays, dynamic indexing, nonuniform indexing, and backend descriptor-indexing policy remain blocked.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "sampled_textures_and_samplers",
+        "resources_layouts_and_storage"
+      ],
+      "preserves": [
+        "resource_bindings",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "texture_declaration",
+        "sampler_declaration",
+        "resourceFacts.descriptors[].descriptorArray",
+        "resourceFacts.descriptors[].arraySize",
+        "resourceFacts.descriptors[].indexingMode",
+        "resourceFacts.descriptors[].fixedDescriptorIndices",
+        "resourceFacts.textures[].descriptorArray",
+        "resourceFacts.textures[].arraySize",
+        "resourceFacts.textures[].indexingMode",
+        "resourceFacts.textures[].fixedDescriptorIndices",
+        "resourceFacts.samplers[].descriptorArray",
+        "resourceFacts.samplers[].arraySize",
+        "resourceFacts.samplers[].indexingMode",
+        "resourceFacts.samplers[].fixedDescriptorIndices",
+        "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+        "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+        "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+        "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+      ],
+      "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.storage_image.descriptor_array",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs fixed-size storage-image descriptor-array resources in one HIR fixture when the descriptor uses literal indices; it does not admit runtime descriptor arrays, folded-symbolic indexes outside cataloged literal facts, dynamic indexing, nonuniform indexing, storage-image atomics, or backend descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "direct_storage_images"
+      ],
+      "preserves": [
+        "resource_bindings",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_declaration",
+        "typeFacts.storage_image_result_type",
+        "typeFacts.storage_image_coordinate_type",
+        "resourceFacts.descriptors[].descriptorArray",
+        "resourceFacts.descriptors[].arraySize",
+        "resourceFacts.descriptors[].indexingMode",
+        "resourceFacts.descriptors[].fixedDescriptorIndices",
+        "resourceFacts.storageImages[].format",
+        "resourceFacts.storageImages[].dimension",
+        "resourceFacts.storageImages[].access",
+        "resourceFacts.storageImages[].descriptorArray",
+        "resourceFacts.storageImages[].arraySize",
+        "resourceFacts.storageImages[].indexingMode",
+        "resourceFacts.storageImages[].fixedDescriptorIndices",
+        "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+        "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+        "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+        "resourceFacts.targetIndependentResourceMetadata[].fixedDescriptorIndices"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.storage_image.nonuniform_descriptor_array",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs fixed-size storage-image descriptor-array resources with an explicit nonuniform marker and source index expression from one HIR fixture; it does not admit runtime descriptor arrays, descriptor-index lowering, storage-image atomics, or backend descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "direct_storage_images"
+      ],
+      "preserves": [
+        "resource_bindings",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_declaration",
+        "nonuniform_descriptor_index",
+        "typeFacts.storage_image_result_type",
+        "typeFacts.storage_image_coordinate_type",
+        "resourceFacts.descriptors[].descriptorArray",
+        "resourceFacts.descriptors[].arraySize",
+        "resourceFacts.descriptors[].indexingMode",
+        "resourceFacts.descriptors[].nonuniformMarker",
+        "resourceFacts.descriptors[].indexExpression",
+        "resourceFacts.storageImages[].format",
+        "resourceFacts.storageImages[].dimension",
+        "resourceFacts.storageImages[].access",
+        "resourceFacts.storageImages[].descriptorArray",
+        "resourceFacts.storageImages[].arraySize",
+        "resourceFacts.storageImages[].indexingMode",
+        "resourceFacts.storageImages[].nonuniformMarker",
+        "resourceFacts.storageImages[].indexExpression",
+        "resourceFacts.targetIndependentResourceMetadata[].descriptorArray",
+        "resourceFacts.targetIndependentResourceMetadata[].arraySize",
+        "resourceFacts.targetIndependentResourceMetadata[].indexingMode",
+        "resourceFacts.targetIndependentResourceMetadata[].nonuniformMarker",
+        "resourceFacts.targetIndependentResourceMetadata[].indexExpression"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageNonUniformDescriptorArrayHIRShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.texture",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries sampled texture resource type, descriptor, and target-independent metadata facts for the admitted sampled-texture fixture.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "src/HIR/HIRDialect.cpp",
+        "tools/cross_repo_language_contract.json"
+      ],
+      "allowedHirFamilies": [
+        "sampled_textures_and_samplers",
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "texture_declaration",
+        "resourceFacts.textures[].name",
+        "resourceFacts.textures[].type",
+        "resourceFacts.textures[].sampledType",
+        "resourceFacts.textures[].dimension",
+        "resourceFacts.textures[].arrayed",
+        "resourceFacts.textures[].comparison",
+        "resourceFacts.textures[].set",
+        "resourceFacts.textures[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+        "resourceFacts.targetIndependentResourceMetadata[].elementType",
+        "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+        "resourceFacts.targetIndependentResourceMetadata[].access"
+      ]
+    },
+    {
+      "operation": "hir.sampler",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries standalone sampler resource descriptor, comparison role, and target-independent metadata facts for the admitted sampled-texture fixture.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "src/HIR/HIRDialect.cpp",
+        "tools/cross_repo_language_contract.json"
+      ],
+      "allowedHirFamilies": [
+        "sampled_textures_and_samplers",
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "sampler_declaration",
+        "resourceFacts.samplers[].name",
+        "resourceFacts.samplers[].type",
+        "resourceFacts.samplers[].comparison",
+        "resourceFacts.samplers[].set",
+        "resourceFacts.samplers[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+        "resourceFacts.targetIndependentResourceMetadata[].elementType",
+        "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+        "resourceFacts.targetIndependentResourceMetadata[].access"
+      ]
+    },
+    {
+      "operation": "hir.texture_lod",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents the admitted explicit-LOD sampled texture expression that combines a sampled texture and sampler resource without lowering to target instructions.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "src/HIR/HIRDialect.cpp",
+        "src/IR/IRPrinter.cpp"
+      ],
+      "allowedHirFamilies": [
+        "sampled_textures_and_samplers",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "texture_sample_lod",
+        "texture_sample_result_type",
+        "texture_coordinate_type",
+        "explicit_lod_scalar"
+      ]
+    },
+    {
+      "operation": "hir.storage_image",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Carries direct storage-image resource type, descriptor, format, dimension, read/write/read_write access, and target-independent metadata facts for admitted storage-image fixtures.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "src/HIR/HIRDialect.cpp",
+        "tools/cross_repo_language_contract.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "resources_layouts_and_storage"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_declaration",
+        "resourceFacts.storageImages[].name",
+        "resourceFacts.storageImages[].type",
+        "resourceFacts.storageImages[].elementType",
+        "resourceFacts.storageImages[].format",
+        "resourceFacts.storageImages[].dimension",
+        "resourceFacts.storageImages[].arrayed",
+        "resourceFacts.storageImages[].access",
+        "resourceFacts.storageImages[].set",
+        "resourceFacts.storageImages[].binding",
+        "resourceFacts.targetIndependentResourceMetadata[].sourceType",
+        "resourceFacts.targetIndependentResourceMetadata[].elementType",
+        "resourceFacts.targetIndependentResourceMetadata[].addressSpace",
+        "resourceFacts.targetIndependentResourceMetadata[].access"
+      ]
+    },
+    {
+      "operation": "hir.image_load",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents direct storage-image load calls as report-only HIR dialect shapes without lowering to target instructions.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "src/HIR/HIRDialect.cpp",
+        "src/IR/IRPrinter.cpp"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_load",
+        "storage_image_result_type",
+        "storage_image_coordinate_type"
+      ]
+    },
+    {
+      "operation": "hir.image_store",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents direct storage-image store calls as report-only HIR dialect shapes while preserving source and resource facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "src/HIR/HIRDialect.cpp",
+        "src/IR/IRPrinter.cpp"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_store",
+        "storage_image_coordinate_type"
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer.read",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents the structured-if fixture's storage-buffer read fact only.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_read"
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.add",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic add calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_add",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.min",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic min calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_min",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.max",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic max calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_max",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.and",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic and calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_and",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.or",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic or calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_or",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.exchange",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic exchange calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_exchange",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.image_atomic.xor",
+      "coverageStatus": "admitted-report-only",
+      "emissionStatus": "not-emitted",
+      "role": "Catalogs direct storage-image atomic xor calls with scalar int/uint result and payload type facts; it does not admit descriptor-array atomics, real MLIR lowering, or backend atomic/descriptor-indexing policy.",
+      "authorityAnchors": [
+        "experimental/mlir/fixture_inventory.json",
+        "experimental/mlir/experiment_manifest.json"
+      ],
+      "allowedHirFamilies": [
+        "direct_storage_images",
+        "expressions_operators_and_intrinsics"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_image_atomic_xor",
+        "typeFacts.storage_image_atomic_int_result_type",
+        "typeFacts.storage_image_atomic_uint_result_type",
+        "typeFacts.storage_image_atomic_int_payload_type",
+        "typeFacts.storage_image_atomic_uint_payload_type"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageImageAtomicShader.cgl"
+      ]
+    },
+    {
+      "operation": "hir.storage_buffer.write",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents admitted storage-buffer writes while preserving descriptor and source facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h"
+      ],
+      "allowedHirFamilies": [
+        "resources_layouts_and_storage",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/StorageBufferComputeShader.cgl",
+        "tests/fixtures/IfComputeShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+        "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+        "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+        "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+        "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+        "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+        "tests/fixtures/StorageImageAtomicShader.cgl",
+        "tests/fixtures/SpecializationConstantsComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts",
+        "resource_bindings"
+      ],
+      "requiredFixtureFacts": [
+        "storage_buffer_write"
+      ]
+    },
+    {
+      "operation": "hir.if",
+      "emissionStatus": "boundary-inventory-only",
+      "role": "Represents the single admitted structured if/else branch and branch condition facts.",
+      "authorityAnchors": [
+        "include/crossgl/HIR/HIR.h",
+        "tools/cross_repo_language_contract.json",
+        "docs/language/crosstl-frontend-language-spec-v0.json"
+      ],
+      "allowedHirFamilies": [
+        "control_flow_and_statements",
+        "expressions_operators_and_intrinsics"
+      ],
+      "fixtures": [
+        "tests/fixtures/IfComputeShader.cgl"
+      ],
+      "preserves": [
+        "source_locations",
+        "typed_hir_facts"
+      ],
+      "requiredFixtureFacts": [
+        "if_statement",
+        "branch_condition_bool",
+        "then_block_assignment",
+        "else_block_assignment"
+      ]
+    }
+  ],
+  "fixtureBoundary": [
+    {
+      "path": "tests/fixtures/IfComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.read",
+        "hir.storage_buffer.write",
+        "hir.if",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "single-storage-buffer-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/MinimalComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "empty-resource-facts",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/ScalarExpressionComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.scalar_compare",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "empty-resource-facts",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer.descriptor_array",
+        "hir.storage_buffer.read",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "single-storage-buffer-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "single-storage-buffer-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/SpecializationConstantsComputeShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.constant",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "single-storage-buffer-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "constant_defaults",
+        "specialization_ids",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.texture",
+        "hir.sampler",
+        "hir.texture_lod",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "sampled-texture-sampler-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/VulkanTextureSamplerCubeArrayLodShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.texture",
+        "hir.sampler",
+        "hir.sampled_resource.descriptor_array",
+        "hir.texture_lod",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "sampled-texture-sampler-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/frontend/fixtures/StorageImageHIRShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_image",
+        "hir.storage_buffer.read",
+        "hir.image_load",
+        "hir.image_store",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "direct-storage-image-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/frontend/fixtures/StorageImageDescriptorArrayHIRShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_image",
+        "hir.storage_image.descriptor_array",
+        "hir.storage_buffer.read",
+        "hir.image_load",
+        "hir.image_store",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "direct-storage-image-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "fixed_storage_image_descriptor_array",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/frontend/fixtures/StorageImageNonUniformDescriptorArrayHIRShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.scalar_declare",
+        "hir.scalar_expr",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_image",
+        "hir.storage_image.nonuniform_descriptor_array",
+        "hir.storage_buffer.read",
+        "hir.image_load",
+        "hir.image_store",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "direct-storage-image-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "nonuniform_storage_image_descriptor_array",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/frontend/fixtures/StorageImageAccessQualifierHIRShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_image",
+        "hir.image_load",
+        "hir.image_store",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "direct-storage-image-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_image",
+        "hir.image_load",
+        "hir.image_store",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "direct-storage-image-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "explicit_storage_image_formats",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.compute_stage",
+        "hir.entry_point",
+        "hir.workgroup_size",
+        "hir.resource",
+        "hir.storage_buffer",
+        "hir.storage_image",
+        "hir.image_atomic.add",
+        "hir.image_atomic.min",
+        "hir.image_atomic.max",
+        "hir.image_atomic.and",
+        "hir.image_atomic.or",
+        "hir.image_atomic.exchange",
+        "hir.image_atomic.xor",
+        "hir.storage_buffer.write",
+        "hir.return",
+        "hir.source_location_anchor"
+      ],
+      "resourceFactMode": "direct-storage-image-binding",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "resource_bindings",
+        "direct_storage_image_atomics",
+        "workgroup_size",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    },
+    {
+      "path": "tests/frontend/fixtures/GraphicsProvenanceHIRShader.cgl",
+      "expectedOperations": [
+        "hir.module",
+        "hir.vertex_stage",
+        "hir.fragment_stage",
+        "hir.entry_point",
+        "hir.stage_input",
+        "hir.stage_output",
+        "hir.stage_varying",
+        "hir.fragment_output",
+        "hir.return"
+      ],
+      "resourceFactMode": "empty-resource-facts",
+      "requiredPreservation": [
+        "source_locations",
+        "source_map_debug_contracts",
+        "typed_hir_facts",
+        "stage_entry_points",
+        "stage_io_metadata",
+        "package_artifact_contracts"
+      ],
+      "fixtureInventoryParity": {
+        "sourceLocations": true,
+        "typeFacts": true,
+        "entryPoint": true,
+        "resourceFacts": true,
+        "targetIndependentResourceMetadata": true,
+        "sourceMapDebugPreservation": true
+      }
+    }
+  ],
+  "blockedFamilies": [
+    {
+      "id": "remaining_texture_image_intrinsics",
+      "reason": "Direct sampled texture plus sampler LOD facts, direct storage-image load/store facts with read, write, read_write, and explicit r32f/r32i/r32ui formats, one direct storage-image atomic operation-family fixture, one fixed storage-buffer descriptor-array catalog fixture, one fixed sampled texture plus sampler descriptor-array catalog fixture, one literal-index fixed storage-image descriptor-array catalog fixture, and one nonuniform storage-image descriptor-array marker catalog fixture are admitted; runtime descriptor arrays, broad dynamic storage-image indexing beyond cataloged literal/nonuniform-marker facts, access-qualified storage-image array indexing or lowering, nonuniform descriptor-array storage-image atomics, compare helpers, manual texture intrinsics, real MLIR lowering, and backend descriptor-indexing policy remain blocked."
+    },
+    {
+      "id": "descriptor_indexing_and_nonuniform",
+      "reason": "Only fixed literal storage-buffer, sampled texture/sampler, and storage-image descriptor-array indices plus one nonuniform storage-image descriptor-array marker fixture are report-only descriptor-array evidence; the access-qualified fixture records a readonly fixed-array storage-image declaration as source/resource metadata only. Runtime descriptor arrays, dynamic indexes beyond cataloged literal/nonuniform-marker facts, folded-symbolic indexes outside cataloged literal facts, nonuniform descriptor-array storage-image atomics, real MLIR lowering, and backend descriptor-indexing policy remain blocked."
+    },
+    {
+      "id": "crosstl_examples_and_backend_policy",
+      "reason": "Representative examples and backend policy fixtures remain outside this optional MLIR experiment."
+    }
+  ]
+}

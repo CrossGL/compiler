@@ -1,0 +1,7 @@
+shader BadUnsupportedRayIntersectionStage {
+  ray_intersection {
+    void main() {
+      return;
+    }
+  }
+}

@@ -1,0 +1,394 @@
+if(NOT DEFINED FAKE_TOOL_NAME)
+  message(FATAL_ERROR "FAKE_TOOL_NAME is required")
+endif()
+
+if(NOT DEFINED FAKE_TOOL_BEHAVIOR)
+  message(FATAL_ERROR "FAKE_TOOL_BEHAVIOR is required")
+endif()
+
+set(fake_tool_args "")
+set(found_argument_separator OFF)
+math(EXPR fake_last_arg "${CMAKE_ARGC} - 1")
+foreach(index RANGE 0 ${fake_last_arg})
+  if(found_argument_separator)
+    list(APPEND fake_tool_args "${CMAKE_ARGV${index}}")
+  elseif("${CMAKE_ARGV${index}}" STREQUAL "--")
+    set(found_argument_separator ON)
+  endif()
+endforeach()
+
+if(DEFINED FAKE_TOOL_LOG)
+  string(REPLACE ";" " " fake_tool_command "${fake_tool_args}")
+  file(APPEND "${FAKE_TOOL_LOG}"
+       "${FAKE_TOOL_NAME} ${FAKE_TOOL_BEHAVIOR}: ${fake_tool_command}\n")
+endif()
+
+function(fake_tool_expect_arg_value args option expected_value)
+  list(FIND args "${option}" option_index)
+  if(option_index EQUAL -1)
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected ${option} ${expected_value}")
+  endif()
+  math(EXPR value_index "${option_index} + 1")
+  list(LENGTH args arg_count)
+  if(value_index GREATER_EQUAL arg_count)
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected a value after ${option}")
+  endif()
+  list(GET args ${value_index} actual_value)
+  if(NOT actual_value STREQUAL "${expected_value}")
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected ${option} ${expected_value}, got ${actual_value}")
+  endif()
+endfunction()
+
+function(fake_tool_expect_arg_present args expected_value)
+  list(FIND args "${expected_value}" arg_index)
+  if(arg_index EQUAL -1)
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected argument ${expected_value}")
+  endif()
+endfunction()
+
+function(fake_tool_expect_arg args index expected_value)
+  list(LENGTH args arg_count)
+  if(index GREATER_EQUAL arg_count)
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected argument ${index} to be ${expected_value}")
+  endif()
+  list(GET args ${index} actual_value)
+  if(NOT actual_value STREQUAL "${expected_value}")
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected argument ${index} to be ${expected_value}, got ${actual_value}")
+  endif()
+endfunction()
+
+function(fake_tool_find_arg_value args option out_var)
+  list(FIND args "${option}" option_index)
+  if(option_index EQUAL -1)
+    message(FATAL_ERROR "fake ${FAKE_TOOL_NAME} expected ${option}")
+  endif()
+  math(EXPR value_index "${option_index} + 1")
+  list(LENGTH args arg_count)
+  if(value_index GREATER_EQUAL arg_count)
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected a value after ${option}")
+  endif()
+  list(GET args ${value_index} actual_value)
+  set(${out_var} "${actual_value}" PARENT_SCOPE)
+endfunction()
+
+function(fake_tool_expect_arg_count args expected_count)
+  list(LENGTH args arg_count)
+  if(NOT arg_count EQUAL expected_count)
+    string(REPLACE ";" " " actual_args "${args}")
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected ${expected_count} arguments, got ${arg_count}: ${actual_args}")
+  endif()
+endfunction()
+
+function(fake_tool_expect_arg_at args index expected_value)
+  list(LENGTH args arg_count)
+  if(index GREATER_EQUAL arg_count)
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected argument ${index} to be ${expected_value}")
+  endif()
+  list(GET args ${index} actual_value)
+  if(NOT actual_value STREQUAL "${expected_value}")
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected argument ${index} to be ${expected_value}, got ${actual_value}")
+  endif()
+endfunction()
+
+function(fake_tool_expect_arg_suffix_at args index expected_suffix out_var)
+  list(LENGTH args arg_count)
+  if(index GREATER_EQUAL arg_count)
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected argument ${index} ending in ${expected_suffix}")
+  endif()
+  list(GET args ${index} actual_value)
+  if(NOT actual_value MATCHES "${expected_suffix}$")
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected argument ${index} ending in ${expected_suffix}, got ${actual_value}")
+  endif()
+  set(${out_var} "${actual_value}" PARENT_SCOPE)
+endfunction()
+
+function(fake_tool_expect_source_suffix args expected_suffix)
+  list(LENGTH args arg_count)
+  if(arg_count EQUAL 0)
+    message(FATAL_ERROR "fake ${FAKE_TOOL_NAME} expected a source path")
+  endif()
+  math(EXPR source_index "${arg_count} - 1")
+  list(GET args ${source_index} source_path)
+  if(NOT source_path MATCHES "${expected_suffix}$")
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected source path ending in ${expected_suffix}, got ${source_path}")
+  endif()
+endfunction()
+
+function(fake_tool_source_path args out_var)
+  list(LENGTH args arg_count)
+  if(arg_count EQUAL 0)
+    message(FATAL_ERROR "fake ${FAKE_TOOL_NAME} expected a source path")
+  endif()
+  math(EXPR source_index "${arg_count} - 1")
+  list(GET args ${source_index} source_path)
+  set(${out_var} "${source_path}" PARENT_SCOPE)
+endfunction()
+
+function(fake_glslang_write_partial_native_artifact)
+  if(NOT DEFINED fake_glslang_source)
+    return()
+  endif()
+  set(fake_glslang_partial_native "${fake_glslang_source}")
+  string(REGEX REPLACE "\\.(comp|graphics|vert|frag)\\.glsl$" ".glsl"
+         fake_glslang_partial_native "${fake_glslang_partial_native}")
+  if(NOT fake_glslang_partial_native STREQUAL "${fake_glslang_source}")
+    file(WRITE "${fake_glslang_partial_native}"
+         "fake partial OpenGL validation artifact from failed glslangValidator\n")
+  endif()
+endfunction()
+
+function(fake_dxc_expect_graphics_invocation args)
+  fake_tool_find_arg_value("${args}" "-T" fake_profile)
+  fake_tool_find_arg_value("${args}" "-E" fake_entry_point)
+  if(fake_profile STREQUAL "vs_6_0" OR fake_profile STREQUAL "vs_6_7")
+    if(NOT fake_entry_point STREQUAL "vertex_main")
+      message(FATAL_ERROR
+              "fake dxc expected -E vertex_main for ${fake_profile}, got ${fake_entry_point}")
+    endif()
+  elseif(fake_profile STREQUAL "ps_6_0" OR fake_profile STREQUAL "ps_6_7")
+    if(NOT fake_entry_point STREQUAL "fragment_main")
+      message(FATAL_ERROR
+              "fake dxc expected -E fragment_main for ${fake_profile}, got ${fake_entry_point}")
+    endif()
+  else()
+    message(FATAL_ERROR
+            "fake dxc expected graphics profile vs_6_0, ps_6_0, vs_6_7, or ps_6_7, got ${fake_profile}")
+  endif()
+  fake_tool_find_arg_value("${args}" "-Fo" fake_graphics_output)
+  set(fake_output "${fake_graphics_output}" PARENT_SCOPE)
+endfunction()
+
+if(FAKE_TOOL_NAME STREQUAL "dxc")
+  list(FIND fake_tool_args "-O3" fake_dxc_o3_index)
+  list(FIND fake_tool_args "-O0" fake_dxc_o0_index)
+  if(fake_dxc_o3_index EQUAL -1 AND fake_dxc_o0_index EQUAL -1)
+    message(FATAL_ERROR "fake dxc expected -O3 or -O0")
+  endif()
+  fake_tool_find_arg_value("${fake_tool_args}" "-T" fake_dxc_profile)
+  if(fake_dxc_profile STREQUAL "cs_6_0" OR fake_dxc_profile STREQUAL "cs_6_7")
+    fake_tool_expect_arg_value("${fake_tool_args}" "-E" "compute_main")
+    fake_tool_find_arg_value("${fake_tool_args}" "-Fo" fake_output)
+  elseif(fake_dxc_profile MATCHES "^[vp]s_6_[07]$")
+    fake_dxc_expect_graphics_invocation("${fake_tool_args}")
+  else()
+    message(FATAL_ERROR
+            "fake dxc expected profile cs_6_0, cs_6_7, vs_6_0, ps_6_0, vs_6_7, or ps_6_7, got ${fake_dxc_profile}")
+  endif()
+  fake_tool_expect_source_suffix("${fake_tool_args}" "\\.hlsl")
+  fake_tool_source_path("${fake_tool_args}" fake_dxc_source)
+elseif(FAKE_TOOL_NAME STREQUAL "glslangValidator")
+  list(LENGTH fake_tool_args fake_glslang_arg_count)
+  math(EXPR fake_glslang_source_index "${fake_glslang_arg_count} - 1")
+  list(GET fake_tool_args ${fake_glslang_source_index} fake_glslang_source)
+  fake_tool_find_arg_value("${fake_tool_args}" "-S" fake_glsl_stage)
+  if(fake_glsl_stage STREQUAL "comp")
+    fake_tool_expect_source_suffix("${fake_tool_args}" "\\.comp\\.glsl")
+  elseif(fake_glsl_stage STREQUAL "vert")
+    fake_tool_expect_source_suffix("${fake_tool_args}" "\\.vert\\.glsl")
+  elseif(fake_glsl_stage STREQUAL "frag")
+    fake_tool_expect_source_suffix("${fake_tool_args}" "\\.frag\\.glsl")
+  else()
+    message(FATAL_ERROR
+            "fake glslangValidator expected stage comp, vert, or frag, got ${fake_glsl_stage}")
+  endif()
+elseif(FAKE_TOOL_NAME STREQUAL "xcrun")
+  fake_tool_expect_arg("${fake_tool_args}" 0 "-sdk")
+  fake_tool_expect_arg("${fake_tool_args}" 1 "macosx")
+  list(GET fake_tool_args 2 fake_xcrun_tool)
+  if(fake_xcrun_tool STREQUAL "metal")
+    list(FIND fake_tool_args "-O2" fake_metal_o2_index)
+    list(FIND fake_tool_args "-O0" fake_metal_o0_index)
+    list(FIND fake_tool_args "-gline-tables-only" fake_metal_line_tables_index)
+    if(fake_metal_o2_index EQUAL -1 AND fake_metal_o0_index EQUAL -1)
+      message(FATAL_ERROR "fake xcrun metal expected -O2 or -O0")
+    endif()
+    if(NOT fake_metal_o2_index EQUAL -1 AND
+       NOT fake_metal_o0_index EQUAL -1)
+      message(FATAL_ERROR "fake xcrun metal expected exactly one of -O2 or -O0")
+    endif()
+    if(NOT fake_metal_o0_index EQUAL -1 AND
+       fake_metal_line_tables_index EQUAL -1)
+      message(FATAL_ERROR
+              "fake xcrun metal expected -gline-tables-only with -O0")
+    endif()
+    if(NOT fake_metal_o2_index EQUAL -1 AND
+       NOT fake_metal_line_tables_index EQUAL -1)
+      message(FATAL_ERROR
+              "fake xcrun metal did not expect -gline-tables-only with -O2")
+    endif()
+    fake_tool_expect_arg_present("${fake_tool_args}" "-c")
+    fake_tool_find_arg_value("${fake_tool_args}" "-o" fake_output)
+    list(FIND fake_tool_args "-o" fake_output_option_index)
+    math(EXPR fake_source_index "${fake_output_option_index} - 1")
+    list(GET fake_tool_args ${fake_source_index} fake_source)
+    if(NOT fake_source MATCHES "\\.metal$")
+      message(FATAL_ERROR
+              "fake xcrun expected Metal source ending in .metal, got ${fake_source}")
+    endif()
+    if(NOT fake_output MATCHES "\\.air$")
+      message(FATAL_ERROR
+              "fake xcrun expected AIR output ending in .air, got ${fake_output}")
+    endif()
+  elseif(fake_xcrun_tool STREQUAL "metallib")
+    fake_tool_expect_arg_count("${fake_tool_args}" 6)
+    fake_tool_expect_arg("${fake_tool_args}" 4 "-o")
+    list(GET fake_tool_args 3 fake_source)
+    list(GET fake_tool_args 5 fake_output)
+    if(NOT fake_source MATCHES "\\.air$")
+      message(FATAL_ERROR
+              "fake xcrun expected AIR source ending in .air, got ${fake_source}")
+    endif()
+    if(NOT fake_output MATCHES "\\.metallib$")
+      message(FATAL_ERROR
+              "fake xcrun expected metallib output ending in .metallib, got ${fake_output}")
+    endif()
+    if(NOT EXISTS "${fake_source}")
+      message(FATAL_ERROR
+              "fake xcrun expected AIR input to exist: ${fake_source}")
+    endif()
+  else()
+    message(FATAL_ERROR "fake xcrun expected metal or metallib, got ${fake_xcrun_tool}")
+  endif()
+elseif(FAKE_TOOL_NAME STREQUAL "spirv-as")
+  fake_tool_expect_arg_count("${fake_tool_args}" 5)
+  fake_tool_expect_arg_at("${fake_tool_args}" 0 "--target-env")
+  fake_tool_expect_arg_at("${fake_tool_args}" 1 "vulkan1.2")
+  fake_tool_expect_arg_suffix_at("${fake_tool_args}" 2 "\\.spvasm" fake_source)
+  fake_tool_expect_arg_at("${fake_tool_args}" 3 "-o")
+  fake_tool_expect_arg_suffix_at("${fake_tool_args}" 4 "\\.spv" fake_output)
+elseif(FAKE_TOOL_NAME STREQUAL "spirv-val")
+  fake_tool_expect_arg_count("${fake_tool_args}" 3)
+  fake_tool_expect_arg_at("${fake_tool_args}" 0 "--target-env")
+  fake_tool_expect_arg_at("${fake_tool_args}" 1 "vulkan1.2")
+  fake_tool_expect_arg_suffix_at("${fake_tool_args}" 2 "\\.spv" fake_module)
+  if(NOT EXISTS "${fake_module}")
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected SPIR-V module to exist: ${fake_module}")
+  endif()
+elseif(FAKE_TOOL_NAME STREQUAL "spirv-opt")
+  fake_tool_expect_arg_count("${fake_tool_args}" 5)
+  fake_tool_expect_arg_at("${fake_tool_args}" 0 "--target-env=vulkan1.2")
+  fake_tool_expect_arg_at("${fake_tool_args}" 1 "-O")
+  fake_tool_expect_arg_suffix_at("${fake_tool_args}" 2 "\\.spv" fake_source)
+  fake_tool_expect_arg_at("${fake_tool_args}" 3 "-o")
+  fake_tool_expect_arg_suffix_at("${fake_tool_args}" 4 "\\.opt\\.spv" fake_output)
+  if(NOT EXISTS "${fake_source}")
+    message(FATAL_ERROR
+            "fake ${FAKE_TOOL_NAME} expected SPIR-V input to exist: ${fake_source}")
+  endif()
+else()
+  message(FATAL_ERROR "unknown fake shader tool: ${FAKE_TOOL_NAME}")
+endif()
+
+if(FAKE_TOOL_NAME STREQUAL "xcrun" AND
+   FAKE_TOOL_BEHAVIOR STREQUAL "metal-failure" AND
+   fake_xcrun_tool STREQUAL "metal")
+  message(FATAL_ERROR "fake xcrun metal failure")
+elseif(FAKE_TOOL_NAME STREQUAL "xcrun" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "metal-diagnostics-failure" AND
+       fake_xcrun_tool STREQUAL "metal")
+  file(WRITE "${fake_output}" "fake partial metal air from diagnostic failure\n")
+  set(fake_partial_metallib "${fake_output}")
+  string(REGEX REPLACE "\\.air$" ".metallib" fake_partial_metallib
+         "${fake_partial_metallib}")
+  if(NOT fake_partial_metallib STREQUAL "${fake_output}")
+    file(WRITE "${fake_partial_metallib}"
+         "fake partial metal metallib from diagnostic metal failure\n")
+  endif()
+  message("${fake_source}:5:3: error: fake metal mapped failure")
+  message(FATAL_ERROR "fake xcrun metal mapped failure")
+elseif(FAKE_TOOL_NAME STREQUAL "xcrun" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "metallib-failure" AND
+       fake_xcrun_tool STREQUAL "metallib")
+  message(FATAL_ERROR "fake xcrun metallib failure")
+elseif(FAKE_TOOL_NAME STREQUAL "xcrun" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "metallib-diagnostics-failure" AND
+       fake_xcrun_tool STREQUAL "metallib")
+  file(WRITE "${fake_output}"
+       "fake partial metal metallib from diagnostic metallib failure\n")
+  set(fake_metal_source "${fake_source}")
+  string(REGEX REPLACE "\\.air$" ".metal" fake_metal_source
+         "${fake_metal_source}")
+  message("${fake_metal_source}:5:3: error: fake metallib mapped failure")
+  message(FATAL_ERROR "fake xcrun metallib mapped failure")
+elseif(FAKE_TOOL_NAME STREQUAL "dxc" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "failure")
+  file(WRITE "${fake_output}" "fake partial dxil from failed dxc\n")
+  message(FATAL_ERROR "fake ${FAKE_TOOL_NAME} failure")
+elseif(FAKE_TOOL_NAME STREQUAL "dxc" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "diagnostics-failure")
+  file(WRITE "${fake_output}" "fake partial dxil from diagnostic dxc failure\n")
+  message("${fake_dxc_source}(5,3): error: fake dxc mapped failure")
+  message(FATAL_ERROR "fake dxc mapped failure")
+elseif(FAKE_TOOL_NAME STREQUAL "spirv-val" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "diagnostics-failure")
+  message("${fake_module}:7:2: error: fake spirv-val mapped failure")
+  message(FATAL_ERROR "fake spirv-val mapped failure")
+elseif(FAKE_TOOL_NAME STREQUAL "glslangValidator" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "diagnostics-failure")
+  fake_glslang_write_partial_native_artifact()
+  message("${fake_glslang_source}:5:3: error: fake glslang mapped failure")
+  message(FATAL_ERROR "fake glslangValidator mapped failure")
+elseif(FAKE_TOOL_NAME STREQUAL "glslangValidator" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "failure")
+  fake_glslang_write_partial_native_artifact()
+  message(FATAL_ERROR "fake ${FAKE_TOOL_NAME} failure")
+elseif(FAKE_TOOL_BEHAVIOR STREQUAL "failure")
+  message(FATAL_ERROR "fake ${FAKE_TOOL_NAME} failure")
+elseif(FAKE_TOOL_NAME STREQUAL "glslangValidator" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "fragment-failure" AND
+       fake_glsl_stage STREQUAL "frag")
+  fake_glslang_write_partial_native_artifact()
+  message(FATAL_ERROR "fake glslangValidator fragment failure")
+elseif((FAKE_TOOL_BEHAVIOR STREQUAL "no-output" OR
+        FAKE_TOOL_BEHAVIOR STREQUAL "empty-output") AND
+       NOT FAKE_TOOL_NAME STREQUAL "dxc")
+  message(FATAL_ERROR
+          "fake ${FAKE_TOOL_NAME} behavior ${FAKE_TOOL_BEHAVIOR} is only supported for dxc")
+elseif(NOT FAKE_TOOL_BEHAVIOR STREQUAL "success" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "metal-failure" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "metallib-failure" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "metal-diagnostics-failure" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "metallib-diagnostics-failure" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "metal-no-output" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "metallib-no-output" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "no-output" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "empty-output" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "diagnostics-failure" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "fragment-failure")
+  message(FATAL_ERROR
+          "unknown fake ${FAKE_TOOL_NAME} behavior: ${FAKE_TOOL_BEHAVIOR}")
+endif()
+
+if(FAKE_TOOL_NAME STREQUAL "dxc" AND
+   FAKE_TOOL_BEHAVIOR STREQUAL "no-output")
+  # Exit successfully without writing the requested output.
+elseif(FAKE_TOOL_NAME STREQUAL "dxc" AND
+       FAKE_TOOL_BEHAVIOR STREQUAL "empty-output")
+  file(WRITE "${fake_output}" "")
+elseif(FAKE_TOOL_NAME STREQUAL "dxc")
+  file(WRITE "${fake_output}" "fake dxil\n")
+elseif(FAKE_TOOL_NAME STREQUAL "xcrun" AND fake_xcrun_tool STREQUAL "metal" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "metal-no-output")
+  file(WRITE "${fake_output}" "fake metal air\n")
+elseif(FAKE_TOOL_NAME STREQUAL "xcrun" AND fake_xcrun_tool STREQUAL "metallib" AND
+       NOT FAKE_TOOL_BEHAVIOR STREQUAL "metallib-no-output")
+  file(WRITE "${fake_output}" "fake metal metallib\n")
+elseif(FAKE_TOOL_NAME STREQUAL "spirv-as")
+  file(WRITE "${fake_output}" "CrossGL fake SPIR-V\n")
+elseif(FAKE_TOOL_NAME STREQUAL "spirv-opt")
+  file(WRITE "${fake_output}" "CrossGL fake optimized SPIR-V\n")
+endif()

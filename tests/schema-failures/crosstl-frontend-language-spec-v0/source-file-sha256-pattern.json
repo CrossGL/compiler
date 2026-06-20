@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 0,
+  "kind": "crosstl-frontend-language-spec-snapshot",
+  "description": "Invalid fixture with a malformed source file seal.",
+  "source": {
+    "repository": "CrossGL-Translator",
+    "frontend": "crosstl.translator",
+    "authorityReferences": [
+      {
+        "id": "authority.pr720-merged-reference",
+        "kind": "merged-pr",
+        "repository": "CrossGL/crosstl",
+        "url": "https://github.com/CrossGL/crosstl/pull/720",
+        "state": "MERGED",
+        "headCommit": "19557a4b4e6ccca55622e819c795963d7f3a0a59",
+        "languageAuthorityImpact": "no-sealed-source-drift"
+      }
+    ],
+    "files": [
+      {
+        "path": "crosstl/translator/lexer.py",
+        "sha256": "not-a-sha256"
+      }
+    ],
+    "extraction": {
+      "tool": "fixture",
+      "method": "fixture"
+    }
+  },
+  "lexical": {},
+  "language": {},
+  "ast": {},
+  "validation": {},
+  "notes": [
+    "fixture"
+  ]
+}

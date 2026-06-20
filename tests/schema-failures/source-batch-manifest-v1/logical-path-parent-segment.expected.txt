@@ -1,0 +1,1 @@
+$.sources[0].logicalPath: expected string to match pattern

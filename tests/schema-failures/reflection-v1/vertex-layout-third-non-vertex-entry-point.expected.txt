@@ -1,0 +1,1 @@
+$.vertexLayouts[2].entryPoint: expected vertex entry point, got 'compute'

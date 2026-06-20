@@ -1,0 +1,1 @@
+$.vertexLayouts[1].attributes: duplicate location 1

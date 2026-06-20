@@ -1,0 +1,1 @@
+$.nativeArtifactDescriptor.target: expected null when nativeArtifactDescriptor artifact is not present

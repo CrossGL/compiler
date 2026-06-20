@@ -1,0 +1,104 @@
+{
+  "actions": [
+    {
+      "kind": "inspect-package-artifact",
+      "target": "opengl"
+    },
+    {
+      "kind": "materialize-runtime-adapter",
+      "target": "opengl"
+    }
+  ],
+  "adapterManifest": "runtime-adapters.json",
+  "adapterPlan": {
+    "actionCount": 2,
+    "adapterCount": 1,
+    "kind": "crosstl-runtime-adapter-plan",
+    "success": true
+  },
+  "adapterRoot": "tests/fixtures/crosstl-runtime-adapter-pr1308-opengl/runtime-adapters",
+  "descriptors": [
+    {
+      "adapterKind": "opengl-glsl-adapter",
+      "artifact": "simple.cgl|opengl|default|out/opengl/simple.glsl",
+      "artifactFormat": "GLSL source",
+      "binding": "simple.cgl|opengl|default|out/opengl/simple.glsl|artifacts/out/opengl/simple.glsl",
+      "descriptorHash": {
+        "algorithm": "sha256",
+        "value": "22d1154fd2ffa080e56bb4f8282c645e9278cb8ea87825437d5264c67904e1c1"
+      },
+      "descriptorPath": "adapters/opengl/opengl-simple-cgl-opengl-default-out-opengl-simple-glsl-artifacts-out-opengl-simple-glsl.adapter.json",
+      "descriptorSizeBytes": 2052,
+      "hostInterfaceStatus": "ready",
+      "id": "opengl.simple.cgl.opengl.default.out.opengl.simple.glsl.artifacts.out.opengl.simple.glsl",
+      "packagePath": "artifacts/out/opengl/simple.glsl",
+      "requiredTools": [
+        "glslangValidator"
+      ],
+      "target": "opengl"
+    }
+  ],
+  "diagnosticCounts": {
+    "error": 0,
+    "note": 0,
+    "warning": 0
+  },
+  "diagnostics": [],
+  "generatedAt": 1,
+  "kind": "crosstl-runtime-adapter-package",
+  "nonGoals": [
+    "host-code-rewriting",
+    "device-execution",
+    "runtime-framework-generation",
+    "target-sdk-installation"
+  ],
+  "packageInspection": {
+    "success": true
+  },
+  "packageRoot": "tests/fixtures/crosstl-runtime-adapter-pr1308-opengl/runtime-package",
+  "project": {
+    "targets": [
+      "opengl"
+    ]
+  },
+  "runtimePlan": {
+    "kind": "crosstl-runtime-plan"
+  },
+  "schemaVersion": 1,
+  "scope": "runtime-adapter-descriptor-package",
+  "sourcePackage": "tests/fixtures/crosstl-runtime-adapter-pr1308-opengl/runtime-package.json",
+  "sourcePackageHash": {
+    "algorithm": "sha256",
+    "value": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "success": true,
+  "summary": {
+    "actionCount": 2,
+    "adapterCount": 1,
+    "blockedDescriptorCount": 0,
+    "descriptorCount": 1,
+    "readyDescriptorCount": 1,
+    "runtimeReferenceCount": 1,
+    "targetCount": 1
+  },
+  "targets": [
+    {
+      "adapterCount": 1,
+      "adapterKind": "opengl-glsl-adapter",
+      "blockedDescriptorCount": 0,
+      "descriptorCount": 1,
+      "descriptors": [
+        "opengl.simple.cgl.opengl.default.out.opengl.simple.glsl.artifacts.out.opengl.simple.glsl"
+      ],
+      "packagePaths": [
+        "artifacts/out/opengl/simple.glsl"
+      ],
+      "readyDescriptorCount": 1,
+      "requiredTools": [
+        "glslangValidator"
+      ],
+      "runtimeReferenceCount": 1,
+      "target": "opengl"
+    }
+  ]
+}

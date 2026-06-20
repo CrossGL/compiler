@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "module": "SourceFreeVulkanRuntimeExample",
+  "target": "vulkan",
+  "nativeBinary": "backend/vulkan/SourceFreeVulkanRuntimeExample.spv",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "source_free_vulkan_main"
+    }
+  ],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "OutputBuffer",
+      "kind": "storageBuffer",
+      "type": "float4",
+      "set": 0,
+      "binding": 0
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "vulkan",
+      "stage": "compute",
+      "entryPoint": "source_free_vulkan_main",
+      "name": "OutputBuffer",
+      "kind": "storageBuffer",
+      "sourceType": "float4",
+      "addressSpace": "storage",
+      "abi": {
+        "set": 0,
+        "binding": 0
+      },
+      "bindingClass": "storage-buffer",
+      "descriptorType": "VK_DESCRIPTOR_TYPE_STORAGE_BUFFER",
+      "storageClass": "StorageBuffer",
+      "spirvType": "%_runtimearr_v4float"
+    }
+  ],
+  "targetFeatures": [
+    {
+      "target": "vulkan",
+      "kind": "package",
+      "name": "native"
+    }
+  ]
+}

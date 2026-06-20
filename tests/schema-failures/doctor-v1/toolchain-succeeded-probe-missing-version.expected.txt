@@ -1,0 +1,1 @@
+$.toolchain.tools[0].version: succeeded probe for tool 'dxc' requires captured version text

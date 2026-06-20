@@ -1,0 +1,24 @@
+shader OpenGLDynamicNestedLocalFunctionParameterArrayUnsupportedShader {
+  const int ROWS = 2;
+  const int COLS = 3;
+  const int LAST_COL = COLS - 1;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    float readDynamicRow(float grid[ROWS][COLS], int row) {
+      return grid[row][LAST_COL];
+    }
+
+    void main() {
+      float grid[ROWS][COLS];
+      grid[0][0] = values[0];
+      grid[1][LAST_COL] = values[1];
+      int row = int(values[0]);
+      float selected = readDynamicRow(grid, row);
+      values[2] = selected;
+      return;
+    }
+  }
+}

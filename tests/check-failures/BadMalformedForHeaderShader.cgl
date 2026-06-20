@@ -1,0 +1,11 @@
+shader BadMalformedForHeader {
+  compute {
+    void main() {
+      int value = 0;
+      for (int i = 0; i < 4) {
+        value = value + 1;
+      }
+      return;
+    }
+  }
+}

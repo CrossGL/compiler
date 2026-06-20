@@ -1,0 +1,30 @@
+shader MetalNestedVectorArrayHelperShader {
+  const int BASE = 2;
+  const int ROWS = 2;
+  const int COLS = BASE + 1;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* outputs;
+
+    vec4 readVector(vec4 values[ROWS][COLS]) {
+      return values[1][2];
+    }
+
+    vec4 forwardVector(vec4 values[ROWS][COLS]) {
+      return readVector(values);
+    }
+
+    void main() {
+      vec4 localVectors[ROWS][COLS];
+      localVectors[0][0] = outputs[0];
+      localVectors[0][1] = outputs[1];
+      localVectors[0][2] = outputs[2];
+      localVectors[1][0] = outputs[3];
+      localVectors[1][1] = outputs[4];
+      localVectors[1][2] = outputs[5];
+      outputs[6] = forwardVector(localVectors);
+      return;
+    }
+  }
+}

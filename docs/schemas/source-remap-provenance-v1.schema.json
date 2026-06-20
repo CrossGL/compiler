@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/source-remap-provenance-v1.schema.json",
+  "title": "CrossGL Source Remap Provenance Schema v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "contractVersion",
+    "target",
+    "generatedFile",
+    "mappingGranularity",
+    "mappingCount",
+    "sourceRemap"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "crossgl.sourceRemapProvenance"
+    },
+    "contractVersion": {
+      "type": "string",
+      "const": "source-remap-provenance-v1"
+    },
+    "target": {
+      "$ref": "#/$defs/targetName"
+    },
+    "generatedFile": {
+      "$ref": "#/$defs/stableRelativePath"
+    },
+    "mappingGranularity": {
+      "type": "string",
+      "const": "source-span"
+    },
+    "mappingCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sourceRemap": {
+      "$ref": "#/$defs/sourceRemapIdentity"
+    }
+  },
+  "$defs": {
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "stableRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?/)(?!.*(?:^|/)\\.\\.?$)[^/]+(?:/[^/]+)*$"
+    },
+    "hostPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "sha256"
+        },
+        "value": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "sourceRemapMappingGranularity": {
+      "type": "string",
+      "enum": [
+        "file",
+        "line",
+        "statement",
+        "token"
+      ]
+    },
+    "sourceRemapIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "sizeBytes"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/hostPath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mappingGranularity": {
+          "$ref": "#/$defs/sourceRemapMappingGranularity"
+        },
+        "sourceBackend": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variant": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

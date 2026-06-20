@@ -1,0 +1,9 @@
+shader BadWidthSwizzleShader {
+  compute {
+    void main() {
+      vec2 uv = vec2(0.25, 0.75);
+      float bad = uv.z;
+      return;
+    }
+  }
+}

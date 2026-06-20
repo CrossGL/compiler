@@ -1,0 +1,50 @@
+shader StorageImageAtomicDescriptorArrayShader {
+  const int IMAGE_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 2, local_size_y = 2, local_size_z = 2) in;
+    layout(set = 0, binding = 0) buffer int* slots;
+    layout(set = 0, binding = 1, format = r32i) readwrite uniform iimage2D signedCounters[IMAGE_COUNT];
+    layout(set = 0, binding = 2, format = r32ui) readwrite uniform uimage2D unsignedCounters[IMAGE_COUNT];
+    layout(set = 0, binding = 3, format = r32i) readwrite uniform iimage2DArray signedAtlases[IMAGE_COUNT];
+    layout(set = 0, binding = 4, format = r32ui) readwrite uniform uimage2DArray unsignedAtlases[IMAGE_COUNT];
+    layout(set = 0, binding = 5) buffer int* signedResults;
+    layout(set = 0, binding = 6) buffer uint* unsignedResults;
+
+    void main() {
+      int slot = slots[0];
+      ivec2 pixel = ivec2(0, 0);
+      int layer = 0;
+      ivec3 atlasPixel = ivec3(pixel, layer);
+
+      int signedOld =
+          imageAtomicAdd(signedCounters[nonuniform(slot)], pixel, 1);
+      uint unsignedOld =
+          imageAtomicAdd(unsignedCounters[nonuniform(slot)], pixel, uint(1.0));
+      int signedMin =
+          imageAtomicMin(signedCounters[nonuniform(slot)], pixel, signedOld);
+      uint unsignedMax =
+          imageAtomicMax(unsignedCounters[nonuniform(slot)], pixel,
+                         unsignedOld);
+      int atlasAnd =
+          imageAtomicAnd(signedAtlases[nonuniform(slot)], atlasPixel,
+                         signedMin);
+      uint atlasOr =
+          imageAtomicOr(unsignedAtlases[nonuniform(slot)], atlasPixel,
+                        unsignedMax);
+      int atlasOld =
+          imageAtomicExchange(signedAtlases[nonuniform(slot)], atlasPixel,
+                              atlasAnd);
+      uint unsignedAtlasOld =
+          imageAtomicExchange(unsignedAtlases[nonuniform(slot)], atlasPixel,
+                              atlasOr);
+      imageAtomicXor(signedCounters[nonuniform(slot)], pixel, atlasOld);
+      imageAtomicXor(unsignedCounters[nonuniform(slot)], pixel,
+                     unsignedAtlasOld);
+
+      signedResults[0] = atlasOld;
+      unsignedResults[0] = unsignedAtlasOld;
+      return;
+    }
+  }
+}

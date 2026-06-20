@@ -1,0 +1,42 @@
+shader VulkanStorageImageAccessQualifierShader {
+  const int IMAGE_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 2, local_size_y = 2, local_size_z = 1) in;
+
+    layout(set = 0, binding = 0) readonly uniform image2D readOnlyImage;
+    layout(set = 0, binding = 1) writeonly uniform image2D writeOnlyImage;
+    layout(set = 0, binding = 2) readwrite uniform image2D readWriteImage;
+    layout(set = 0, binding = 3) readonly uniform image2D
+        readOnlyImages[IMAGE_COUNT];
+    layout(set = 0, binding = 4) writeonly uniform image2D
+        writeOnlyImages[IMAGE_COUNT];
+    layout(set = 0, binding = 5) readwrite uniform image2D
+        readWriteImages[IMAGE_COUNT];
+    layout(set = 0, binding = 6) buffer int* slots;
+    layout(set = 0, binding = 7) buffer vec4* colors;
+
+    void main() {
+      int slot = slots[0];
+      ivec2 pixel = ivec2(0, 0);
+
+      vec4 readOnlyColor = imageLoad(readOnlyImage, pixel);
+      imageStore(writeOnlyImage, pixel, readOnlyColor);
+
+      vec4 readWriteColor = imageLoad(readWriteImage, pixel);
+      imageStore(readWriteImage, pixel, readWriteColor + readOnlyColor);
+
+      vec4 arrayReadOnlyColor =
+          imageLoad(readOnlyImages[nonuniform(slot)], pixel);
+      imageStore(writeOnlyImages[nonuniform(slot)], pixel, arrayReadOnlyColor);
+
+      vec4 arrayReadWriteColor = imageLoad(readWriteImages[slot], pixel);
+      imageStore(readWriteImages[slot], pixel,
+                 arrayReadWriteColor + arrayReadOnlyColor);
+
+      colors[0] = readOnlyColor + readWriteColor + arrayReadOnlyColor +
+                  arrayReadWriteColor;
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.abiRecords[0].arrayElementCount: expected source resource arrayElementCount 2, got None

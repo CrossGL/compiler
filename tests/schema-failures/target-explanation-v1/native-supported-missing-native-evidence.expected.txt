@@ -1,0 +1,1 @@
+$.targets[0].missingCapabilities: native support cannot miss 'metal.backend.native-metal-package'

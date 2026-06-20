@@ -1,0 +1,1 @@
+$.packagePath: expected normalized '/' path separators

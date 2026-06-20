@@ -1,0 +1,9 @@
+use lighting.common;
+
+shader BadUnsupportedUseImport {
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

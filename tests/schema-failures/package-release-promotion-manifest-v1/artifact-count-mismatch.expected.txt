@@ -1,0 +1,1 @@
+$.packages[0].artifactCount: expected artifact length 1, got 2

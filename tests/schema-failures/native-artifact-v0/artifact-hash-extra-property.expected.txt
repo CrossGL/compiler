@@ -1,0 +1,1 @@
+$.artifactHash: unexpected property 'unexpected'

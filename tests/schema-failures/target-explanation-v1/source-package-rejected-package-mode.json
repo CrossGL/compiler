@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "defaultTarget": "directx",
+  "buildableTargetCount": 0,
+  "recommendedTarget": null,
+  "recommendedPackageMode": null,
+  "targets": [
+    {
+      "target": "directx",
+      "nativeImplemented": false,
+      "sourcePackageSupported": false,
+      "packageBuildSupported": false,
+      "packageMode": "source-package",
+      "packageDecisionReason": "source-package-available",
+      "packageRankScore": 1,
+      "requiredCapabilityCount": 2,
+      "missingCapabilityCount": 2,
+      "requiredCapabilities": [
+        "directx.backend.hlsl-lowering",
+        "directx.diagnostic.directx.mixed-sampler-state-usage"
+      ],
+      "missingCapabilities": [
+        "directx.backend.hlsl-lowering",
+        "directx.diagnostic.directx.mixed-sampler-state-usage"
+      ],
+      "legalizationCoreEvidenceIds": [
+        "target-legalization.v1.directx.decision",
+        "target-legalization.v1.directx.state.rejected",
+        "target-legalization.v1.directx.support.unsupported",
+        "target-legalization.v1.directx.package-mode.unsupported",
+        "target-legalization.v1.directx.package-provenance.unsupported-source-form",
+        "target-legalization.v1.directx.package-reason.unsupported"
+      ],
+      "targetBackend": "directx",
+      "decisionReasonCodes": [
+        "package-mode:source-package",
+        "package-reason:source-package-available",
+        "unsupported:missing-capabilities"
+      ],
+      "artifactLinks": [
+        "ir/target-explanation.json#targets/directx"
+      ],
+      "reportLinks": [
+        "target-explanation-v1#targets/directx"
+      ],
+      "remediation": "Source package output is available; native artifact remediation requires satisfying: directx.backend.hlsl-lowering, directx.diagnostic.directx.mixed-sampler-state-usage."
+    }
+  ]
+}

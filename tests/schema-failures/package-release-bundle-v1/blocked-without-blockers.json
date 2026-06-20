@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "promotionManifestPath": "release/package-release-promotion-manifest.json",
+  "summaryPath": "release/package-maintenance-set-verification-batch-summary.json",
+  "batchPath": "release/package-maintenance-set-verification-batch.json",
+  "status": "blocked",
+  "releaseEligible": false,
+  "blockerCount": 0,
+  "blockers": [],
+  "packageCount": 0,
+  "artifactCount": 0,
+  "existingArtifactCount": 0,
+  "missingArtifactCount": 0,
+  "totalArtifactBytes": 0,
+  "packages": []
+}

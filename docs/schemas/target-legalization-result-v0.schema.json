@@ -1,0 +1,518 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/target-legalization-result-v0.schema.json",
+  "title": "CrossGL Target Legalization Result JSON (Report Only)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "schemaVersion",
+    "policy",
+    "result"
+  ],
+  "properties": {
+    "contract": {
+      "type": "string",
+      "const": "crossgl.target-legalization-result.v0"
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 0
+    },
+    "policy": {
+      "$ref": "#/$defs/policy"
+    },
+    "result": {
+      "$ref": "#/$defs/result"
+    }
+  },
+  "$defs": {
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "decisionAuthority",
+        "consumerMigration",
+        "productionBehavior"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "const": "report-only"
+        },
+        "decisionAuthority": {
+          "type": "string",
+          "const": "current-compiler-behavior"
+        },
+        "consumerMigration": {
+          "type": "string",
+          "const": "pending"
+        },
+        "productionBehavior": {
+          "type": "string",
+          "const": "unchanged"
+        }
+      }
+    },
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl",
+        "wgsl"
+      ]
+    },
+    "targetNameOrAuto": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl",
+        "wgsl"
+      ]
+    },
+    "targetSelectionReason": {
+      "type": "string",
+      "enum": [
+        "auto-host-default",
+        "auto-recommended-target",
+        "explicit-target"
+      ]
+    },
+    "packageMode": {
+      "type": "string",
+      "enum": [
+        "native",
+        "source-package",
+        "unsupported"
+      ]
+    },
+    "supportStatus": {
+      "type": "string",
+      "enum": [
+        "native",
+        "source-package",
+        "unsupported"
+      ]
+    },
+    "packageDecisionProvenance": {
+      "type": "string",
+      "enum": [
+        "native-package-available",
+        "source-package-only",
+        "unsupported",
+        "unsupported-native-form",
+        "unsupported-raw-hir",
+        "unsupported-source-form"
+      ]
+    },
+    "diagnosticSeverity": {
+      "type": "string",
+      "enum": [
+        "error",
+        "info",
+        "warning"
+      ]
+    },
+    "rewriteStatus": {
+      "type": "string",
+      "enum": [
+        "applied",
+        "blocked",
+        "not-required",
+        "planned"
+      ]
+    },
+    "abiState": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "not-required",
+        "partial",
+        "unsupported"
+      ]
+    },
+    "abiFactKind": {
+      "type": "string",
+      "enum": [
+        "entry-point",
+        "extension",
+        "layout",
+        "native-profile",
+        "resource-binding",
+        "toolchain"
+      ]
+    },
+    "abiFactStatus": {
+      "type": "string",
+      "enum": [
+        "missing",
+        "not-required",
+        "provided",
+        "required"
+      ]
+    },
+    "toolRequirementKind": {
+      "type": "string",
+      "description": "Canonical serialized tool requirement kind. Native tool requirements use native-tool; legacy nativeTool is internal-only and invalid in v0 JSON.",
+      "enum": [
+        "native-tool",
+        "toolchain",
+        "validation"
+      ]
+    },
+    "toolRequirementStatus": {
+      "type": "string",
+      "enum": [
+        "missing",
+        "required"
+      ]
+    },
+    "optionalNativeToolStatus": {
+      "type": "string",
+      "description": "Normalized source-package optional native tool state. not-required means no optional native tool requirement applies to this result, available means optional native tool requirements were recorded and none are missing, and missing means source-package output remains buildable while optional native tools are unavailable.",
+      "enum": [
+        "available",
+        "missing",
+        "not-required"
+      ]
+    },
+    "capabilityId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*(?:\\.[a-z0-9][a-z0-9-]*)+$"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_.-]*$"
+    },
+    "diagnosticCode": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]*$"
+    },
+    "evidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl|wgsl)\\.[A-Za-z0-9_.-]+$"
+    },
+    "capabilityIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/capabilityId"
+      }
+    },
+    "evidenceIdList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/evidenceId"
+      }
+    },
+    "targetProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "profile",
+        "packageMode"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "requestedTarget": {
+          "$ref": "#/$defs/targetNameOrAuto"
+        },
+        "preferredTarget": {
+          "$ref": "#/$defs/targetName"
+        },
+        "resolvedTarget": {
+          "$ref": "#/$defs/targetName"
+        },
+        "selectedTarget": {
+          "$ref": "#/$defs/targetName"
+        },
+        "selectionReason": {
+          "$ref": "#/$defs/targetSelectionReason"
+        },
+        "autoRequested": {
+          "type": "boolean"
+        },
+        "selectedTargetBuildable": {
+          "type": "boolean"
+        },
+        "profile": {
+          "type": "string",
+          "pattern": "^(metal|vulkan|directx|opengl|wgsl)\\.v0\\.(native|source-package|unsupported)$"
+        },
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        }
+      }
+    },
+    "toolRequirementRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "name",
+        "status",
+        "target",
+        "evidenceIds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/capabilityId"
+        },
+        "kind": {
+          "$ref": "#/$defs/toolRequirementKind"
+        },
+        "name": {
+          "$ref": "#/$defs/identifier"
+        },
+        "status": {
+          "$ref": "#/$defs/toolRequirementStatus"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "evidenceIds": {
+          "description": "Tool requirement evidence for this concrete tool record. Semantic validation requires the matching tool-requirement.<status>.<kind>.<name> evidence ID here and membership in toolRequirements.evidenceIds and result.evidenceIds.",
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "toolRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requiredToolIds",
+        "missingToolIds",
+        "records",
+        "optionalNativeToolMissing",
+        "optionalNativeToolStatus",
+        "evidenceIds"
+      ],
+      "properties": {
+        "requiredToolIds": {
+          "$ref": "#/$defs/capabilityIdList"
+        },
+        "missingToolIds": {
+          "$ref": "#/$defs/capabilityIdList"
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/toolRequirementRecord"
+          }
+        },
+        "optionalNativeToolMissing": {
+          "type": "boolean"
+        },
+        "optionalNativeToolStatus": {
+          "$ref": "#/$defs/optionalNativeToolStatus"
+        },
+        "evidenceIds": {
+          "description": "Tool requirement summary and record evidence. Semantic validation requires tool-requirements.empty or tool-requirements.present, each required or missing tool-requirement evidence ID, optional-native-tool.missing when applicable, and membership in result.evidenceIds.",
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "severity",
+        "message",
+        "target",
+        "missingCapabilities",
+        "evidenceIds"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/diagnosticCode"
+        },
+        "severity": {
+          "$ref": "#/$defs/diagnosticSeverity"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "missingCapabilities": {
+          "$ref": "#/$defs/capabilityIdList"
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "rewrite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "order",
+        "status",
+        "description",
+        "evidenceIds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "$ref": "#/$defs/rewriteStatus"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "abiFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "status",
+        "target",
+        "evidenceIds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identifier"
+        },
+        "kind": {
+          "$ref": "#/$defs/abiFactKind"
+        },
+        "status": {
+          "$ref": "#/$defs/abiFactStatus"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "evidenceIds": {
+          "description": "ABI fact evidence for this fact. Semantic validation requires every ID here to be an abi.* evidence ID also listed in abiFacts.evidenceIds and result.evidenceIds.",
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "abiFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "facts",
+        "evidenceIds"
+      ],
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/abiState"
+        },
+        "facts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/abiFact"
+          }
+        },
+        "evidenceIds": {
+          "description": "ABI evidence for this result. Semantic validation requires at least one abi.* evidence ID here and rejects support, package-mode, diagnostic, rewrite, tool, or resource-binding evidence in this ABI evidence container.",
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "targetProfile",
+        "packageMode",
+        "packageDecisionProvenance",
+        "supportStatus",
+        "moduleSupported",
+        "requiredCapabilities",
+        "missingCapabilities",
+        "toolRequirements",
+        "diagnostics",
+        "rewrites",
+        "abiFacts",
+        "resourceBindingEvidenceIds",
+        "evidenceIds"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "targetProfile": {
+          "$ref": "#/$defs/targetProfile"
+        },
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        },
+        "packageDecisionProvenance": {
+          "$ref": "#/$defs/packageDecisionProvenance"
+        },
+        "supportStatus": {
+          "description": "Normalized support state for this target result. Semantic validation requires native for native package mode, source-package for source-package mode, unsupported for unsupported mode, and matching support.* evidence in result.evidenceIds.",
+          "$ref": "#/$defs/supportStatus"
+        },
+        "moduleSupported": {
+          "type": "boolean"
+        },
+        "requiredCapabilities": {
+          "description": "Sorted target capability IDs required by the result. Semantic validation requires the package artifact capability to agree with packageMode: <target>.package.native-artifact for native, <target>.package.source-artifact for source-package, and no package artifact capability for unsupported.",
+          "$ref": "#/$defs/capabilityIdList"
+        },
+        "missingCapabilities": {
+          "$ref": "#/$defs/capabilityIdList"
+        },
+        "toolRequirements": {
+          "$ref": "#/$defs/toolRequirements"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        },
+        "rewrites": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/rewrite"
+          }
+        },
+        "abiFacts": {
+          "$ref": "#/$defs/abiFacts"
+        },
+        "resourceBindingEvidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        },
+        "evidenceIds": {
+          "description": "Sorted target legalization evidence for this result. Semantic validation rejects missing or contradictory top-level state.*, support.*, package-mode.*, and package-provenance.* evidence for the declared target result.",
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    }
+  }
+}

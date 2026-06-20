@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": null,
+  "publishPlanPath": "reports/package-release-publish-plan.json",
+  "stageReportPath": "reports/package-release-publish-stage.json",
+  "success": true,
+  "artifactRecordCount": 2,
+  "bundleArtifactRecordCount": 0,
+  "publishPlanArtifactRecordCount": 1,
+  "publishStageArtifactRecordCount": 1,
+  "stagedArtifactRecordCount": 1,
+  "totalArtifactRecordBytes": 30,
+  "records": [
+    {
+      "sourceRecordKind": "publish-plan",
+      "packagePath": "packages/InventoryShader.cglb",
+      "packageArtifactPath": "backend/metal/InventoryShader.metallib",
+      "stagedPath": null,
+      "destinationPath": "packages/metal/InventoryShader.metallib",
+      "sizeBytes": 15,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "sourceRecordKind": "publish-stage",
+      "packagePath": "packages/InventoryShader.cglb",
+      "packageArtifactPath": "backend/metal/InventoryShader.metallib",
+      "stagedPath": "stage/packages/metal/InventoryShader.metallib",
+      "destinationPath": "packages/metal/InventoryShader.metallib",
+      "sizeBytes": 15,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

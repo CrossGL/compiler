@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "manifestPath": "",
+  "reportPath": "",
+  "reportWritten": false,
+  "uploadMode": "gcs",
+  "success": true,
+  "requestCount": 0,
+  "requestBytes": 0,
+  "uploadedArtifactCount": 0,
+  "uploadedArtifactBytes": 0,
+  "uploadedRequests": [],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

@@ -1,0 +1,410 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.languageFeatureReport",
+  "module": {
+    "moduleId": "ResourceShader",
+    "sourcePath": "tests/fixtures/ResourceShader.cgl",
+    "sourceSha256": "9213f2331dec7747d0e4bea92b083bb3bd9c4e30238d59b943fe49f33b525038",
+    "stageEntryPoints": [
+      {
+        "stage": "compute",
+        "entryPoint": "main"
+      }
+    ]
+  },
+  "language": {
+    "family": "CrossGL",
+    "version": "v0",
+    "nativeProfile": "native-v0",
+    "compatibilityContract": "tools/cross_repo_language_contract.json"
+  },
+  "crossTLSnapshotSeal": {
+    "snapshotId": "crosstl-frontend-language-spec-v0",
+    "snapshotPath": "docs/language/crosstl-frontend-language-spec-v0.json",
+    "snapshotSha256": "7d19829365f76febad6313cf309d514d26ee8b1e3698110d576ac843f0419a04",
+    "snapshotSchemaVersion": 0
+  },
+  "compatibilityBucketSummary": {
+    "cross-tl-inventory-only": 23,
+    "accepted-source": 0,
+    "package-supported": 0,
+    "compatibility-only": 0,
+    "spec.unsupported-for-native-v0": 0,
+    "spec.deprecated": 0,
+    "spec.error": 0,
+    "target.unsupported": 0
+  },
+  "targetFeatureGates": [
+    {
+      "target": "vulkan",
+      "targetVersion": "v0",
+      "packageMode": "source",
+      "gateId": "target.resource-arrays",
+      "featureFamily": "resources",
+      "status": "planned-failure",
+      "requiredCapabilities": [
+        "vulkan.diagnostic.vulkan.prototype-unsupported-runtime-resource-array"
+      ],
+      "diagnosticCodes": [],
+      "evidenceIds": [
+        "compatibility:target.resource-arrays",
+        "target-contract:vulkan.package-mode.native",
+        "target-contract:vulkan.package-support",
+        "target-contract:vulkan.support.unsupported"
+      ]
+    }
+  ],
+  "resourceMemoryLayoutFeatures": {
+    "resources": [],
+    "memory": [],
+    "layout": []
+  },
+  "crossTLLanguageSurfaceFeatures": {
+    "stages": [
+      {
+        "featureId": "stage.canonical-stages",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.stages"
+        ],
+        "snapshotRefs": [
+          "/language/stages/canonical"
+        ],
+        "inventoryCount": 16
+      },
+      {
+        "featureId": "stage.keyword-spellings",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.stages"
+        ],
+        "snapshotRefs": [
+          "/language/stages/keywordSpellings"
+        ],
+        "inventoryCount": 25
+      },
+      {
+        "featureId": "stage.parser-stage-tokens",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.stages"
+        ],
+        "snapshotRefs": [
+          "/language/stages/parserStageTokens"
+        ],
+        "inventoryCount": 16
+      }
+    ],
+    "types": [
+      {
+        "featureId": "type.primitive-types",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.types"
+        ],
+        "snapshotRefs": [
+          "/language/types/primitive"
+        ],
+        "inventoryCount": 20
+      },
+      {
+        "featureId": "type.vector-types",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.types"
+        ],
+        "snapshotRefs": [
+          "/language/types/vectors"
+        ],
+        "inventoryCount": 15
+      },
+      {
+        "featureId": "type.matrix-types",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.types"
+        ],
+        "snapshotRefs": [
+          "/language/types/matrices"
+        ],
+        "inventoryCount": 24
+      },
+      {
+        "featureId": "type.texture-types",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.types"
+        ],
+        "snapshotRefs": [
+          "/language/types/textures"
+        ],
+        "inventoryCount": 5
+      },
+      {
+        "featureId": "type.sampler-image-types",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.types"
+        ],
+        "snapshotRefs": [
+          "/language/types/samplersAndImages"
+        ],
+        "inventoryCount": 41
+      },
+      {
+        "featureId": "type.array-forms",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.types"
+        ],
+        "snapshotRefs": [
+          "/language/types/arrayForms"
+        ],
+        "inventoryCount": 2
+      },
+      {
+        "featureId": "type.postfix-type-operators",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.types"
+        ],
+        "snapshotRefs": [
+          "/language/types/postfixTypeOperators"
+        ],
+        "inventoryCount": 3
+      }
+    ],
+    "intrinsics": [
+      {
+        "featureId": "intrinsic.texture-and-image",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.intrinsics"
+        ],
+        "snapshotRefs": [
+          "/language/intrinsics/textureAndImage"
+        ],
+        "inventoryCount": 47
+      },
+      {
+        "featureId": "intrinsic.image-resource",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.intrinsics"
+        ],
+        "snapshotRefs": [
+          "/language/intrinsics/imageResource"
+        ],
+        "inventoryCount": 11
+      },
+      {
+        "featureId": "intrinsic.integer-coordinate",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.intrinsics"
+        ],
+        "snapshotRefs": [
+          "/language/intrinsics/integerCoordinate"
+        ],
+        "inventoryCount": 12
+      },
+      {
+        "featureId": "intrinsic.wave",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.intrinsics"
+        ],
+        "snapshotRefs": [
+          "/language/intrinsics/wave"
+        ],
+        "inventoryCount": 33
+      },
+      {
+        "featureId": "intrinsic.ray-tracing",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.intrinsics"
+        ],
+        "snapshotRefs": [
+          "/language/intrinsics/rayTracing"
+        ],
+        "inventoryCount": 5
+      },
+      {
+        "featureId": "intrinsic.ray-query-methods",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.intrinsics"
+        ],
+        "snapshotRefs": [
+          "/language/intrinsics/rayQueryMethods"
+        ],
+        "inventoryCount": 17
+      },
+      {
+        "featureId": "intrinsic.mesh",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:language.intrinsics"
+        ],
+        "snapshotRefs": [
+          "/language/intrinsics/mesh"
+        ],
+        "inventoryCount": 2
+      }
+    ],
+    "ast": [
+      {
+        "featureId": "ast.classes",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:ast.surface"
+        ],
+        "snapshotRefs": [
+          "/ast/classes"
+        ],
+        "inventoryCount": 81
+      },
+      {
+        "featureId": "ast.class-fields",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:ast.surface"
+        ],
+        "snapshotRefs": [
+          "/ast/classFields"
+        ],
+        "inventoryCount": 81
+      },
+      {
+        "featureId": "ast.type-nodes",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:ast.surface"
+        ],
+        "snapshotRefs": [
+          "/ast/typeNodes"
+        ],
+        "inventoryCount": 9
+      },
+      {
+        "featureId": "ast.statement-nodes",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:ast.surface"
+        ],
+        "snapshotRefs": [
+          "/ast/statementNodes"
+        ],
+        "inventoryCount": 15
+      },
+      {
+        "featureId": "ast.expression-nodes",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:ast.surface"
+        ],
+        "snapshotRefs": [
+          "/ast/expressionNodes"
+        ],
+        "inventoryCount": 24
+      },
+      {
+        "featureId": "ast.enums",
+        "status": "cross-tl-inventory-only",
+        "sourceLocations": [],
+        "evidenceIds": [
+          "spec-index:ast.surface"
+        ],
+        "snapshotRefs": [
+          "/ast/enums"
+        ],
+        "inventoryCount": 2
+      }
+    ]
+  },
+  "facts": {
+    "unsupported": [],
+    "deprecated": [],
+    "error": []
+  },
+  "evidence": [
+    {
+      "id": "compatibility:target.resource-arrays",
+      "kind": "compatibility",
+      "path": "tools/cross_repo_language_contract.json",
+      "anchor": "target.resource-arrays"
+    },
+    {
+      "id": "target-contract:vulkan.package-support",
+      "kind": "target-contract",
+      "path": "docs/target-capability-registry-v1.json",
+      "anchor": "vulkan"
+    },
+    {
+      "id": "target-contract:vulkan.package-mode.native",
+      "kind": "target-contract",
+      "path": "docs/target-capability-registry-v1.json",
+      "anchor": "vulkan"
+    },
+    {
+      "id": "target-contract:vulkan.support.unsupported",
+      "kind": "target-contract",
+      "path": "docs/target-capability-registry-v1.json",
+      "anchor": "vulkan"
+    },
+    {
+      "id": "spec-index:language.stages",
+      "kind": "spec-index",
+      "path": "docs/language/crosstl-frontend-language-spec-v0.json",
+      "anchor": "language.stages"
+    },
+    {
+      "id": "spec-index:language.types",
+      "kind": "spec-index",
+      "path": "docs/language/crosstl-frontend-language-spec-v0.json",
+      "anchor": "language.types"
+    },
+    {
+      "id": "spec-index:language.intrinsics",
+      "kind": "spec-index",
+      "path": "docs/language/crosstl-frontend-language-spec-v0.json",
+      "anchor": "language.intrinsics"
+    },
+    {
+      "id": "spec-index:ast.surface",
+      "kind": "spec-index",
+      "path": "docs/language/crosstl-frontend-language-spec-v0.json",
+      "anchor": "ast.surface"
+    }
+  ],
+  "generation": {
+    "tool": "schema-fixture",
+    "mode": "report-only",
+    "command": [
+      "not-emitted-by-cglc"
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+shader StorageImageOptimizerBoundaryShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 4, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2D colorImage;
+    layout(set = 0, binding = 1) uniform iimage2D labelImage;
+    layout(set = 0, binding = 2) uniform uimage2DArray maskAtlas;
+
+    void main() {
+      ivec2 pixel = ivec2(int(gl_GlobalInvocationID.x),
+                          int(gl_GlobalInvocationID.y));
+      int layer = int(gl_GlobalInvocationID.z);
+      vec4 seed = vec4(1.0, 0.0, 0.0, 1.0);
+      int deadBefore = pixel.x + 12;
+      vec4 deadColor = seed + vec4(0.25, 0.25, 0.25, 0.0);
+
+      imageStore(colorImage, pixel, seed);
+      vec4 color = imageLoad(colorImage, pixel);
+      imageLoad(colorImage, pixel);
+      imageStore(colorImage, pixel + ivec2(1, 0), color);
+
+      ivec4 label = imageLoad(labelImage, pixel);
+      imageStore(labelImage, pixel + ivec2(0, 1), label);
+
+      uvec4 mask = imageLoad(maskAtlas, ivec3(pixel, layer));
+      imageStore(maskAtlas, ivec3(pixel, layer + 1), mask);
+
+      int deadAfter = deadBefore + label.x;
+      vec4 deadTail = deadColor + color;
+      return;
+    }
+  }
+}

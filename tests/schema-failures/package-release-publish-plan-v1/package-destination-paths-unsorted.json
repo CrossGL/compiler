@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "planPath": "release/package-release-publish-plan.json",
+  "releaseEligible": true,
+  "packageCount": 1,
+  "artifactCount": 2,
+  "totalArtifactBytes": 7,
+  "packages": [
+    {
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourceHash": null,
+      "nativeBinaryStatus": "emitted",
+      "packageArtifactRequirements": {
+        "target": "metal",
+        "packageMode": "native",
+        "requiredPathArtifacts": [
+          "backendSource"
+        ],
+        "requiresNativeBinaryStatus": true,
+        "allowsPlannedNativeBinary": false,
+        "allowsPlannedNativeSourceEvidence": false
+      },
+      "artifactCount": 2,
+      "totalArtifactBytes": 7,
+      "artifacts": [
+        {
+          "name": "b",
+          "packagePath": "packages/basic",
+          "module": "Basic",
+          "target": "metal",
+          "sourcePath": "packages/basic/artifacts/b.metal",
+          "packageArtifactPath": "artifacts/b.metal",
+          "destinationPath": "packages/basic/artifacts/b.metal",
+          "sizeBytes": 3,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        {
+          "name": "a",
+          "packagePath": "packages/basic",
+          "module": "Basic",
+          "target": "metal",
+          "sourcePath": "packages/basic/artifacts/a.metal",
+          "packageArtifactPath": "artifacts/a.metal",
+          "destinationPath": "packages/basic/artifacts/a.metal",
+          "sizeBytes": 4,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "reflection": {
+        "targetFeatureCount": 1,
+        "targetFeatureEvidenceIds": [
+          "target-legalization.v1.metal.abi.required.package-release-fixture"
+        ]
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "a",
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourcePath": "packages/basic/artifacts/a.metal",
+      "packageArtifactPath": "artifacts/a.metal",
+      "destinationPath": "packages/basic/artifacts/a.metal",
+      "sizeBytes": 4,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "name": "b",
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourcePath": "packages/basic/artifacts/b.metal",
+      "packageArtifactPath": "artifacts/b.metal",
+      "destinationPath": "packages/basic/artifacts/b.metal",
+      "sizeBytes": 3,
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+$.categoryCounts.expressionKinds: expected sum of entry counts 2, got 0

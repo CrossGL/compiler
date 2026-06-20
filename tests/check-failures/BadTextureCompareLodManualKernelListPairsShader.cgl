@@ -1,0 +1,13 @@
+shader BadTextureCompareLodManualKernelListPairsShader {
+  compute {
+    uniform sampler2DShadow shadowMap;
+    sampler rawShadowSampler;
+    void main() {
+      float visibility =
+          textureCompareLodManualKernel(
+              shadowMap, rawShadowSampler, vec2(0.5, 0.5), 0.25, 2.0, less,
+              textureCompareKernel(ivec2(0, 0), 0.40, ivec2(1, 0)));
+      return;
+    }
+  }
+}

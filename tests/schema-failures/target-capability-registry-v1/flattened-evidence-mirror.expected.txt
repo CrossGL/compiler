@@ -1,0 +1,1 @@
+$.targets[0].capabilities[1].evidence: expected flattened evidence to mirror structured optimization evidence ['fixture'], got ['mismatched-fixture']

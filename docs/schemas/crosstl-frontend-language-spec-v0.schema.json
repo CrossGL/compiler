@@ -1,0 +1,992 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/crosstl-frontend-language-spec-v0.schema.json",
+  "title": "CrossTL Frontend Language Spec Snapshot JSON v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "description",
+    "source",
+    "lexical",
+    "language",
+    "ast",
+    "validation",
+    "notes"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 0
+    },
+    "kind": {
+      "type": "string",
+      "const": "crosstl-frontend-language-spec-snapshot"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "lexical": {
+      "$ref": "#/$defs/lexical"
+    },
+    "language": {
+      "$ref": "#/$defs/language"
+    },
+    "ast": {
+      "$ref": "#/$defs/ast"
+    },
+    "validation": {
+      "$ref": "#/$defs/validation"
+    },
+    "notes": {
+      "$ref": "#/$defs/nonEmptyStringArray"
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nullableString": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "frontend",
+        "authorityReferences",
+        "files",
+        "extraction"
+      ],
+      "properties": {
+        "repository": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "frontend": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "authorityReferences": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/authorityReference"
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceFile"
+          }
+        },
+        "extraction": {
+          "$ref": "#/$defs/extraction"
+        }
+      }
+    },
+    "authorityReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "repository",
+        "url",
+        "state",
+        "headCommit",
+        "languageAuthorityImpact"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "kind": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "repository": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "url": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "state": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "headCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "languageAuthorityImpact": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "sourceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "extraction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "method"
+      ],
+      "properties": {
+        "tool": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "method": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "lexical": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tokens",
+        "keywords",
+        "skipTokens",
+        "literalTokens"
+      ],
+      "properties": {
+        "tokens": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/tokenPattern"
+          }
+        },
+        "keywords": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/keywordToken"
+          }
+        },
+        "skipTokens": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "literalTokens": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "tokenPattern": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "pattern"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "pattern": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "keywordToken": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spelling",
+        "token"
+      ],
+      "properties": {
+        "spelling": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "token": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stages",
+        "types",
+        "qualifiers",
+        "resources",
+        "intrinsics"
+      ],
+      "properties": {
+        "stages": {
+          "$ref": "#/$defs/stages"
+        },
+        "types": {
+          "$ref": "#/$defs/types"
+        },
+        "qualifiers": {
+          "$ref": "#/$defs/qualifiers"
+        },
+        "resources": {
+          "$ref": "#/$defs/resources"
+        },
+        "intrinsics": {
+          "$ref": "#/$defs/intrinsics"
+        }
+      }
+    },
+    "stages": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical",
+        "keywordSpellings",
+        "parserStageTokens"
+      ],
+      "properties": {
+        "canonical": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "keywordSpellings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/stageKeyword"
+          }
+        },
+        "parserStageTokens": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "stageKeyword": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spelling",
+        "token",
+        "canonical",
+        "acceptedAsStageBlock"
+      ],
+      "properties": {
+        "spelling": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "token": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "canonical": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "acceptedAsStageBlock": {
+          "type": "boolean"
+        }
+      }
+    },
+    "types": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primitive",
+        "vectors",
+        "matrices",
+        "textures",
+        "samplersAndImages",
+        "namedTypeFallback",
+        "arrayForms",
+        "postfixTypeOperators"
+      ],
+      "properties": {
+        "primitive": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/keywordToken"
+          }
+        },
+        "vectors": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/vectorType"
+          }
+        },
+        "matrices": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/matrixType"
+          }
+        },
+        "textures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/textureType"
+          }
+        },
+        "samplersAndImages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/samplerOrImageType"
+          }
+        },
+        "namedTypeFallback": {
+          "type": "boolean"
+        },
+        "arrayForms": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "postfixTypeOperators": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/postfixTypeOperator"
+          }
+        }
+      }
+    },
+    "vectorType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spelling",
+        "token",
+        "elementType",
+        "width"
+      ],
+      "properties": {
+        "spelling": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "token": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "elementType": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "matrixType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spelling",
+        "token",
+        "elementType",
+        "rows",
+        "columns"
+      ],
+      "properties": {
+        "spelling": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "token": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "elementType": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "textureType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "token",
+        "spelling",
+        "canonical"
+      ],
+      "properties": {
+        "token": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "spelling": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "canonical": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "samplerOrImageType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "token",
+        "canonical",
+        "kind",
+        "keywordSpellings"
+      ],
+      "properties": {
+        "token": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "canonical": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "kind": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "keywordSpellings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "postfixTypeOperator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operator",
+        "node"
+      ],
+      "properties": {
+        "operator": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "node": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "mutable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "qualifiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "variableQualifierTokens",
+        "parameterQualifierTokens",
+        "variableQualifierNames",
+        "parameterPrimitiveQualifierNames"
+      ],
+      "properties": {
+        "variableQualifierTokens": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "parameterQualifierTokens": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "variableQualifierNames": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "parameterPrimitiveQualifierNames": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "storageImageTypeNames",
+        "resourceBufferTypeNames",
+        "uavResourceBufferTypeNames",
+        "samplerStateTypeNames",
+        "resourceAccessMetadata",
+        "descriptorIndexMetadata",
+        "imageFormatMetadataNames",
+        "addressSpaceMetadata",
+        "memoryLayoutMetadata",
+        "builtinSemanticMetadata"
+      ],
+      "properties": {
+        "storageImageTypeNames": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "resourceBufferTypeNames": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "uavResourceBufferTypeNames": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "samplerStateTypeNames": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "resourceAccessMetadata": {
+          "$ref": "#/$defs/spellingCanonicalArray"
+        },
+        "descriptorIndexMetadata": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/descriptorIndexMetadata"
+          }
+        },
+        "imageFormatMetadataNames": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "addressSpaceMetadata": {
+          "$ref": "#/$defs/spellingCanonicalArray"
+        },
+        "memoryLayoutMetadata": {
+          "$ref": "#/$defs/spellingCanonicalArray"
+        },
+        "builtinSemanticMetadata": {
+          "$ref": "#/$defs/spellingCanonicalArray"
+        }
+      }
+    },
+    "spellingCanonicalArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/spellingCanonical"
+      }
+    },
+    "spellingCanonical": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spelling",
+        "canonical"
+      ],
+      "properties": {
+        "spelling": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "canonical": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "descriptorIndexMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "spelling",
+        "role"
+      ],
+      "properties": {
+        "spelling": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "role": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "intrinsics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "textureAndImage",
+        "imageResource",
+        "integerCoordinate",
+        "wave",
+        "rayTracing",
+        "rayQueryMethods",
+        "mesh"
+      ],
+      "properties": {
+        "textureAndImage": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/textureIntrinsic"
+          }
+        },
+        "imageResource": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "integerCoordinate": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "wave": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "rayTracing": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "rayQueryMethods": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "mesh": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "textureIntrinsic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "explicitSampler",
+        "minArguments",
+        "maxArguments"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "explicitSampler": {
+          "type": "boolean"
+        },
+        "minArguments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxArguments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allowedArgumentCounts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "ast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "classes",
+        "classFields",
+        "typeNodes",
+        "statementNodes",
+        "expressionNodes",
+        "enums"
+      ],
+      "properties": {
+        "classes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/astClass"
+          }
+        },
+        "classFields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/astClassFieldInventory"
+          }
+        },
+        "typeNodes": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "statementNodes": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "expressionNodes": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "enums": {
+          "$ref": "#/$defs/astEnums"
+        }
+      }
+    },
+    "astClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "bases"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "bases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "astClassFieldInventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class",
+        "constructorDefined",
+        "constructorParameters",
+        "fields"
+      ],
+      "properties": {
+        "class": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "constructorDefined": {
+          "type": "boolean"
+        },
+        "constructorParameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/constructorParameter"
+          }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/astField"
+          }
+        }
+      }
+    },
+    "constructorParameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "kind",
+        "annotation",
+        "required",
+        "default",
+        "optional"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "kind": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "annotation": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "optional": {
+          "type": "boolean"
+        }
+      }
+    },
+    "astField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "source",
+        "parameter",
+        "annotation",
+        "required",
+        "default",
+        "optional",
+        "initializer"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "source": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "parameter": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "annotation": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "default": {
+          "$ref": "#/$defs/nullableString"
+        },
+        "optional": {
+          "type": "boolean"
+        },
+        "initializer": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "astEnums": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ExecutionModel",
+        "ShaderStage"
+      ],
+      "properties": {
+        "ExecutionModel": {
+          "$ref": "#/$defs/enumValues"
+        },
+        "ShaderStage": {
+          "$ref": "#/$defs/enumValues"
+        }
+      }
+    },
+    "enumValues": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/enumValue"
+      }
+    },
+    "enumValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "value": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metadata",
+        "stageLayout"
+      ],
+      "properties": {
+        "metadata": {
+          "$ref": "#/$defs/validationMetadata"
+        },
+        "stageLayout": {
+          "$ref": "#/$defs/stageLayout"
+        }
+      }
+    },
+    "validationMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "singleValueNames",
+        "singleValueAliases",
+        "multiValueNames",
+        "interpolationModes",
+        "interpolationSampling",
+        "hlslSemanticBaseNames"
+      ],
+      "properties": {
+        "singleValueNames": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "singleValueAliases": {
+          "$ref": "#/$defs/spellingCanonicalArray"
+        },
+        "multiValueNames": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "interpolationModes": {
+          "$ref": "#/$defs/spellingCanonicalArray"
+        },
+        "interpolationSampling": {
+          "$ref": "#/$defs/spellingCanonicalArray"
+        },
+        "hlslSemanticBaseNames": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "stageLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directionRequirements",
+        "exclusiveEntryGroups",
+        "tessellationControlEntries",
+        "tessellationEvaluationEntries"
+      ],
+      "properties": {
+        "directionRequirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/directionRequirement"
+          }
+        },
+        "exclusiveEntryGroups": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonEmptyStringArray"
+          }
+        },
+        "tessellationControlEntries": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "tessellationEvaluationEntries": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "directionRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry",
+        "requiredDirection"
+      ],
+      "properties": {
+        "entry": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "requiredDirection": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    }
+  }
+}

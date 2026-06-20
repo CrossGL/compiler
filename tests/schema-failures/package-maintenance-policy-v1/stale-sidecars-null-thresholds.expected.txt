@@ -1,0 +1,1 @@
+$.staleSidecars: expected keepLast or olderThanSeconds to be set

@@ -1,0 +1,10 @@
+shader BadRelationalOperandShader {
+  compute {
+    void main() {
+      vec2 left = vec2(1.0, 2.0);
+      vec2 right = vec2(3.0, 4.0);
+      bool bad = left < right;
+      return;
+    }
+  }
+}

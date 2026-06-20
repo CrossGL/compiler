@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "defaultTarget": "directx",
+  "buildableTargetCount": 1,
+  "recommendedTarget": "directx",
+  "recommendedPackageMode": "source-package",
+  "targets": [
+    {
+      "target": "directx",
+      "nativeImplemented": false,
+      "sourcePackageSupported": true,
+      "packageBuildSupported": true,
+      "packageMode": "source-package",
+      "packageDecisionReason": "source-package-available",
+      "packageRankScore": 1,
+      "requiredCapabilityCount": 4,
+      "missingCapabilityCount": 3,
+      "legalizationCoreEvidenceIds": [
+        "target-legalization.v1.directx.decision",
+        "target-legalization.v1.directx.state.rejected",
+        "target-legalization.v1.directx.support.unsupported",
+        "target-legalization.v1.directx.package-mode.source-package",
+        "target-legalization.v1.directx.package-provenance.source-package-only",
+        "target-legalization.v1.directx.optional-native-tool.missing",
+        "target-legalization.v1.directx.package-reason.source-package-available"
+      ],
+      "requiredCapabilities": [
+        "directx.backend.hlsl-lowering",
+        "directx.backend.native-dxil-package",
+        "directx.toolchain.dxc",
+        "directx.validation.dxil-validator"
+      ],
+      "missingCapabilities": [
+        "directx.backend.native-dxil-package",
+        "directx.toolchain.dxc",
+        "directx.validation.dxil-validator"
+      ],
+      "targetBackend": "directx",
+      "decisionReasonCodes": [
+        "package-mode:source-package",
+        "package-reason:source-package-available",
+        "optional-native-tool:missing"
+      ],
+      "artifactLinks": [
+        "ir/target-explanation.json#targets/directx"
+      ],
+      "reportLinks": [
+        "target-explanation-v1#targets/directx"
+      ],
+      "remediation": "Source package output is available; native artifact remediation requires satisfying: directx.backend.native-dxil-package, directx.toolchain.dxc, directx.validation.dxil-validator."
+    }
+  ]
+}

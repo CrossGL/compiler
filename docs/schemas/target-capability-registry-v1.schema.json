@@ -1,0 +1,491 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/target-capability-registry-v1.schema.json",
+  "title": "CrossGL Target Capability Registry JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "registryVersion",
+    "targetCount",
+    "capabilityCount",
+    "targets"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "registryVersion": {
+      "type": "string",
+      "const": "v0"
+    },
+    "targetCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "capabilityCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/targetRecord"
+      }
+    }
+  },
+  "$defs": {
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl",
+        "wgsl"
+      ]
+    },
+    "packageMode": {
+      "type": "string",
+      "enum": [
+        "native",
+        "source-package",
+        "unsupported"
+      ]
+    },
+    "capabilityStatus": {
+      "type": "string",
+      "enum": [
+        "supported",
+        "planned",
+        "unsupported"
+      ]
+    },
+    "capabilityArea": {
+      "type": "string",
+      "enum": [
+        "optimization",
+        "native-artifact",
+        "package-admission"
+      ]
+    },
+    "nativeSupportClass": {
+      "type": "string",
+      "enum": [
+        "native",
+        "prototype-native",
+        "planned-native"
+      ]
+    },
+    "optimizationLevel": {
+      "type": "string",
+      "enum": [
+        "O0",
+        "O1",
+        "O2"
+      ]
+    },
+    "pathArtifact": {
+      "type": "string",
+      "enum": [
+        "backendSource",
+        "backendAssembly",
+        "intermediate",
+        "nativeBinary"
+      ]
+    },
+    "decisionReason": {
+      "type": "string",
+      "enum": [
+        "native-package-available",
+        "source-package-available",
+        "package-build-available",
+        "unsupported"
+      ]
+    },
+    "packageArtifactRequirementEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl|wgsl)\\.package-artifact(s)?\\.[A-Za-z0-9_.-]+$"
+    },
+    "emittedBaselineCapabilityId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+\\.[A-Za-z][A-Za-z0-9]*\\.[A-Za-z0-9][A-Za-z0-9_.-]*$"
+    },
+    "evidenceList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "targetRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "displayName",
+        "packageMode",
+        "emittedBaselineCapabilities",
+        "optimization",
+        "nativeArtifact",
+        "packageAdmission",
+        "capabilities"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        },
+        "emittedBaselineCapabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/emittedBaselineCapabilityId"
+          }
+        },
+        "optimization": {
+          "$ref": "#/$defs/optimizationCapability"
+        },
+        "nativeArtifact": {
+          "$ref": "#/$defs/nativeArtifactCapability"
+        },
+        "packageAdmission": {
+          "$ref": "#/$defs/packageAdmissionCapability"
+        },
+        "capabilities": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "$ref": "#/$defs/capabilityRecord"
+          }
+        }
+      }
+    },
+    "optimizationCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "supported",
+        "levels",
+        "evidence"
+      ],
+      "properties": {
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+\\.optimization\\.[a-z0-9][a-z0-9.-]*$"
+        },
+        "supported": {
+          "type": "boolean"
+        },
+        "levels": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/optimizationLevel"
+          }
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidenceList"
+        }
+      }
+    },
+    "nativeArtifactCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "status",
+        "artifactFormat",
+        "pathArtifacts",
+        "requiresNativeBinaryStatus",
+        "allowsPlannedNativeBinary",
+        "evidence"
+      ],
+      "properties": {
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+\\.native-artifact\\.[a-z0-9][a-z0-9.-]*$"
+        },
+        "status": {
+          "$ref": "#/$defs/capabilityStatus"
+        },
+        "artifactFormat": {
+          "type": "string",
+          "enum": [
+            "metallib",
+            "spirv",
+            "dxil",
+            "glsl-source",
+            "wgsl-source"
+          ]
+        },
+        "pathArtifacts": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/pathArtifact"
+          }
+        },
+        "requiresNativeBinaryStatus": {
+          "type": "boolean"
+        },
+        "allowsPlannedNativeBinary": {
+          "type": "boolean"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidenceList"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "unsupported"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "pathArtifacts": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "pathArtifacts": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "packageArtifactRequirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packageMode",
+        "requiredPathArtifacts",
+        "requiresNativeBinaryStatus",
+        "allowsPlannedNativeBinary",
+        "allowsPlannedNativeSourceEvidence",
+        "evidenceIds"
+      ],
+      "properties": {
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        },
+        "requiredPathArtifacts": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/pathArtifact"
+          }
+        },
+        "requiresNativeBinaryStatus": {
+          "type": "boolean"
+        },
+        "allowsPlannedNativeBinary": {
+          "type": "boolean"
+        },
+        "allowsPlannedNativeSourceEvidence": {
+          "type": "boolean"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/packageArtifactRequirementEvidenceId"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "packageMode": {
+                "const": "unsupported"
+              }
+            },
+            "required": [
+              "packageMode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "requiredPathArtifacts": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "requiredPathArtifacts": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "packageAdmissionCapability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capability",
+        "packageMode",
+        "nativeSupportClass",
+        "nativeImplemented",
+        "sourcePackageSelectable",
+        "packageBuildSupported",
+        "admittedPackageModes",
+        "baselineBackendCapability",
+        "nativeArtifactCapability",
+        "packageDecisionReason",
+        "packageRankScore",
+        "packageArtifactRequirementsSource",
+        "packageArtifactRequirements",
+        "evidence"
+      ],
+      "properties": {
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+\\.package-admission\\.[a-z0-9][a-z0-9.-]*$"
+        },
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        },
+        "nativeSupportClass": {
+          "$ref": "#/$defs/nativeSupportClass"
+        },
+        "nativeImplemented": {
+          "type": "boolean"
+        },
+        "sourcePackageSelectable": {
+          "type": "boolean"
+        },
+        "packageBuildSupported": {
+          "type": "boolean"
+        },
+        "admittedPackageModes": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "native",
+              "source-package"
+            ]
+          }
+        },
+        "baselineBackendCapability": {
+          "$ref": "#/$defs/emittedBaselineCapabilityId"
+        },
+        "nativeArtifactCapability": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+\\.native-artifact\\.[a-z0-9][a-z0-9.-]*$"
+        },
+        "packageDecisionReason": {
+          "$ref": "#/$defs/decisionReason"
+        },
+        "packageRankScore": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "packageArtifactRequirementsSource": {
+          "type": "string",
+          "enum": [
+            "tools/package_target_contracts.json",
+            "src/Backend/TargetLegalization.cpp"
+          ]
+        },
+        "packageArtifactRequirements": {
+          "$ref": "#/$defs/packageArtifactRequirements"
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidenceList"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "packageMode": {
+                "const": "unsupported"
+              }
+            },
+            "required": [
+              "packageMode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "admittedPackageModes": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "admittedPackageModes": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "capabilityRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "area",
+        "status",
+        "summary",
+        "evidence"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+\\.(optimization|native-artifact|package-admission)\\.[a-z0-9][a-z0-9.-]*$"
+        },
+        "area": {
+          "$ref": "#/$defs/capabilityArea"
+        },
+        "status": {
+          "$ref": "#/$defs/capabilityStatus"
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "$ref": "#/$defs/evidenceList"
+        }
+      }
+    }
+  }
+}

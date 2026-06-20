@@ -1,0 +1,1 @@
+$.targetCapabilities.defaultTarget: expected target to appear in summaries

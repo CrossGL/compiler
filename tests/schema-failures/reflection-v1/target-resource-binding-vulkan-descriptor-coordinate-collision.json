@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "vulkan",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "values0",
+      "kind": "buffer",
+      "type": "float",
+      "set": 0,
+      "binding": 0
+    },
+    {
+      "stage": "compute",
+      "name": "values1",
+      "kind": "buffer",
+      "type": "float",
+      "set": 0,
+      "binding": 0
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "vulkan",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values0",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "StorageBuffer",
+      "abi": "descriptor",
+      "bindingClass": "storageBuffer",
+      "set": 0,
+      "binding": 0
+    },
+    {
+      "target": "vulkan",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values1",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "StorageBuffer",
+      "abi": "descriptor",
+      "bindingClass": "storageBuffer",
+      "set": 0,
+      "binding": 0
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

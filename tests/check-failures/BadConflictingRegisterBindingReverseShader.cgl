@@ -1,0 +1,13 @@
+shader BadConflictingRegisterBindingReverse {
+  struct Params {
+    float value;
+  }
+
+  compute {
+    layout(set = 0, register = 2, binding = 1) uniform Params params;
+
+    void main() {
+      return;
+    }
+  }
+}

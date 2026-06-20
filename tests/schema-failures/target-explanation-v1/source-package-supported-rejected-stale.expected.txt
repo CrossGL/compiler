@@ -1,0 +1,1 @@
+$.targets[0].packageBuildSupported: sourcePackageSupported true requires packageBuildSupported true

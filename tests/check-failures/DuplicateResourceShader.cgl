@@ -1,0 +1,12 @@
+shader DuplicateResourceShader {
+  struct Params {
+    float value;
+  }
+  compute {
+    uniform Params params;
+    buffer float* params;
+    void main() {
+      return;
+    }
+  }
+}

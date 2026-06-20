@@ -1,0 +1,1 @@
+$.targets[0].optimization.capability: expected 'metal.optimization.missing' in capabilities

@@ -1,0 +1,1 @@
+$.project.outputDir: expected string length >= 1, got 0

@@ -1,0 +1,1 @@
+$.summary.targetLegalizationEvidence.health: expected target legalization evidence health 'drift', got 'ok'; $.summary.targetLegalizationEvidence.debugMetadata.packageArtifactRequirementEvidenceIds: expected aggregate package artifact requirement evidence IDs ['target-legalization.v1.directx.package-artifacts.source-package'], got ['legacy.generated.sidecar.evidence']

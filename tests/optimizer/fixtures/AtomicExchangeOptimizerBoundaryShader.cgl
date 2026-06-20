@@ -1,0 +1,44 @@
+shader AtomicExchangeOptimizerBoundaryShader {
+  const int GROUP_SIZE = 4;
+
+  struct CompatCounters {
+    int active_count;
+    uint spawn_count;
+  }
+
+  compute {
+    layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer atomic<int>* counters;
+    layout(set = 0, binding = 2) buffer atomic<uint>* unsignedCounters;
+    layout(set = 0, binding = 3) buffer CompatCounters compatCounters;
+    var<workgroup> sharedCounters: array<atomic<int>, GROUP_SIZE>;
+
+    void main() {
+      uint index = gl_GlobalInvocationID.x;
+      uint local = gl_LocalInvocationID.x;
+      int slot = 0;
+      int value = values[slot] + 2;
+      uint unsignedValue = index + 1u;
+      int deadBefore = values[slot] + 17;
+      uint deadUnsigned = unsignedValue + 3u;
+
+      values[slot] = 1;
+      int oldExchange = atomicExchange(counters[index], value);
+      barrier();
+      values[slot + 1] = oldExchange + values[slot];
+
+      int oldShared = 0;
+      oldShared = atomicExchange(sharedCounters[local], value);
+      atomicExchange(counters[index], value);
+      uint oldUnsigned = atomicExchange(unsignedCounters[index], unsignedValue);
+      int unusedReturnedExchange = atomicExchange(counters[index], value);
+      workgroupBarrier();
+      int oldCompat = atomicExchange(compatCounters.active_count, 1);
+      values[slot + 2] = values[slot + 1] + oldExchange + oldShared + oldCompat;
+
+      int deadAfter = deadBefore + oldCompat;
+      return;
+    }
+  }
+}

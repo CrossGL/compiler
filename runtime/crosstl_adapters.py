@@ -1,0 +1,1646 @@
+"""Read-only CrossTL runtime adapter descriptor package checks."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+import copy
+from dataclasses import dataclass
+import hashlib
+import json
+from pathlib import Path
+import re
+from typing import Any
+import zipfile
+
+try:
+    from .package_reader import (
+        PackageReadError,
+        _index_zip_members,
+        _parse_json_object_payload,
+        _read_zip_json_payload,
+    )
+except ImportError:  # pragma: no cover - supports direct module execution.
+    from package_reader import (
+        PackageReadError,
+        _index_zip_members,
+        _parse_json_object_payload,
+        _read_zip_json_payload,
+    )
+
+
+CROSSTL_RUNTIME_ADAPTER_PACKAGE_KIND = "crosstl-runtime-adapter-package"
+CROSSTL_RUNTIME_ADAPTER_DESCRIPTOR_KIND = "crosstl-runtime-adapter-descriptor"
+CROSSTL_RUNTIME_ADAPTER_PLAN_KIND = "crosstl-runtime-adapter-plan"
+CROSSTL_RUNTIME_ADAPTER_PLAN_SCOPE = "runtime-adapter-integration-planning"
+CROSSTL_RUNTIME_ADAPTER_PACKAGE_SCOPE = "runtime-adapter-descriptor-package"
+SUPPORTED_COMPILER_TARGETS = frozenset({"directx", "metal", "opengl", "vulkan"})
+LOWERCASE_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+BACKEND_SOURCE_ARTIFACT_FORMATS = frozenset(
+    {
+        "backend-source",
+        "glsl source",
+        "glsl-source",
+        "hlsl source",
+        "hlsl-source",
+        "metal source",
+        "msl source",
+        "msl-source",
+        "spir-v source",
+        "spirv source",
+        "vulkan-targeted shader source",
+        "wgsl source",
+        "wgsl-source",
+    }
+)
+NATIVE_BINARY_ARTIFACT_FORMATS = frozenset(
+    {
+        "dxbc",
+        "dxil",
+        "dxil binary",
+        "metallib",
+        "metallib binary",
+        "native-binary",
+        "spir-v",
+        "spir-v binary",
+        "spir-v module",
+        "spirv",
+        "spirv binary",
+        "spirv module",
+    }
+)
+BLOCKED_HOST_INTERFACE_STATUSES = frozenset(
+    {"blocked", "unavailable", "not-inspected", "failed"}
+)
+
+
+@dataclass(frozen=True)
+class CrossTLAdapterDiagnostic:
+    severity: str
+    code: str
+    message: str
+    path: str
+
+
+@dataclass(frozen=True)
+class CrossTLAdapterDescriptor:
+    id: str | None
+    target: str | None
+    adapter_kind: str | None
+    artifact_format: str | None
+    package_path: str | None
+    source_path: str | None
+    source_backend: str | None
+    stage: str | None
+    variant: str | None
+    defines: dict[str, Any]
+    descriptor_path: str
+    host_interface_status: str | None
+    required_tools: tuple[str, ...]
+    host_interface: dict[str, Any] | None
+    validation: dict[str, Any]
+    document: dict[str, Any] | None
+
+
+@dataclass(frozen=True)
+class CrossTLAdapterPackageReport:
+    manifest_path: Path
+    package_kind: str | None
+    source_package: str | None
+    adapter_manifest: str | None
+    valid: bool
+    compiler_supported: bool
+    descriptor_count: int
+    supported_targets: tuple[str, ...]
+    unsupported_targets: tuple[str, ...]
+    descriptors: tuple[CrossTLAdapterDescriptor, ...]
+    diagnostics: tuple[CrossTLAdapterDiagnostic, ...]
+
+
+@dataclass(frozen=True)
+class CrossTLRuntimeAdapterCandidate:
+    id: str
+    target: str
+    artifact_name: str
+    adapter_kind: str
+    artifact_format: str
+    package_path: str
+    descriptor_path: str
+    producer_adapter_kind: str
+    producer_artifact_format: str
+    host_interface_status: str | None
+    load_ready: bool
+    required_tools: tuple[str, ...]
+    host_responsibilities: tuple[str, ...]
+    source_path: str | None
+    source_backend: str | None
+    stage: str | None
+    variant: str | None
+    defines: dict[str, Any]
+    source_remap: dict[str, Any] | None
+    host_interface: dict[str, Any] | None
+    entry_points: tuple[dict[str, Any], ...]
+    resources: tuple[dict[str, Any], ...]
+    constants: tuple[dict[str, Any], ...]
+    target_resource_binding_metadata: tuple[dict[str, Any], ...]
+    validation: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class CrossTLRuntimeAdapterSkippedDescriptor:
+    id: str | None
+    target: str | None
+    artifact_format: str | None
+    descriptor_path: str
+    reason: str
+    message: str
+
+
+@dataclass(frozen=True)
+class CrossTLRuntimeAdapterNormalizationReport:
+    manifest_path: Path
+    valid: bool
+    compiler_supported: bool
+    descriptor_count: int
+    candidate_count: int
+    ready_candidate_count: int
+    blocked_candidate_count: int
+    skipped_descriptor_count: int
+    unsupported_target_count: int
+    unsupported_artifact_format_count: int
+    targets: tuple[str, ...]
+    candidates: tuple[CrossTLRuntimeAdapterCandidate, ...]
+    skipped_descriptors: tuple[CrossTLRuntimeAdapterSkippedDescriptor, ...]
+    diagnostics: tuple[CrossTLAdapterDiagnostic, ...]
+
+
+@dataclass(frozen=True)
+class CrossTLRuntimeAdapterLoadUnit:
+    id: str
+    target: str
+    adapter_kind: str
+    artifact_format: str
+    package_path: str
+    source_path: str | None
+    source_backend: str | None
+    stage: str | None
+    variant: str | None
+    defines: dict[str, Any]
+    source_remap: dict[str, Any] | None
+    host_interface: dict[str, Any] | None
+    required_tools: tuple[str, ...]
+    host_responsibilities: tuple[str, ...]
+    load_steps: tuple[dict[str, Any], ...]
+    blockers: tuple[dict[str, Any], ...]
+    validation: dict[str, Any]
+
+    def to_summary(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "target": self.target,
+            "adapterKind": self.adapter_kind,
+            "artifactFormat": self.artifact_format,
+            "packagePath": self.package_path,
+            "sourcePath": self.source_path,
+            "sourceBackend": self.source_backend,
+            "stage": self.stage,
+            "variant": self.variant,
+            "defines": _json_object_copy(self.defines),
+            "sourceRemap": (
+                _json_object_copy(self.source_remap)
+                if self.source_remap is not None
+                else None
+            ),
+            "hostInterface": (
+                _json_object_copy(self.host_interface)
+                if self.host_interface is not None
+                else None
+            ),
+            "requiredTools": list(self.required_tools),
+            "hostResponsibilities": list(self.host_responsibilities),
+            "loadSteps": [_json_object_copy(step) for step in self.load_steps],
+            "blockers": [_json_object_copy(blocker) for blocker in self.blockers],
+            "validation": _json_object_copy(self.validation),
+        }
+
+
+DescriptorDocumentReader = Callable[
+    [Path, str, str, list[CrossTLAdapterDiagnostic]],
+    tuple[dict[str, Any] | None, bytes | None],
+]
+
+
+def read_crosstl_runtime_adapter_package(
+    manifest_path: str | Path,
+) -> CrossTLAdapterPackageReport:
+    """Read a CrossTL ``runtime-adapters.json`` descriptor package manifest."""
+
+    path = Path(manifest_path)
+    diagnostics: list[CrossTLAdapterDiagnostic] = []
+    document = _read_json_object(path, "$", diagnostics)
+    if document is None:
+        return _empty_report(path, diagnostics)
+
+    _validate_package_header(document, diagnostics)
+    descriptors = _read_descriptors(path.parent, document, diagnostics)
+    return _adapter_package_report_from_document(
+        path,
+        document,
+        descriptors,
+        diagnostics,
+    )
+
+
+def _adapter_package_report_from_document(
+    manifest_path: Path,
+    document: dict[str, Any],
+    descriptors: list[CrossTLAdapterDescriptor],
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> CrossTLAdapterPackageReport:
+    supported_targets = sorted(
+        {
+            descriptor.target
+            for descriptor in descriptors
+            if descriptor.target in SUPPORTED_COMPILER_TARGETS
+        }
+    )
+    unsupported_targets = sorted(
+        {
+            descriptor.target
+            for descriptor in descriptors
+            if descriptor.target and descriptor.target not in SUPPORTED_COMPILER_TARGETS
+        }
+    )
+    for target in unsupported_targets:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="warning",
+                code="crosstl.adapter.unsupported_target",
+                message=(
+                    f"CrossTL runtime adapter target {target!r} is outside the "
+                    "compiler runtime target set"
+                ),
+                path="$.descriptors[].target",
+            )
+        )
+
+    errors = [
+        diagnostic for diagnostic in diagnostics if diagnostic.severity == "error"
+    ]
+    return CrossTLAdapterPackageReport(
+        manifest_path=manifest_path,
+        package_kind=_optional_str(document.get("kind")),
+        source_package=_optional_str(document.get("sourcePackage")),
+        adapter_manifest=_optional_str(document.get("adapterManifest")),
+        valid=not errors and document.get("success") is True,
+        compiler_supported=not errors and not unsupported_targets,
+        descriptor_count=len(descriptors),
+        supported_targets=tuple(supported_targets),
+        unsupported_targets=tuple(unsupported_targets),
+        descriptors=tuple(descriptors),
+        diagnostics=tuple(diagnostics),
+    )
+
+
+def normalize_crosstl_runtime_adapter_candidates(
+    report: CrossTLAdapterPackageReport,
+) -> tuple[CrossTLRuntimeAdapterCandidate, ...]:
+    """Return compiler runtime-loader candidates for supported CrossTL adapters."""
+
+    return build_crosstl_runtime_adapter_normalization_report(report).candidates
+
+
+def build_crosstl_runtime_adapter_normalization_report(
+    report: CrossTLAdapterPackageReport,
+) -> CrossTLRuntimeAdapterNormalizationReport:
+    """Return candidates plus explicit adapter skip reasons."""
+
+    candidates: list[CrossTLRuntimeAdapterCandidate] = []
+    skipped_descriptors: list[CrossTLRuntimeAdapterSkippedDescriptor] = []
+    for descriptor in report.descriptors:
+        skip_reason = _runtime_adapter_skip_reason(report, descriptor)
+        if skip_reason is not None:
+            skipped_descriptors.append(skip_reason)
+            continue
+
+        candidate = _runtime_adapter_candidate(descriptor)
+        if candidate is not None:
+            candidates.append(candidate)
+
+    ready_candidate_count = sum(1 for candidate in candidates if candidate.load_ready)
+    skipped = tuple(skipped_descriptors)
+    return CrossTLRuntimeAdapterNormalizationReport(
+        manifest_path=report.manifest_path,
+        valid=report.valid,
+        compiler_supported=report.compiler_supported,
+        descriptor_count=report.descriptor_count,
+        candidate_count=len(candidates),
+        ready_candidate_count=ready_candidate_count,
+        blocked_candidate_count=len(candidates) - ready_candidate_count,
+        skipped_descriptor_count=len(skipped),
+        unsupported_target_count=len(report.unsupported_targets),
+        unsupported_artifact_format_count=sum(
+            1
+            for descriptor in skipped
+            if descriptor.reason == "unsupported-artifact-format"
+        ),
+        targets=tuple(sorted({candidate.target for candidate in candidates})),
+        candidates=tuple(candidates),
+        skipped_descriptors=skipped,
+        diagnostics=report.diagnostics,
+    )
+
+
+def build_crosstl_runtime_adapter_load_units(
+    report: CrossTLRuntimeAdapterNormalizationReport,
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    """Project normalized CrossTL adapters into host-loader load units."""
+
+    return tuple(
+        _runtime_adapter_load_unit(candidate) for candidate in report.candidates
+    )
+
+
+def read_crosstl_runtime_adapter_load_units(
+    manifest_path: str | Path,
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    """Read a CrossTL adapter manifest and return host-loader load units."""
+
+    report = read_crosstl_runtime_adapter_package(manifest_path)
+    normalization = build_crosstl_runtime_adapter_normalization_report(report)
+    return build_crosstl_runtime_adapter_load_units(normalization)
+
+
+def discover_crosstl_runtime_adapter_load_units(
+    package_root: str | Path,
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    """Return CrossTL adapter load units when a package carries them."""
+
+    package_path = Path(package_root)
+    if package_path.is_file() and zipfile.is_zipfile(package_path):
+        return _read_crosstl_runtime_adapter_load_units_from_zip(package_path)
+
+    return tuple(
+        unit
+        for manifest_path in _runtime_adapter_manifest_paths(package_path)
+        for unit in read_crosstl_runtime_adapter_load_units(manifest_path)
+    )
+
+
+def _read_crosstl_runtime_adapter_load_units_from_zip(
+    package_path: Path,
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    try:
+        members = _index_zip_members(package_path)
+    except (OSError, PackageReadError, zipfile.BadZipFile):
+        return ()
+
+    manifest_records = _zip_runtime_adapter_manifest_records(members)
+    if not manifest_records:
+        return ()
+
+    load_units: list[CrossTLRuntimeAdapterLoadUnit] = []
+    for manifest_member, manifest_info in manifest_records:
+        load_units.extend(
+            _read_crosstl_runtime_adapter_load_units_from_zip_manifest(
+                package_path,
+                manifest_member,
+                manifest_info,
+                members,
+            )
+        )
+    return tuple(load_units)
+
+
+def _read_crosstl_runtime_adapter_load_units_from_zip_manifest(
+    package_path: Path,
+    manifest_member: str,
+    manifest_info: zipfile.ZipInfo,
+    members: dict[str, zipfile.ZipInfo],
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    diagnostics: list[CrossTLAdapterDiagnostic] = []
+    manifest_path = Path(f"{package_path}!/{manifest_member}")
+    try:
+        with zipfile.ZipFile(package_path) as archive:
+            manifest_payload = _read_zip_json_payload(
+                archive,
+                manifest_info,
+                root_file_name=manifest_member,
+            )
+        document = _parse_json_object_payload(
+            manifest_payload,
+            root_file_name=manifest_member,
+        )
+    except (OSError, PackageReadError, zipfile.BadZipFile) as exc:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.unreadable_json",
+                message=f"failed to read JSON object: {exc}",
+                path="$",
+            )
+        )
+        return build_crosstl_runtime_adapter_load_units(
+            build_crosstl_runtime_adapter_normalization_report(
+                _empty_report(manifest_path, diagnostics)
+            )
+        )
+
+    _validate_package_header(document, diagnostics)
+    descriptors = _read_descriptors(
+        package_path,
+        document,
+        diagnostics,
+        descriptor_reader=_zip_descriptor_document_reader(
+            members,
+            _zip_member_parent_prefix(manifest_member),
+        ),
+    )
+    report = _adapter_package_report_from_document(
+        manifest_path,
+        document,
+        descriptors,
+        diagnostics,
+    )
+    normalization = build_crosstl_runtime_adapter_normalization_report(report)
+    return build_crosstl_runtime_adapter_load_units(normalization)
+
+
+def _empty_report(
+    path: Path, diagnostics: list[CrossTLAdapterDiagnostic]
+) -> CrossTLAdapterPackageReport:
+    return CrossTLAdapterPackageReport(
+        manifest_path=path,
+        package_kind=None,
+        source_package=None,
+        adapter_manifest=None,
+        valid=False,
+        compiler_supported=False,
+        descriptor_count=0,
+        supported_targets=(),
+        unsupported_targets=(),
+        descriptors=(),
+        diagnostics=tuple(diagnostics),
+    )
+
+
+def _runtime_adapter_manifest_paths(path: Path) -> tuple[Path, ...]:
+    if path.is_file() and path.name == "runtime-adapters.json":
+        return (path,)
+    if not path.is_dir():
+        return ()
+
+    root_manifest_path = path / "runtime-adapters.json"
+    if root_manifest_path.is_file():
+        return (root_manifest_path,)
+
+    nested_manifest_path = path / "runtime-adapters" / "runtime-adapters.json"
+    if nested_manifest_path.is_file():
+        return (nested_manifest_path,)
+
+    discovered = sorted(
+        candidate
+        for candidate in path.rglob("runtime-adapters.json")
+        if candidate.is_file()
+    )
+    return tuple(discovered[:1])
+
+
+def _zip_runtime_adapter_manifest_records(
+    members: dict[str, zipfile.ZipInfo],
+) -> tuple[tuple[str, zipfile.ZipInfo], ...]:
+    root_manifest = members.get("runtime-adapters.json")
+    if root_manifest is not None:
+        return (("runtime-adapters.json", root_manifest),)
+
+    nested_manifest = members.get("runtime-adapters/runtime-adapters.json")
+    if nested_manifest is not None:
+        return (("runtime-adapters/runtime-adapters.json", nested_manifest),)
+
+    discovered = tuple(
+        sorted(
+            (member_name, info)
+            for member_name, info in members.items()
+            if member_name.endswith("/runtime-adapters.json")
+        )
+    )
+    return discovered[:1]
+
+
+def _zip_member_parent_prefix(member_name: str) -> str:
+    parent = member_name.rsplit("/", 1)[0] if "/" in member_name else ""
+    return f"{parent}/" if parent else ""
+
+
+def _read_json_object(
+    path: Path,
+    json_path: str,
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> dict[str, Any] | None:
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.unreadable_json",
+                message=f"failed to read JSON object: {exc}",
+                path=json_path,
+            )
+        )
+        return None
+    if not isinstance(document, dict):
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.expected_object",
+                message="expected JSON object",
+                path=json_path,
+            )
+        )
+        return None
+    return document
+
+
+def _read_descriptor_document_from_directory(
+    root: Path,
+    descriptor_path: str,
+    json_path: str,
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> tuple[dict[str, Any] | None, bytes | None]:
+    path = root / descriptor_path
+    try:
+        payload = path.read_bytes()
+        document = _parse_json_object_payload(
+            payload,
+            root_file_name=descriptor_path,
+        )
+    except (OSError, PackageReadError) as exc:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.unreadable_json",
+                message=f"failed to read JSON object: {exc}",
+                path=json_path,
+            )
+        )
+        return None, None
+    return document, payload
+
+
+def _zip_descriptor_document_reader(
+    members: dict[str, zipfile.ZipInfo],
+    member_prefix: str = "",
+) -> DescriptorDocumentReader:
+    def read_descriptor(
+        root: Path,
+        descriptor_path: str,
+        json_path: str,
+        diagnostics: list[CrossTLAdapterDiagnostic],
+    ) -> tuple[dict[str, Any] | None, bytes | None]:
+        member_name = f"{member_prefix}{descriptor_path}"
+        info = members.get(member_name)
+        if info is None:
+            diagnostics.append(
+                CrossTLAdapterDiagnostic(
+                    severity="error",
+                    code="crosstl.adapter.unreadable_json",
+                    message=(
+                        "failed to read JSON object: missing archive member "
+                        f"{member_name!r}"
+                    ),
+                    path=json_path,
+                )
+            )
+            return None, None
+
+        try:
+            with zipfile.ZipFile(root) as archive:
+                payload = _read_zip_json_payload(
+                    archive,
+                    info,
+                    root_file_name=descriptor_path,
+                )
+            document = _parse_json_object_payload(
+                payload,
+                root_file_name=descriptor_path,
+            )
+        except (OSError, PackageReadError, zipfile.BadZipFile) as exc:
+            diagnostics.append(
+                CrossTLAdapterDiagnostic(
+                    severity="error",
+                    code="crosstl.adapter.unreadable_json",
+                    message=f"failed to read JSON object: {exc}",
+                    path=json_path,
+                )
+            )
+            return None, None
+        return document, payload
+
+    return read_descriptor
+
+
+def _validate_package_header(
+    document: dict[str, Any],
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> None:
+    _expect_equal(
+        diagnostics,
+        "$.schemaVersion",
+        document.get("schemaVersion"),
+        1,
+        "crosstl.adapter.invalid_schema_version",
+    )
+    _expect_equal(
+        diagnostics,
+        "$.kind",
+        document.get("kind"),
+        CROSSTL_RUNTIME_ADAPTER_PACKAGE_KIND,
+        "crosstl.adapter.invalid_kind",
+    )
+    _expect_equal(
+        diagnostics,
+        "$.scope",
+        document.get("scope"),
+        CROSSTL_RUNTIME_ADAPTER_PACKAGE_SCOPE,
+        "crosstl.adapter.invalid_scope",
+    )
+    _expect_equal(
+        diagnostics,
+        "$.adapterManifest",
+        document.get("adapterManifest"),
+        "runtime-adapters.json",
+        "crosstl.adapter.invalid_manifest_name",
+    )
+    adapter_plan = document.get("adapterPlan")
+    if isinstance(adapter_plan, dict):
+        _expect_equal(
+            diagnostics,
+            "$.adapterPlan.kind",
+            adapter_plan.get("kind"),
+            CROSSTL_RUNTIME_ADAPTER_PLAN_KIND,
+            "crosstl.adapter.invalid_plan_kind",
+        )
+    else:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.missing_plan",
+                message="expected adapterPlan object",
+                path="$.adapterPlan",
+            )
+        )
+
+
+def _read_descriptors(
+    root: Path,
+    document: dict[str, Any],
+    diagnostics: list[CrossTLAdapterDiagnostic],
+    descriptor_reader: DescriptorDocumentReader | None = None,
+) -> list[CrossTLAdapterDescriptor]:
+    records = document.get("descriptors")
+    if not isinstance(records, list):
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.invalid_descriptor_records",
+                message="expected descriptors array",
+                path="$.descriptors",
+            )
+        )
+        return []
+
+    descriptors: list[CrossTLAdapterDescriptor] = []
+    seen_paths: set[str] = set()
+    for index, record in enumerate(records):
+        record_path = f"$.descriptors[{index}]"
+        if not isinstance(record, dict):
+            diagnostics.append(
+                CrossTLAdapterDiagnostic(
+                    severity="error",
+                    code="crosstl.adapter.invalid_descriptor_record",
+                    message="expected descriptor record object",
+                    path=record_path,
+                )
+            )
+            continue
+
+        descriptor_path = _optional_str(record.get("descriptorPath"))
+        if descriptor_path is None:
+            diagnostics.append(
+                CrossTLAdapterDiagnostic(
+                    severity="error",
+                    code="crosstl.adapter.missing_descriptor_path",
+                    message="expected descriptorPath string",
+                    path=f"{record_path}.descriptorPath",
+                )
+            )
+            continue
+        descriptor_path_valid = _validate_descriptor_path(
+            descriptor_path, f"{record_path}.descriptorPath", seen_paths, diagnostics
+        )
+        descriptor_document = None
+        descriptor_payload = None
+        if descriptor_path_valid:
+            reader = descriptor_reader or _read_descriptor_document_from_directory
+            descriptor_document, descriptor_payload = reader(
+                root,
+                descriptor_path,
+                f"{record_path}.descriptorPath",
+                diagnostics,
+            )
+        if descriptor_document is not None and descriptor_payload is not None:
+            _validate_descriptor_document(
+                descriptor_document,
+                record,
+                record_path,
+                diagnostics,
+            )
+            _validate_descriptor_file_identity(
+                descriptor_payload,
+                record,
+                record_path,
+                diagnostics,
+            )
+
+        descriptors.append(
+            CrossTLAdapterDescriptor(
+                id=_optional_str(record.get("id")),
+                target=_optional_str(record.get("target")),
+                adapter_kind=_optional_str(record.get("adapterKind")),
+                artifact_format=_optional_str(record.get("artifactFormat")),
+                package_path=_optional_str(record.get("packagePath")),
+                source_path=_optional_str(
+                    _descriptor_field(record, descriptor_document, "sourcePath")
+                ),
+                source_backend=_optional_str(
+                    _descriptor_field(record, descriptor_document, "sourceBackend")
+                ),
+                stage=_optional_str(
+                    _descriptor_field(record, descriptor_document, "stage")
+                ),
+                variant=_optional_str(
+                    _descriptor_field(record, descriptor_document, "variant")
+                ),
+                defines=(
+                    _optional_object(
+                        _descriptor_field(record, descriptor_document, "defines")
+                    )
+                    or {}
+                ),
+                descriptor_path=descriptor_path,
+                host_interface_status=_optional_str(record.get("hostInterfaceStatus")),
+                required_tools=tuple(_string_list(record.get("requiredTools"))),
+                host_interface=_optional_object(
+                    _descriptor_field(record, descriptor_document, "hostInterface")
+                ),
+                validation=(
+                    _optional_object(
+                        _descriptor_field(record, descriptor_document, "validation")
+                    )
+                    or {}
+                ),
+                document=descriptor_document,
+            )
+        )
+
+    _validate_package_summary(document, descriptors, diagnostics)
+    _validate_package_targets(document, descriptors, diagnostics)
+    return descriptors
+
+
+def _validate_descriptor_path(
+    descriptor_path: str,
+    json_path: str,
+    seen_paths: set[str],
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> bool:
+    valid = True
+    if not descriptor_path.endswith(
+        ".adapter.json"
+    ) or not _is_normalized_relative_path(descriptor_path):
+        valid = False
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.invalid_descriptor_path",
+                message="expected normalized relative *.adapter.json path",
+                path=json_path,
+            )
+        )
+    if descriptor_path in seen_paths:
+        valid = False
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.duplicate_descriptor_path",
+                message=f"duplicate descriptor path {descriptor_path!r}",
+                path=json_path,
+            )
+        )
+    seen_paths.add(descriptor_path)
+    return valid
+
+
+def _validate_descriptor_document(
+    document: dict[str, Any],
+    record: dict[str, Any],
+    record_path: str,
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> None:
+    _expect_equal(
+        diagnostics,
+        f"{record_path}.descriptor.schemaVersion",
+        document.get("schemaVersion"),
+        1,
+        "crosstl.adapter.invalid_descriptor_schema_version",
+    )
+    _expect_equal(
+        diagnostics,
+        f"{record_path}.descriptor.kind",
+        document.get("kind"),
+        CROSSTL_RUNTIME_ADAPTER_DESCRIPTOR_KIND,
+        "crosstl.adapter.invalid_descriptor_kind",
+    )
+    adapter_plan = document.get("adapterPlan")
+    if isinstance(adapter_plan, dict):
+        _expect_equal(
+            diagnostics,
+            f"{record_path}.descriptor.adapterPlan.kind",
+            adapter_plan.get("kind"),
+            CROSSTL_RUNTIME_ADAPTER_PLAN_KIND,
+            "crosstl.adapter.invalid_descriptor_plan_kind",
+        )
+        _expect_equal(
+            diagnostics,
+            f"{record_path}.descriptor.adapterPlan.scope",
+            adapter_plan.get("scope"),
+            CROSSTL_RUNTIME_ADAPTER_PLAN_SCOPE,
+            "crosstl.adapter.invalid_descriptor_plan_scope",
+        )
+    else:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.invalid_descriptor_plan",
+                message="expected descriptor adapterPlan object",
+                path=f"{record_path}.descriptor.adapterPlan",
+            )
+        )
+
+    for field in ("id", "target", "adapterKind", "artifactFormat", "packagePath"):
+        _expect_equal(
+            diagnostics,
+            f"{record_path}.descriptor.{field}",
+            document.get(field),
+            record.get(field),
+            "crosstl.adapter.descriptor_record_drift",
+        )
+
+    adapter_kind = _optional_str(document.get("adapterKind"))
+    if adapter_kind is None:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.missing_adapter_kind",
+                message="expected non-empty descriptor adapterKind",
+                path=f"{record_path}.descriptor.adapterKind",
+            )
+        )
+    artifact_format = _optional_str(document.get("artifactFormat"))
+    if (
+        artifact_format is not None
+        and _compiler_artifact_format(artifact_format) is None
+    ):
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="warning",
+                code="crosstl.adapter.unsupported_artifact_format",
+                message=(
+                    f"CrossTL runtime adapter artifact format {artifact_format!r} "
+                    "has no compiler runtime-loader mapping"
+                ),
+                path=f"{record_path}.descriptor.artifactFormat",
+            )
+        )
+    host_interface = document.get("hostInterface")
+    validation = document.get("validation")
+    if isinstance(host_interface, dict):
+        _expect_equal(
+            diagnostics,
+            f"{record_path}.descriptor.hostInterface.status",
+            host_interface.get("status"),
+            record.get("hostInterfaceStatus"),
+            "crosstl.adapter.host_interface_record_drift",
+        )
+    if isinstance(host_interface, dict) and isinstance(validation, dict):
+        _validate_host_interface_status(
+            host_interface,
+            validation,
+            f"{record_path}.descriptor",
+            diagnostics,
+        )
+
+
+def _validate_descriptor_file_identity(
+    payload: bytes,
+    record: dict[str, Any],
+    record_path: str,
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> None:
+    descriptor_hash = record.get("descriptorHash")
+    expected_hash = (
+        descriptor_hash.get("value") if isinstance(descriptor_hash, dict) else None
+    )
+    if (
+        not isinstance(descriptor_hash, dict)
+        or descriptor_hash.get("algorithm") != "sha256"
+        or not isinstance(expected_hash, str)
+        or LOWERCASE_SHA256_RE.fullmatch(expected_hash) is None
+    ):
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.invalid_descriptor_hash",
+                message="expected descriptorHash sha256 lowercase value",
+                path=f"{record_path}.descriptorHash",
+            )
+        )
+    else:
+        actual_hash = hashlib.sha256(payload).hexdigest()
+        _expect_equal(
+            diagnostics,
+            f"{record_path}.descriptorHash.value",
+            expected_hash,
+            actual_hash,
+            "crosstl.adapter.descriptor_hash_drift",
+        )
+
+    size_bytes = record.get("descriptorSizeBytes")
+    if not isinstance(size_bytes, int) or size_bytes < 0:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.invalid_descriptor_size",
+                message="expected non-negative descriptorSizeBytes",
+                path=f"{record_path}.descriptorSizeBytes",
+            )
+        )
+    else:
+        _expect_equal(
+            diagnostics,
+            f"{record_path}.descriptorSizeBytes",
+            size_bytes,
+            len(payload),
+            "crosstl.adapter.descriptor_size_drift",
+        )
+
+
+def _validate_host_interface_status(
+    host_interface: dict[str, Any],
+    validation: dict[str, Any],
+    json_path: str,
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> None:
+    status = host_interface.get("status")
+    load_ready = validation.get("loadReady")
+    if isinstance(status, str) and isinstance(load_ready, bool):
+        expected_statuses = (
+            frozenset({"ready"}) if load_ready else BLOCKED_HOST_INTERFACE_STATUSES
+        )
+        if status not in expected_statuses:
+            diagnostics.append(
+                CrossTLAdapterDiagnostic(
+                    severity="error",
+                    code="crosstl.adapter.host_interface_status_drift",
+                    message=(
+                        f"expected hostInterface.status in {expected_statuses!r} "
+                        f"for validation.loadReady {load_ready!r}"
+                    ),
+                    path=f"{json_path}.hostInterface.status",
+                )
+            )
+
+
+def _validate_package_summary(
+    document: dict[str, Any],
+    descriptors: list[CrossTLAdapterDescriptor],
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> None:
+    summary = document.get("summary")
+    if not isinstance(summary, dict):
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.invalid_summary",
+                message="expected summary object",
+                path="$.summary",
+            )
+        )
+        return
+
+    targets = document.get("targets")
+    actions = document.get("actions")
+    target_count = len(targets) if isinstance(targets, list) else 0
+    action_count = len(actions) if isinstance(actions, list) else 0
+    ready_count = sum(
+        1 for descriptor in descriptors if descriptor.host_interface_status == "ready"
+    )
+    _expect_equal(
+        diagnostics,
+        "$.summary.targetCount",
+        summary.get("targetCount"),
+        target_count,
+        "crosstl.adapter.summary_count_drift",
+    )
+    _expect_equal(
+        diagnostics,
+        "$.summary.descriptorCount",
+        summary.get("descriptorCount"),
+        len(descriptors),
+        "crosstl.adapter.summary_count_drift",
+    )
+    _expect_equal(
+        diagnostics,
+        "$.summary.readyDescriptorCount",
+        summary.get("readyDescriptorCount"),
+        ready_count,
+        "crosstl.adapter.summary_count_drift",
+    )
+    _expect_equal(
+        diagnostics,
+        "$.summary.blockedDescriptorCount",
+        summary.get("blockedDescriptorCount"),
+        len(descriptors) - ready_count,
+        "crosstl.adapter.summary_count_drift",
+    )
+    _expect_equal(
+        diagnostics,
+        "$.summary.actionCount",
+        summary.get("actionCount"),
+        action_count,
+        "crosstl.adapter.summary_count_drift",
+    )
+    adapter_plan = document.get("adapterPlan")
+    if isinstance(adapter_plan, dict):
+        adapter_count = adapter_plan.get("adapterCount")
+        if adapter_count is not None:
+            _expect_equal(
+                diagnostics,
+                "$.adapterPlan.adapterCount",
+                adapter_count,
+                summary.get("adapterCount"),
+                "crosstl.adapter.summary_adapter_count",
+            )
+
+
+def _validate_package_targets(
+    document: dict[str, Any],
+    descriptors: list[CrossTLAdapterDescriptor],
+    diagnostics: list[CrossTLAdapterDiagnostic],
+) -> None:
+    targets = document.get("targets")
+    if not isinstance(targets, list):
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code="crosstl.adapter.invalid_targets",
+                message="expected targets array",
+                path="$.targets",
+            )
+        )
+        return
+
+    for index, target in enumerate(targets):
+        target_path = f"$.targets[{index}]"
+        if not isinstance(target, dict):
+            diagnostics.append(
+                CrossTLAdapterDiagnostic(
+                    severity="error",
+                    code="crosstl.adapter.invalid_target",
+                    message="expected target object",
+                    path=target_path,
+                )
+            )
+            continue
+        target_name = target.get("target")
+        matching_descriptors = [
+            descriptor for descriptor in descriptors if descriptor.target == target_name
+        ]
+        ready_count = sum(
+            1
+            for descriptor in matching_descriptors
+            if descriptor.host_interface_status == "ready"
+        )
+        _expect_equal(
+            diagnostics,
+            f"{target_path}.descriptorCount",
+            target.get("descriptorCount"),
+            len(matching_descriptors),
+            "crosstl.adapter.target_descriptor_count",
+        )
+        _expect_equal(
+            diagnostics,
+            f"{target_path}.readyDescriptorCount",
+            target.get("readyDescriptorCount"),
+            ready_count,
+            "crosstl.adapter.target_ready_count",
+        )
+        _expect_equal(
+            diagnostics,
+            f"{target_path}.blockedDescriptorCount",
+            target.get("blockedDescriptorCount"),
+            len(matching_descriptors) - ready_count,
+            "crosstl.adapter.target_blocked_count",
+        )
+        _expect_equal(
+            diagnostics,
+            f"{target_path}.descriptors",
+            target.get("descriptors"),
+            [descriptor.id for descriptor in matching_descriptors],
+            "crosstl.adapter.target_descriptor_ids",
+        )
+        _expect_equal(
+            diagnostics,
+            f"{target_path}.packagePaths",
+            target.get("packagePaths"),
+            [
+                descriptor.package_path
+                for descriptor in matching_descriptors
+                if descriptor.package_path
+            ],
+            "crosstl.adapter.target_package_paths",
+        )
+
+
+def _expect_equal(
+    diagnostics: list[CrossTLAdapterDiagnostic],
+    path: str,
+    actual: Any,
+    expected: Any,
+    code: str,
+) -> None:
+    if actual != expected:
+        diagnostics.append(
+            CrossTLAdapterDiagnostic(
+                severity="error",
+                code=code,
+                message=f"expected {expected!r}, got {actual!r}",
+                path=path,
+            )
+        )
+
+
+def _runtime_adapter_skip_reason(
+    report: CrossTLAdapterPackageReport,
+    descriptor: CrossTLAdapterDescriptor,
+) -> CrossTLRuntimeAdapterSkippedDescriptor | None:
+    if not report.valid:
+        return _skipped_descriptor(
+            descriptor,
+            "invalid-package",
+            "package validation failed before runtime adapter normalization",
+        )
+    if descriptor.target not in SUPPORTED_COMPILER_TARGETS:
+        return _skipped_descriptor(
+            descriptor,
+            "unsupported-target",
+            "descriptor target is outside the compiler runtime target set",
+        )
+    if descriptor.document is None:
+        return _skipped_descriptor(
+            descriptor,
+            "missing-descriptor-document",
+            "descriptor document was not available for normalization",
+        )
+    if descriptor.package_path is None:
+        return _skipped_descriptor(
+            descriptor,
+            "missing-package-path",
+            "descriptor does not identify a runtime package artifact",
+        )
+    if descriptor.adapter_kind is None:
+        return _skipped_descriptor(
+            descriptor,
+            "missing-adapter-kind",
+            "descriptor does not identify a producer adapter kind",
+        )
+    if descriptor.artifact_format is None:
+        return _skipped_descriptor(
+            descriptor,
+            "missing-artifact-format",
+            "descriptor does not identify a producer artifact format",
+        )
+    if _compiler_artifact_format(descriptor.artifact_format) is None:
+        return _skipped_descriptor(
+            descriptor,
+            "unsupported-artifact-format",
+            "producer artifact format has no compiler runtime-loader mapping",
+        )
+    return None
+
+
+def _skipped_descriptor(
+    descriptor: CrossTLAdapterDescriptor,
+    reason: str,
+    message: str,
+) -> CrossTLRuntimeAdapterSkippedDescriptor:
+    return CrossTLRuntimeAdapterSkippedDescriptor(
+        id=descriptor.id,
+        target=descriptor.target,
+        artifact_format=descriptor.artifact_format,
+        descriptor_path=descriptor.descriptor_path,
+        reason=reason,
+        message=message,
+    )
+
+
+def _runtime_adapter_candidate(
+    descriptor: CrossTLAdapterDescriptor,
+) -> CrossTLRuntimeAdapterCandidate | None:
+    if (
+        descriptor.target is None
+        or descriptor.package_path is None
+        or descriptor.adapter_kind is None
+        or descriptor.artifact_format is None
+        or descriptor.document is None
+    ):
+        return None
+    compiler_artifact_format = _compiler_artifact_format(descriptor.artifact_format)
+    if compiler_artifact_format is None:
+        return None
+    host_interface = descriptor.host_interface
+    entry_points = _host_interface_records(host_interface, "entryPoints")
+    resources = _host_interface_records(host_interface, "resources")
+    constants = _host_interface_records(host_interface, "constants")
+    return CrossTLRuntimeAdapterCandidate(
+        id=_runtime_loader_candidate_id(descriptor),
+        target=descriptor.target,
+        artifact_name=(
+            "nativeBinary"
+            if compiler_artifact_format == "native-binary"
+            else "backendSource"
+        ),
+        adapter_kind=(
+            "native-binary-loader"
+            if compiler_artifact_format == "native-binary"
+            else "backend-source-loader"
+        ),
+        artifact_format=compiler_artifact_format,
+        package_path=descriptor.package_path,
+        descriptor_path=descriptor.descriptor_path,
+        producer_adapter_kind=descriptor.adapter_kind,
+        producer_artifact_format=descriptor.artifact_format,
+        host_interface_status=descriptor.host_interface_status,
+        load_ready=_candidate_load_ready(descriptor),
+        required_tools=descriptor.required_tools,
+        host_responsibilities=tuple(
+            _string_list(descriptor.document.get("hostResponsibilities"))
+        ),
+        source_path=descriptor.source_path,
+        source_backend=descriptor.source_backend,
+        stage=descriptor.stage,
+        variant=descriptor.variant,
+        defines=_json_object_copy(descriptor.defines),
+        source_remap=_optional_object(descriptor.document.get("sourceRemap")),
+        host_interface=(
+            _json_object_copy(host_interface) if host_interface is not None else None
+        ),
+        entry_points=entry_points,
+        resources=resources,
+        constants=constants,
+        target_resource_binding_metadata=(
+            _target_resource_binding_metadata(
+                target=descriptor.target,
+                descriptor_stage=descriptor.stage,
+                entry_points=entry_points,
+                resources=resources,
+            )
+        ),
+        validation=_json_object_copy(descriptor.validation),
+    )
+
+
+def _runtime_adapter_load_unit(
+    candidate: CrossTLRuntimeAdapterCandidate,
+) -> CrossTLRuntimeAdapterLoadUnit:
+    blockers = _runtime_adapter_load_unit_blockers(candidate)
+    validation = _json_object_copy(candidate.validation)
+    validation["hostInterface"] = candidate.host_interface_status or "not-inspected"
+    validation["loadReady"] = candidate.load_ready and not blockers
+    validation["metadataOnly"] = True
+    validation["sourceParsingRequired"] = False
+    validation["compilerInvocationRequired"] = False
+    validation["deviceExecutionRequired"] = False
+    return CrossTLRuntimeAdapterLoadUnit(
+        id=candidate.id,
+        target=candidate.target,
+        adapter_kind=candidate.adapter_kind,
+        artifact_format=candidate.artifact_format,
+        package_path=candidate.package_path,
+        source_path=candidate.source_path,
+        source_backend=candidate.source_backend,
+        stage=candidate.stage,
+        variant=candidate.variant,
+        defines=_json_object_copy(candidate.defines),
+        source_remap=(
+            _json_object_copy(candidate.source_remap)
+            if candidate.source_remap is not None
+            else None
+        ),
+        host_interface=(
+            _json_object_copy(candidate.host_interface)
+            if candidate.host_interface is not None
+            else None
+        ),
+        required_tools=candidate.required_tools,
+        host_responsibilities=candidate.host_responsibilities,
+        load_steps=_runtime_adapter_load_steps(candidate),
+        blockers=blockers,
+        validation=validation,
+    )
+
+
+def _runtime_adapter_load_steps(
+    candidate: CrossTLRuntimeAdapterCandidate,
+) -> tuple[dict[str, Any], ...]:
+    steps: list[dict[str, Any]] = [
+        {
+            "kind": "load-package-artifact",
+            "message": (
+                f"Load {candidate.artifact_format} artifact "
+                f"{candidate.package_path} for target {candidate.target}."
+            ),
+            "target": candidate.target,
+            "packagePath": candidate.package_path,
+            "tools": [],
+            "command": None,
+            "hostInterfaceStatus": candidate.host_interface_status,
+            "metadata": {
+                "source": {
+                    "field": "descriptor.packagePath",
+                    "path": candidate.package_path,
+                },
+                "artifact": {
+                    "name": candidate.artifact_name,
+                    "producerArtifactFormat": candidate.producer_artifact_format,
+                    "producerAdapterKind": candidate.producer_adapter_kind,
+                },
+            },
+        }
+    ]
+    source_remap_path = _source_remap_package_path(candidate.source_remap)
+    if source_remap_path is not None:
+        steps.append(
+            {
+                "kind": "load-source-remap",
+                "message": (
+                    "Load source-remap metadata "
+                    f"{source_remap_path} for diagnostics and provenance."
+                ),
+                "target": candidate.target,
+                "packagePath": source_remap_path,
+                "tools": [],
+                "command": None,
+                "hostInterfaceStatus": candidate.host_interface_status,
+                "metadata": {
+                    "source": {
+                        "field": "descriptor.sourceRemap.packagePath",
+                        "path": source_remap_path,
+                    }
+                },
+            }
+        )
+    if candidate.host_interface_status == "ready":
+        steps.append(
+            {
+                "kind": "bind-host-interface",
+                "message": (
+                    "Bind "
+                    f"{len(candidate.entry_points)} entry points and "
+                    f"{len(candidate.resources)} resources from CrossTL "
+                    "host-interface metadata."
+                ),
+                "target": candidate.target,
+                "packagePath": candidate.package_path,
+                "tools": [],
+                "command": None,
+                "hostInterfaceStatus": candidate.host_interface_status,
+                "metadata": {
+                    "hostInterface": {
+                        "entryPointCount": len(candidate.entry_points),
+                        "resourceCount": len(candidate.resources),
+                        "constantCount": len(candidate.constants),
+                        "targetResourceBindingMetadataCount": len(
+                            candidate.target_resource_binding_metadata
+                        ),
+                    }
+                },
+            }
+        )
+    if candidate.required_tools:
+        steps.append(
+            {
+                "kind": "validate-target-toolchain",
+                "message": (
+                    "Validate the loaded artifact with available target tools: "
+                    f"{', '.join(candidate.required_tools)}."
+                ),
+                "target": candidate.target,
+                "packagePath": candidate.package_path,
+                "tools": list(candidate.required_tools),
+                "command": None,
+                "hostInterfaceStatus": candidate.host_interface_status,
+                "metadata": {
+                    "toolRequirementSource": "descriptor.requiredTools",
+                },
+            }
+        )
+    return tuple(steps)
+
+
+def _runtime_adapter_load_unit_blockers(
+    candidate: CrossTLRuntimeAdapterCandidate,
+) -> tuple[dict[str, Any], ...]:
+    blockers: list[dict[str, Any]] = []
+    if candidate.host_interface_status != "ready":
+        blockers.append(
+            {
+                "kind": "resolve-host-interface-metadata",
+                "severity": "warning",
+                "source": "descriptor.hostInterface",
+                "message": (
+                    "CrossTL runtime adapter host-interface metadata is not ready "
+                    f"for {candidate.package_path}."
+                ),
+                "target": candidate.target,
+                "adapter": candidate.id,
+                "packagePath": candidate.package_path,
+            }
+        )
+    if not candidate.load_ready:
+        blockers.append(
+            {
+                "kind": "resolve-runtime-adapter-validation",
+                "severity": "warning",
+                "source": "descriptor.validation.loadReady",
+                "message": (
+                    "CrossTL runtime adapter validation did not mark the load unit "
+                    f"ready for {candidate.package_path}."
+                ),
+                "target": candidate.target,
+                "adapter": candidate.id,
+                "packagePath": candidate.package_path,
+            }
+        )
+    return tuple(blockers)
+
+
+def _source_remap_package_path(source_remap: dict[str, Any] | None) -> str | None:
+    if source_remap is None:
+        return None
+    for field_name in ("packagePath", "path"):
+        value = _optional_str(source_remap.get(field_name))
+        if value is not None:
+            return value
+    return None
+
+
+def _descriptor_field(
+    record: dict[str, Any],
+    document: dict[str, Any] | None,
+    field_name: str,
+) -> Any:
+    if field_name in record:
+        return record.get(field_name)
+    if document is not None:
+        return document.get(field_name)
+    return None
+
+
+def _candidate_load_ready(descriptor: CrossTLAdapterDescriptor) -> bool:
+    load_ready = descriptor.validation.get("loadReady")
+    if isinstance(load_ready, bool):
+        return load_ready and descriptor.host_interface_status == "ready"
+    return descriptor.host_interface_status == "ready"
+
+
+def _json_object_copy(value: dict[str, Any]) -> dict[str, Any]:
+    return copy.deepcopy(value)
+
+
+def _host_interface_records(
+    host_interface: dict[str, Any] | None, field_name: str
+) -> tuple[dict[str, Any], ...]:
+    if host_interface is None:
+        return ()
+    value = host_interface.get(field_name)
+    if not isinstance(value, list):
+        return ()
+    return tuple(_json_object_copy(item) for item in value if isinstance(item, dict))
+
+
+def _target_resource_binding_metadata(
+    *,
+    target: str | None,
+    descriptor_stage: str | None,
+    entry_points: tuple[dict[str, Any], ...],
+    resources: tuple[dict[str, Any], ...],
+) -> tuple[dict[str, Any], ...]:
+    if target is None:
+        return ()
+    default_entry_point = entry_points[0] if len(entry_points) == 1 else {}
+    default_entry_point_name = _optional_str(default_entry_point.get("name"))
+    default_stage = _optional_str(default_entry_point.get("stage")) or descriptor_stage
+
+    records = []
+    for index, resource in enumerate(resources):
+        record: dict[str, Any] = {
+            "target": target,
+            "stage": _optional_str(resource.get("stage")) or default_stage,
+            "entryPoint": (
+                _optional_str(resource.get("entryPoint")) or default_entry_point_name
+            ),
+            "name": _optional_str(resource.get("name")),
+            "kind": _optional_str(resource.get("kind")),
+            "bindingClass": _optional_str(resource.get("bindingClass")),
+            "descriptorType": _optional_str(resource.get("descriptorType")),
+            "set": resource.get("set"),
+            "binding": resource.get("binding"),
+            "argumentIndex": resource.get("argumentIndex"),
+            "abi": {
+                "source": "hostInterface.resources",
+                "status": _resource_binding_status(resource),
+            },
+            "evidenceId": f"hostInterface.resources[{index}]",
+        }
+        for field_name in (
+            "arrayDimensions",
+            "arrayElementCount",
+            "storageImageFormat",
+            "storageImageAccess",
+        ):
+            if field_name in resource:
+                record[field_name] = copy.deepcopy(resource.get(field_name))
+        records.append(record)
+    return tuple(records)
+
+
+def _resource_binding_status(resource: dict[str, Any]) -> str:
+    has_set = resource.get("set") is not None
+    has_binding = resource.get("binding") is not None
+    if has_set and has_binding:
+        return "bound"
+    if has_set or has_binding:
+        return "layout-partial"
+    return "layout-missing"
+
+
+def _optional_str(value: Any) -> str | None:
+    return value if isinstance(value, str) and value else None
+
+
+def _optional_object(value: Any) -> dict[str, Any] | None:
+    return _json_object_copy(value) if isinstance(value, dict) else None
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _is_normalized_relative_path(path: str) -> bool:
+    if not path or path.startswith("/") or "\\" in path:
+        return False
+    if re.match(r"^[A-Za-z]:", path):
+        return False
+    return all(part not in ("", ".", "..") for part in path.split("/"))
+
+
+def _compiler_artifact_format(producer_artifact_format: str) -> str | None:
+    normalized = _normalize_artifact_format_alias(producer_artifact_format)
+    if normalized in BACKEND_SOURCE_ARTIFACT_FORMATS:
+        return "backend-source"
+    if normalized in NATIVE_BINARY_ARTIFACT_FORMATS:
+        return "native-binary"
+    return None
+
+
+def _normalize_artifact_format_alias(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip().lower())
+
+
+def _runtime_loader_candidate_id(descriptor: CrossTLAdapterDescriptor) -> str:
+    target = descriptor.target or "unknown"
+    seed = descriptor.id or descriptor.package_path or descriptor.descriptor_path
+    return f"runtime-loader.{target}.{_runtime_loader_member_name(seed)}"
+
+
+def _runtime_loader_member_name(value: str) -> str:
+    parts = [part for part in re.split(r"[^A-Za-z0-9]+", value) if part]
+    if not parts:
+        return "Adapter"
+    member = "".join(part[:1].upper() + part[1:] for part in parts)
+    if not member[0].isalpha():
+        member = f"Adapter{member}"
+    return member

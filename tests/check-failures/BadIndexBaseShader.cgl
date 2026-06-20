@@ -1,0 +1,9 @@
+shader BadIndexBaseShader {
+  compute {
+    void main() {
+      float value = 1.0;
+      float bad = value[0];
+      return;
+    }
+  }
+}

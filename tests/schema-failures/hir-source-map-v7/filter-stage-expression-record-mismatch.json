@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 7,
+  "filters": {
+    "activeCount": 1,
+    "stage": "compute"
+  },
+  "pagination": {
+    "activeCount": 0,
+    "expressionOffset": 0,
+    "typeOffset": 0,
+    "statementOffset": 0,
+    "expressionTotalCount": 1,
+    "expressionEmittedCount": 1,
+    "expressionHasMore": false,
+    "expressionNextOffset": 1,
+    "typeTotalCount": 0,
+    "typeEmittedCount": 0,
+    "typeHasMore": false,
+    "typeNextOffset": 0,
+    "statementTotalCount": 0,
+    "statementEmittedCount": 0,
+    "statementHasMore": false,
+    "statementNextOffset": 0
+  },
+  "categoryCounts": {
+    "expressionTotalCount": 1,
+    "typeTotalCount": 0,
+    "statementTotalCount": 0,
+    "recordTotalCount": 1,
+    "expressionKinds": [
+      {
+        "name": "literal",
+        "count": 1
+      }
+    ],
+    "statementKinds": [],
+    "typeOwnerKinds": []
+  },
+  "records": {
+    "enabled": false,
+    "activeCount": 0,
+    "offset": 0,
+    "totalCount": 1,
+    "emittedCount": 0,
+    "hasMore": false,
+    "nextOffset": 0,
+    "items": []
+  },
+  "hirSourceLocations": {
+    "expressionCount": 1,
+    "expressionWithLocationCount": 1,
+    "typeCount": 0,
+    "typeWithLocationCount": 0,
+    "statementCount": 0,
+    "statementWithLocationCount": 0,
+    "expressions": [
+      {
+        "index": 0,
+        "stage": "fragment",
+        "entryPoint": "fragment_main",
+        "function": "main",
+        "statementKind": "decl",
+        "kind": "literal",
+        "value": "1.0",
+        "type": "float",
+        "location": {
+          "file": "fixture.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 3,
+          "endLine": 1,
+          "endColumn": 4,
+          "endOffset": 3
+        }
+      }
+    ],
+    "types": [],
+    "statements": []
+  }
+}

@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 1,
+  "tool": "benchmark_performance_corpus",
+  "corpusVersion": "milestone6-smoke-v1",
+  "baselinePolicy": {
+    "comparisonWindow": {
+      "sampleCount": 7,
+      "unit": "elapsedNs",
+      "warmupCount": 1
+    },
+    "hostClass": "linux-x86_64",
+    "hostLabel": "ci-linux-x86_64-pool-b",
+    "optLevel": "O2",
+    "targetProfile": "crossgl-milestone6-smoke",
+    "toolchainClass": "crossgl-cglc-fixture",
+    "toolchainLabel": "cglc",
+    "toolchainVersion": "0.6.0-fixture"
+  },
+  "metadata": {
+    "runtimeEnvironment": {
+      "machine": "x86_64",
+      "platform": "Linux-fixture",
+      "pythonExecutable": "/usr/bin/python3",
+      "pythonImplementation": "CPython",
+      "pythonVersion": "3.11.0",
+      "system": "Linux",
+      "systemRelease": "fixture"
+    }
+  },
+  "config": {
+    "profiles": [
+      "debug",
+      "release"
+    ],
+    "targets": [
+      "directx",
+      "opengl"
+    ],
+    "commandProfiles": [
+      "debug",
+      "release"
+    ]
+  },
+  "cases": [
+    {
+      "case": "storage-buffer-compute::directx::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "artifactSummary": {
+        "available": true,
+        "byteSize": 1180,
+        "fileCount": 3,
+        "nativeProfile": {
+          "available": true,
+          "optimization": {
+            "level": null,
+            "policy": "release",
+            "requestedLevel": "O2",
+            "status": "skipped-tool-missing",
+            "tool": "spirv-opt"
+          }
+        }
+      },
+      "fixtureCategory": "storage-buffers",
+      "fixtureName": "storage-buffer-compute",
+      "optLevel": "O2",
+      "packageMode": "source",
+      "profile": "release",
+      "target": "directx",
+      "skipped": false,
+      "skipReason": null,
+      "unavailableTools": [],
+      "timing": {
+        "elapsedNs": 115
+      }
+    },
+    {
+      "case": "nested-control-flow::directx::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "artifactSummary": {
+        "available": true,
+        "byteSize": 1800,
+        "fileCount": 3,
+        "nativeProfile": {
+          "available": true,
+          "optimization": {
+            "level": "O2",
+            "policy": "release",
+            "requestedLevel": "O2",
+            "status": "applied",
+            "tool": "spirv-opt"
+          }
+        }
+      },
+      "fixtureCategory": "control-flow",
+      "fixtureName": "nested-control-flow",
+      "optLevel": "O2",
+      "packageMode": "source",
+      "profile": "release",
+      "target": "directx",
+      "skipped": false,
+      "skipReason": null,
+      "unavailableTools": [],
+      "timing": {
+        "elapsedNs": 180
+      }
+    },
+    {
+      "case": "texture-descriptor-array::opengl::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "artifactSummary": {
+        "available": true,
+        "byteSize": 3000,
+        "fileCount": 4
+      },
+      "fixtureCategory": "descriptor-arrays",
+      "fixtureName": "texture-descriptor-array",
+      "optLevel": "O2",
+      "packageMode": "source",
+      "profile": "release",
+      "target": "opengl",
+      "skipped": false,
+      "skipReason": null,
+      "unavailableTools": [],
+      "timing": {
+        "elapsedNs": 310
+      }
+    },
+    {
+      "case": "dry-run-case::directx::debug",
+      "commandProfile": {
+        "name": "debug"
+      },
+      "artifactSummary": {
+        "available": false,
+        "byteSize": 0,
+        "fileCount": 0
+      },
+      "fixtureCategory": "control-flow",
+      "fixtureName": "dry-run-case",
+      "packageMode": "source",
+      "profile": "debug",
+      "target": "directx",
+      "skipped": false,
+      "skipReason": null,
+      "unavailableTools": [],
+      "timing": null
+    }
+  ],
+  "summary": {
+    "caseCount": 4,
+    "skippedCount": 0,
+    "timedCaseCount": 3,
+    "unavailableToolCount": 0,
+    "caseCountByNativeOptimizationStatus": {
+      "applied": 1,
+      "skipped-tool-missing": 1
+    },
+    "nativeOptimizationStatuses": [
+      "applied",
+      "skipped-tool-missing"
+    ],
+    "commandProfiles": [
+      "debug",
+      "release"
+    ],
+    "caseCountByCommandProfile": {
+      "debug": 1,
+      "release": 3
+    },
+    "caseCategories": [
+      "control-flow",
+      "descriptor-arrays",
+      "storage-buffers"
+    ],
+    "caseCountByCategory": {
+      "control-flow": 2,
+      "descriptor-arrays": 1,
+      "storage-buffers": 1
+    },
+    "caseCountByProfile": {
+      "debug": 1,
+      "release": 3
+    },
+    "caseCountByTarget": {
+      "directx": 3,
+      "opengl": 1
+    },
+    "optLevels": [
+      "O2"
+    ],
+    "caseCountByOptLevel": {
+      "O2": 3
+    },
+    "packageModes": [
+      "source"
+    ],
+    "caseCountByPackageMode": {
+      "source": 4
+    },
+    "packageModeCount": 1
+  },
+  "toolAvailability": {
+    "cglc": {
+      "available": true,
+      "class": "crossgl-cglc-fixture",
+      "status": "available",
+      "version": "0.6.0-fixture"
+    }
+  }
+}

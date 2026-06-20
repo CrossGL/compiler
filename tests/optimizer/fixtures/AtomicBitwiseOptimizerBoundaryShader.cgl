@@ -1,0 +1,48 @@
+shader AtomicBitwiseOptimizerBoundaryShader {
+  const int GROUP_SIZE = 4;
+
+  struct CompatCounters {
+    int active_count;
+    uint spawn_count;
+  }
+
+  compute {
+    layout(local_size_x = GROUP_SIZE, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer atomic<int>* masks;
+    layout(set = 0, binding = 2) buffer atomic<uint>* unsignedMasks;
+    layout(set = 0, binding = 3) buffer CompatCounters compatCounters;
+    var<workgroup> sharedMasks: array<atomic<int>, GROUP_SIZE>;
+    var<workgroup> unsignedSharedMasks: array<atomic<uint>, GROUP_SIZE>;
+
+    void main() {
+      uint index = gl_GlobalInvocationID.x;
+      uint local = gl_LocalInvocationID.x;
+      int slot = 0;
+      int mask = values[slot] + 1;
+      uint unsignedMask = index + 1u;
+      int deadBefore = values[slot] + 19;
+      uint deadUnsigned = unsignedMask + 5u;
+
+      values[slot] = 1;
+      int oldAnd = atomicAnd(masks[index], mask);
+      barrier();
+      values[slot + 1] = oldAnd + values[slot];
+
+      int oldOr = 0;
+      oldOr = atomicOr(masks[index], mask);
+      atomicXor(masks[index], mask);
+      uint oldAndU = atomicAnd(unsignedMasks[index], unsignedMask);
+      int unusedReturnedOr = atomicOr(masks[index], mask);
+      workgroupBarrier();
+      int oldShared = atomicXor(sharedMasks[local], mask);
+      atomicAnd(sharedMasks[local], mask);
+      uint oldSharedU = atomicOr(unsignedSharedMasks[local], unsignedMask);
+      int oldCompat = atomicXor(compatCounters.active_count, 1);
+      values[slot + 2] = values[slot + 1] + oldAnd + oldOr + oldShared + oldCompat;
+
+      int deadAfter = deadBefore + oldCompat;
+      return;
+    }
+  }
+}

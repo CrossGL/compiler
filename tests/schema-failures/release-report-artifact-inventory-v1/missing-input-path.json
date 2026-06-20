@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": null,
+  "publishPlanPath": null,
+  "stageReportPath": null,
+  "success": false,
+  "artifactRecordCount": 0,
+  "bundleArtifactRecordCount": 0,
+  "publishPlanArtifactRecordCount": 0,
+  "publishStageArtifactRecordCount": 0,
+  "stagedArtifactRecordCount": 0,
+  "totalArtifactRecordBytes": 0,
+  "records": [],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "package.release.report.missing-input",
+      "message": "package release report artifact inventory requires at least one input",
+      "location": {
+        "file": "",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 0,
+        "endLine": 1,
+        "endColumn": 1,
+        "endOffset": 0
+      }
+    }
+  ]
+}

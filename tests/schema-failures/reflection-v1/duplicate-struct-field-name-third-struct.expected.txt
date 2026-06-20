@@ -1,0 +1,1 @@
+$.structs[2].fields: duplicate field name 'a'

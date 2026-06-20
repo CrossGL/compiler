@@ -1,0 +1,23 @@
+shader WorkgroupSharedOptimizerBoundaryHIRShader {
+  const int TILE_WIDTH = 4;
+  const int WORKGROUP_X = TILE_WIDTH + 4;
+
+  compute {
+    layout(local_size_x = WORKGROUP_X, local_size_y = 2, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) buffer int* indices;
+    shared float tile[TILE_WIDTH];
+
+    void main() {
+      int slot = indices[0];
+      float base = values[slot];
+      float deadLocal = values[3] + 100.0;
+
+      tile[slot] = base + 1.0;
+      float sharedValue = tile[slot];
+      values[slot] = sharedValue;
+      values[1] = tile[1];
+      return;
+    }
+  }
+}

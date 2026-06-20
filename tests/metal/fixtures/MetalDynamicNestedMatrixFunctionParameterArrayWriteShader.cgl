@@ -1,0 +1,18 @@
+shader MetalDynamicNestedMatrixFunctionParameterArrayWriteShader {
+  const int ROWS = 2;
+  const int COLS = 2;
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    mat2 rewriteGrid(mat2 grid[ROWS][COLS], int row, int col) {
+      grid[row][col] = grid[0][0];
+      return grid[0][0];
+    }
+    void main() {
+      mat2 localGrid[ROWS][COLS];
+      int row = 1;
+      int col = 0;
+      mat2 selected = rewriteGrid(localGrid, row, col);
+      return;
+    }
+  }
+}

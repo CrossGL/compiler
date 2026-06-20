@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "directx",
+  "binaryKind": "directx.dxil",
+  "artifactPath": "backend/directx/SimpleShader.optimized.dxil",
+  "artifactHash": {
+    "algorithm": "sha256",
+    "value": "7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a"
+  },
+  "sizeBytes": 9472,
+  "sourcePath": "backend/directx/SimpleShader.hlsl",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b7b"
+  },
+  "toolchainProvenance": {
+    "producer": "CrossGL-Compiler",
+    "tools": [
+      {
+        "name": "CrossGL-Compiler",
+        "role": "generator",
+        "version": "fixture",
+        "executable": "cglc"
+      },
+      {
+        "name": "dxc",
+        "role": "compiler",
+        "version": "fixture",
+        "executable": "dxc"
+      }
+    ],
+    "invocation": {
+      "commandLineSha256": "7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c",
+      "environmentSha256": "7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d7d"
+    }
+  },
+  "optimizationLevel": "O2",
+  "optimizationEvidence": {
+    "requestedLevel": "O2",
+    "effectiveLevel": "O3",
+    "policy": "crossgl-to-dxc-optimization-map",
+    "status": "applied",
+    "tool": "dxc",
+    "toolFlag": "-O3"
+  },
+  "validationStatus": "not-run",
+  "nativeBinaryStatus": "emitted",
+  "validationDiagnostics": []
+}

@@ -1,0 +1,12 @@
+shader LoadLocalComputeShader {
+    compute {
+        layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+        layout(set = 0, binding = 0) buffer float* values;
+
+        void main() {
+            float x = values[0];
+            values[1] = x + 1.0;
+            return;
+        }
+    }
+}

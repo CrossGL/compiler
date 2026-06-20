@@ -1,0 +1,1 @@
+$.scannedPackageCount: expected sum of scanned package counts 4, got 3

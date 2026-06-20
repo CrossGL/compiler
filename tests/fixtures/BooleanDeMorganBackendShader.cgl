@@ -1,0 +1,20 @@
+shader BooleanDeMorganBackendShader {
+    compute {
+        layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+        layout(set = 0, binding = 0) buffer int* values;
+
+        void main() {
+            int dynamicIndex = values[0];
+            bool base = dynamicIndex > 0;
+            bool deMorganAnd = !(base && (dynamicIndex > 17));
+            bool deMorganOr = !(base || (dynamicIndex > 18));
+            bool deMorganComparisonAnd = !((dynamicIndex < 19) && (dynamicIndex > 20));
+            bool deMorganComparisonOr = !((dynamicIndex < 21) || (dynamicIndex > 22));
+            values[1] = deMorganAnd ? 1 : 0;
+            values[2] = deMorganOr ? 1 : 0;
+            values[3] = deMorganComparisonAnd ? 1 : 0;
+            values[4] = deMorganComparisonOr ? 1 : 0;
+            return;
+        }
+    }
+}

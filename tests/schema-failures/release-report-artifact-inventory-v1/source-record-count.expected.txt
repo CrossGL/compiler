@@ -1,0 +1,1 @@
+$.publishStageArtifactRecordCount: expected publish-stage record length 1, got 0

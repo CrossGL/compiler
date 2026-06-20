@@ -1,0 +1,1 @@
+$.publication.siblingSidecars: expected sorted sidecar paths

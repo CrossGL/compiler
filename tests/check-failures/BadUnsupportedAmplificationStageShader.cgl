@@ -1,0 +1,7 @@
+shader BadUnsupportedAmplificationStage {
+  amplification {
+    void main() {
+      return;
+    }
+  }
+}

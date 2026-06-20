@@ -1,0 +1,1 @@
+$.targets[0].emittedBaselineCapabilities: expected source-package optional native tool requirements ['directx.toolchain.dxc', 'directx.validation.dxil-validator'], got ['directx.toolchain.dxc', 'directx.validation.hlsl-validator']

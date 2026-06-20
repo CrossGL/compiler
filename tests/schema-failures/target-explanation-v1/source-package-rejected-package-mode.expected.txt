@@ -1,0 +1,1 @@
+$.targets[0].packageMode: expected package flags 'unsupported', got 'source-package'

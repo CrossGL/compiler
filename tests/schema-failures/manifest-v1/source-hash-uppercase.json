@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "compiler": {
+    "name": "CrossGL-Compiler",
+    "version": "0.1.0",
+    "llvmVersion": "unknown"
+  },
+  "module": "SemanticFixture",
+  "target": "vulkan",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "C0B5DF7FB74CEEF746570777EFDFDFA48F1BC21077C21D6FEA75C09C0B3268E0"
+  },
+  "artifacts": {
+    "backendAssembly": "out/backend/vulkan/SemanticFixture.spvasm",
+    "nativeBinary": "out/backend/vulkan/SemanticFixture.spv"
+  }
+}

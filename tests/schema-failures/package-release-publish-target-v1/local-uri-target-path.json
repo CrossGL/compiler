@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "targetKind": "local-filesystem",
+  "enabled": true,
+  "targetPath": "gs://crossgl-release-dry-run/compiler/packages"
+}

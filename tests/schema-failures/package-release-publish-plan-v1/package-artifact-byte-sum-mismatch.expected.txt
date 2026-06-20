@@ -1,0 +1,1 @@
+$.packages[0].totalArtifactBytes: expected artifact byte sum 4, got 5

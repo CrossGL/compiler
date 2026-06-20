@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 6,
+  "filters": {
+    "activeCount": 0
+  },
+  "pagination": {
+    "activeCount": 0,
+    "expressionOffset": 0,
+    "typeOffset": 0,
+    "expressionTotalCount": 2,
+    "expressionEmittedCount": 0,
+    "expressionHasMore": true,
+    "expressionNextOffset": 0,
+    "typeTotalCount": 0,
+    "typeEmittedCount": 0,
+    "typeHasMore": false,
+    "typeNextOffset": 0
+  },
+  "categoryCounts": {
+    "expressionTotalCount": 2,
+    "typeTotalCount": 0,
+    "recordTotalCount": 2,
+    "expressionKinds": [
+      {
+        "name": "literal",
+        "count": 2
+      }
+    ],
+    "statementKinds": [
+      {
+        "name": "decl",
+        "count": 2
+      }
+    ],
+    "typeOwnerKinds": []
+  },
+  "records": {
+    "enabled": true,
+    "activeCount": 2,
+    "offset": 0,
+    "limit": 1,
+    "totalCount": 2,
+    "emittedCount": 2,
+    "hasMore": false,
+    "nextOffset": 2,
+    "items": [
+      {
+        "cursor": 0,
+        "recordKind": "expression",
+        "expression": {
+          "index": 0,
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "function": "main",
+          "statementKind": "decl",
+          "kind": "literal",
+          "value": "1.0",
+          "type": "float",
+          "location": {
+            "file": "fixture.cgl",
+            "line": 1,
+            "column": 1,
+            "offset": 0,
+            "length": 3,
+            "endLine": 1,
+            "endColumn": 4,
+            "endOffset": 3
+          }
+        }
+      },
+      {
+        "cursor": 1,
+        "recordKind": "expression",
+        "expression": {
+          "index": 1,
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "function": "main",
+          "statementKind": "decl",
+          "kind": "literal",
+          "value": "2.0",
+          "type": "float",
+          "location": {
+            "file": "fixture.cgl",
+            "line": 2,
+            "column": 1,
+            "offset": 4,
+            "length": 3,
+            "endLine": 2,
+            "endColumn": 4,
+            "endOffset": 7
+          }
+        }
+      }
+    ]
+  },
+  "hirSourceLocations": {
+    "expressionCount": 0,
+    "expressionWithLocationCount": 0,
+    "typeCount": 0,
+    "typeWithLocationCount": 0,
+    "expressions": [],
+    "types": []
+  }
+}

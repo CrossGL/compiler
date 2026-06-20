@@ -1,0 +1,8 @@
+shader WarnUnknownResourceTypeShader {
+  compute {
+    layout(set = 0, binding = 0) uniform Nope thing;
+    void main() {
+      return;
+    }
+  }
+}

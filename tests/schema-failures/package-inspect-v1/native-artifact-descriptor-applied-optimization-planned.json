@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "SemanticFixture.cglb",
+  "packageFormat": "directory",
+  "summary": {
+    "module": "SemanticFixture",
+    "target": "directx",
+    "nativeBinaryStatus": "planned",
+    "artifactCount": 3,
+    "debugArtifactsPresent": false
+  },
+  "rootFiles": [
+    {
+      "name": "manifest",
+      "path": "manifest.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "reflection",
+      "path": "reflection.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "diagnostics",
+      "path": "diagnostics.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "backendSource",
+      "path": "backend/directx/SemanticFixture.hlsl",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "backendSource"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "nativeBinary",
+      "path": "backend/directx/SemanticFixture.dxil",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "nativeBinary"
+      },
+      "packageRelative": true,
+      "exists": false,
+      "sizeBytes": null,
+      "sha256": null
+    },
+    {
+      "name": "nativeArtifactDescriptor",
+      "path": "metadata/native-artifact.json",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "nativeArtifactDescriptor"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "manifest": {
+    "module": "SemanticFixture",
+    "target": "directx",
+    "artifacts": {
+      "backendSource": "backend/directx/SemanticFixture.hlsl",
+      "nativeBinary": "backend/directx/SemanticFixture.dxil",
+      "nativeBinaryStatus": "planned",
+      "nativeArtifactDescriptor": "metadata/native-artifact.json"
+    }
+  },
+  "reflection": {
+    "module": "SemanticFixture",
+    "target": "directx"
+  },
+  "diagnostics": {
+    "schemaVersion": 1
+  },
+  "nativeArtifactDescriptor": {
+    "artifactPresent": true,
+    "descriptorExists": true,
+    "health": "ok",
+    "path": "metadata/native-artifact.json",
+    "schemaVersion": 1,
+    "kind": "crossgl.nativeArtifact",
+    "contractVersion": "native-artifact-v0",
+    "target": "directx",
+    "binaryKind": "directx.dxil",
+    "sourcePath": "backend/directx/SemanticFixture.hlsl",
+    "sourceHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "artifactPath": null,
+    "artifactHash": null,
+    "sizeBytes": null,
+    "optimizationLevel": "unknown",
+    "optimizationEvidence": {
+      "requestedLevel": "O2",
+      "effectiveLevel": "O3",
+      "policy": "crossgl-to-dxc-optimization-map",
+      "status": "applied",
+      "tool": "dxc",
+      "toolFlag": "-O3"
+    },
+    "validationStatus": "unavailable",
+    "nativeBinaryStatus": "planned",
+    "checks": {
+      "descriptorIdentityMatchesContract": true,
+      "targetMatchesPackage": true,
+      "nativeBinaryStatusMatchesPackage": true,
+      "sourcePathMatchesManifest": true,
+      "sourceHashMatchesFile": true,
+      "artifactPathMatchesManifest": true,
+      "artifactHashMatchesFile": null,
+      "sizeBytesMatchesFile": null,
+      "validationStatusMatchesNativeStatus": true
+    }
+  }
+}

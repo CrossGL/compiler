@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 0,
+  "kind": "crosstl-frontend-language-spec-snapshot",
+  "description": "Minimal fixture snapshot for language spec index coverage checks.",
+  "source": {
+    "repository": "CrossGL-Translator",
+    "frontend": "crosstl.translator",
+    "files": [
+      {
+        "path": "crosstl/translator/lexer.py",
+        "sha256": "lexer-fixture-sha"
+      },
+      {
+        "path": "crosstl/translator/parser.py",
+        "sha256": "parser-fixture-sha"
+      },
+      {
+        "path": "crosstl/translator/ast.py",
+        "sha256": "ast-fixture-sha"
+      },
+      {
+        "path": "crosstl/translator/validation.py",
+        "sha256": "validation-fixture-sha"
+      }
+    ],
+    "extraction": {
+      "tool": "python -m crosstl.translator.language_spec",
+      "method": "fixture live module"
+    }
+  },
+  "lexical": {
+    "tokens": [
+      "IDENTIFIER"
+    ],
+    "keywords": [
+      "shader"
+    ],
+    "skipTokens": [
+      "WHITESPACE"
+    ],
+    "literalTokens": [
+      "NUMBER"
+    ]
+  },
+  "language": {
+    "stages": {
+      "canonical": [
+        "compute"
+      ]
+    },
+    "types": {
+      "primitive": [
+        "float"
+      ]
+    },
+    "qualifiers": {
+      "variableQualifierTokens": [
+        "CONST"
+      ]
+    },
+    "resources": {
+      "storageImageTypeNames": [
+        "RWTexture2D"
+      ]
+    },
+    "intrinsics": {
+      "textureAndImage": [
+        "sample"
+      ]
+    }
+  },
+  "ast": {
+    "classes": [
+      "ShaderNode"
+    ],
+    "classFields": {
+      "ShaderNode": [
+        "stages"
+      ]
+    },
+    "typeNodes": [
+      "PrimitiveType"
+    ],
+    "statementNodes": [
+      "ReturnStmt"
+    ],
+    "expressionNodes": [
+      "CallExpr"
+    ],
+    "enums": {
+      "ShaderStage": [
+        "COMPUTE"
+      ]
+    }
+  },
+  "validation": {
+    "metadata": {
+      "singleValueNames": [
+        "binding"
+      ]
+    },
+    "stageLayout": {
+      "directionRequirements": [
+        "in"
+      ]
+    }
+  },
+  "notes": [
+    "fixture coverage note"
+  ]
+}

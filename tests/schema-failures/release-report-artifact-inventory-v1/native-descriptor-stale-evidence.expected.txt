@@ -1,0 +1,1 @@
+backend/metal/InventoryShader.native-artifact.json

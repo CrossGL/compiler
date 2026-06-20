@@ -1,0 +1,1 @@
+$.targetFeatures[0].kind: must not be empty

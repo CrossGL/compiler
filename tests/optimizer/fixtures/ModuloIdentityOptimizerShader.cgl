@@ -1,0 +1,25 @@
+shader ModuloIdentityOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer uint* unsignedValues;
+
+    int unknownInt(int value) {
+      return value + 1;
+    }
+
+    void main() {
+      int dynamicIndex = values[0];
+      uint unsignedIndex = unsignedValues[0];
+
+      int moduloRightOne = dynamicIndex % 1;
+      uint unsignedModuloRightOne = unsignedIndex % 1u;
+      int moduloRightOneUnknown = unknownInt(dynamicIndex) % 1;
+
+      values[1] = moduloRightOne;
+      unsignedValues[1] = unsignedModuloRightOne;
+      values[2] = moduloRightOneUnknown;
+      return;
+    }
+  }
+}

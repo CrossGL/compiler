@@ -1,0 +1,66 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "directx",
+    "targetProfile": {
+      "target": "directx",
+      "profile": "directx.v0.source-package",
+      "packageMode": "source-package"
+    },
+    "packageMode": "source-package",
+    "packageDecisionProvenance": "source-package-only",
+    "supportStatus": "source-package",
+    "moduleSupported": true,
+    "requiredCapabilities": [
+      "directx.backend.hlsl-lowering",
+      "directx.package.source-artifact"
+    ],
+    "missingCapabilities": [],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.directx.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
+    "diagnostics": [],
+    "rewrites": [
+      {
+        "id": "no-target-rewrite",
+        "order": 0,
+        "status": "not-required",
+        "description": "No target-aware rewrite is required for this fixture.",
+        "evidenceIds": [
+          "target-legalization.v1.directx.rewrite.not-required"
+        ]
+      }
+    ],
+    "abiFacts": {
+      "state": "not-required",
+      "facts": [],
+      "evidenceIds": [
+        "target-legalization.v1.directx.abi.not-required"
+      ]
+    },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.directx.resource-bindings.empty"
+    ],
+    "evidenceIds": [
+      "target-legalization.v1.directx.abi.not-required",
+      "target-legalization.v1.directx.resource-bindings.empty",
+      "target-legalization.v1.directx.rewrite.not-required",
+      "target-legalization.v1.directx.tool-requirements.empty",
+      "target-legalization.v1.vulkan.decision"
+    ]
+  }
+}

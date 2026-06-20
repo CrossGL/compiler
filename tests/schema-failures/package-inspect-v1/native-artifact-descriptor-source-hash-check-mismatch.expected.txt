@@ -1,0 +1,1 @@
+$.nativeArtifactDescriptor.checks.sourceHashMatchesFile: expected native artifact descriptor sourceHashMatchesFile False, got True

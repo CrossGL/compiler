@@ -1,0 +1,4 @@
+; Source-free Vulkan runtime fixture
+OpCapability Shader
+OpMemoryModel Logical GLSL450
+OpEntryPoint GLCompute %source_free_vulkan_main "source_free_vulkan_main"

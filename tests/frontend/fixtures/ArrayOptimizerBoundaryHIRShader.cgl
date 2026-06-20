@@ -1,0 +1,45 @@
+shader ArrayOptimizerBoundaryHIRShader {
+  const int BASE = 1;
+  const int COUNT = BASE + 2;
+  const int ROWS = 1 + 1;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) buffer int* indices;
+
+    float rewriteWeight(float samples[COUNT], int slot, float incoming) {
+      float deadParameterLocal = incoming + 100.0;
+      samples[slot] = samples[0] + incoming;
+      return samples[slot];
+    }
+
+    float readGrid(float grid[ROWS][COUNT], int row, int col) {
+      return grid[row][col];
+    }
+
+    void main() {
+      float weights[COUNT];
+      weights[0] = values[0];
+      weights[1] = values[1];
+      weights[2] = values[2];
+
+      int slot = indices[0];
+      float deadMainLocal = values[10] + 200.0;
+      float updated = rewriteWeight(weights, slot, values[3]);
+
+      float grid[ROWS][COUNT];
+      grid[0][0] = updated;
+      grid[1][2] = values[4];
+
+      int row = indices[1];
+      int col = indices[2];
+      float selected = readGrid(grid, row, col);
+
+      values[slot] = updated;
+      values[8] = selected;
+      values[9] = weights[slot];
+      return;
+    }
+  }
+}

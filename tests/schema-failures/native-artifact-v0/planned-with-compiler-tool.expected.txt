@@ -1,0 +1,1 @@
+$.toolchainProvenance.tools: planned source-package descriptors must only declare generator tool roles

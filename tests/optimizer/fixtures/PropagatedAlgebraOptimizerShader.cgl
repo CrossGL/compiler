@@ -1,0 +1,38 @@
+shader PropagatedAlgebraOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+
+    int unknownInt(int value) {
+      return value + 1;
+    }
+
+    void main() {
+      int dynamicIndex = values[0];
+
+      int zero = 0;
+      int one = 1;
+
+      int addRightZero = dynamicIndex + zero;
+      int addLeftZero = zero + dynamicIndex;
+      int multiplyRightOne = dynamicIndex * one;
+      int multiplyLeftOne = one * dynamicIndex;
+      int divideRightOne = dynamicIndex / one;
+      int multiplyRightZero = dynamicIndex * zero;
+      int multiplyLeftZero = zero * (dynamicIndex + one);
+      int moduloRightOne = dynamicIndex % one;
+      int unknownMulRightZero = unknownInt(dynamicIndex) * zero;
+      int unknownModuloRightOne = unknownInt(dynamicIndex) % one;
+
+      values[1] = addRightZero + addLeftZero + multiplyRightOne +
+                  multiplyLeftOne + divideRightOne + multiplyRightZero +
+                  multiplyLeftZero + moduloRightOne;
+      values[2] = unknownMulRightZero + unknownModuloRightOne;
+      values[3] = unknownMulRightZero;
+      values[4] = dynamicIndex * zero;
+      values[5] = zero * (dynamicIndex + one);
+      values[6] = dynamicIndex % one;
+      return;
+    }
+  }
+}

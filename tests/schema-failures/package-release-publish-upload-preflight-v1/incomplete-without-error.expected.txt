@@ -1,0 +1,1 @@
+$.diagnostics: expected error diagnostic when success is false

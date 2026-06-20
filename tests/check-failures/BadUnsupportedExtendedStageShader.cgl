@@ -1,0 +1,7 @@
+shader BadUnsupportedExtendedStage {
+  geometry {
+    void main() {
+      return;
+    }
+  }
+}

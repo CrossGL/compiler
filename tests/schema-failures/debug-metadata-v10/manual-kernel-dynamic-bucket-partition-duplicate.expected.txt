@@ -1,0 +1,1 @@
+$.manualTextureCompareKernelBuckets: expected bucket indexes to partition manualTextureCompareKernels

@@ -1,0 +1,1 @@
+$.descriptors[0].descriptorPath: expected .adapter.json path

@@ -1,0 +1,5 @@
+DXIL-FAKE-CROSSGL-RUNTIME-EXAMPLE
+module=SourceFreeDirectXEmittedDxilRuntimeExample
+entry=source_free_directx_emitted_dxil_main
+kind=directx.dxil
+validation=not-run

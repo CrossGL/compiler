@@ -1,0 +1,1 @@
+$.mappings[0].backend.endOffset: expected offset + length

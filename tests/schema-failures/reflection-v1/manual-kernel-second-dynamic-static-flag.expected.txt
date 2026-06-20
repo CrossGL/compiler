@@ -1,0 +1,1 @@
+$.manualTextureCompareKernels[1].weightsStatic: expected dynamic static flag False, got True

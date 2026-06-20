@@ -1,0 +1,1 @@
+$.targets[0].diagnosticEvidenceIds[0]: expected target diagnostic evidence prefix 'target-legalization.v1.metal.diagnostic.', got 'target-legalization.v1.vulkan.diagnostic.target.unsupported'

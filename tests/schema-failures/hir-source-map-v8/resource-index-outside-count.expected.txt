@@ -1,0 +1,1 @@
+$.hirSourceLocations.resources[0].index: expected < $.hirSourceLocations.resourceCount 1, got 1

@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "reports/package-release-bundle.json",
+  "publishPlanPath": "reports/package-release-publish-plan.json",
+  "stageReportPath": "reports/package-release-publish-stage.json",
+  "success": true,
+  "artifactRecordCount": 3,
+  "bundleArtifactRecordCount": 1,
+  "publishPlanArtifactRecordCount": 1,
+  "publishStageArtifactRecordCount": 1,
+  "stagedArtifactRecordCount": 1,
+  "totalArtifactRecordBytes": 39,
+  "records": [
+    {
+      "sourceRecordKind": "publish-plan",
+      "packagePath": "packages/InventoryShader.cglb",
+      "packageArtifactPath": "backend/metal/InventoryShader.metal",
+      "stagedPath": null,
+      "destinationPath": "packages/metal/InventoryShader.backend",
+      "sizeBytes": 15,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "sourceRecordKind": "publish-stage",
+      "packagePath": "packages/InventoryShader.cglb",
+      "packageArtifactPath": "backend/metal/InventoryShader.metal",
+      "stagedPath": "stage/packages/metal/InventoryShader.unrelated",
+      "destinationPath": "packages/metal/InventoryShader.backend",
+      "sizeBytes": 15,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "sourceRecordKind": "release-bundle",
+      "packagePath": "packages/InventoryShader.cglb",
+      "packageArtifactPath": "ir/InventoryShader.hir.json",
+      "stagedPath": null,
+      "destinationPath": null,
+      "sizeBytes": 9,
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

@@ -1,0 +1,1 @@
+$.artifacts.nativeArtifactDescriptor: source-free native requirements require descriptor artifact evidence

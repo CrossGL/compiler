@@ -1,0 +1,9 @@
+shader BadEqualityOperandShader {
+  compute {
+    uniform sampler2D colorMap;
+    void main() {
+      bool bad = colorMap == colorMap;
+      return;
+    }
+  }
+}

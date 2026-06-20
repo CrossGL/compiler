@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "vulkan",
+  "binaryKind": "vulkan.spirv-module",
+  "sourcePath": "backend/vulkan/SourceFreeVulkanRuntimeExample.spvasm",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "bcb52df0a954f25b7f410768d00fe3cab4d62b9d822722eaea788b3df38ae63e"
+  },
+  "artifactPath": "backend/vulkan/SourceFreeVulkanRuntimeExample.spv",
+  "artifactHash": {
+    "algorithm": "sha256",
+    "value": "82734019300f84793405cef2e9c3f67a21236603d789ef54f7e656c0ad4fb48b"
+  },
+  "sizeBytes": 15,
+  "toolchainProvenance": {
+    "producer": "runtime.examples.source_free_loader",
+    "tools": []
+  },
+  "optimizationLevel": "unknown",
+  "optimizationEvidence": {
+    "requestedLevel": "unknown",
+    "effectiveLevel": "unknown",
+    "policy": "metadata-only",
+    "status": "metadata-only",
+    "evidenceSource": {
+      "kind": "native-profile",
+      "path": "backend/vulkan/SourceFreeVulkanRuntimeExample.profile.json"
+    }
+  },
+  "validationStatus": "not-run",
+  "validationDiagnostics": []
+}

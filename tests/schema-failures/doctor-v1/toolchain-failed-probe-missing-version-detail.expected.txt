@@ -1,0 +1,1 @@
+$.toolchain.tools[0].versionDetail: failed probe for tool 'dxc' requires detail

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.sourceBatchResult",
+  "manifest": "build/cglc-cli-source-batch-check.json",
+  "success": true,
+  "entryCount": 1,
+  "entries": [
+    {
+      "id": "simple",
+      "path": "tests/fixtures/SimpleShader.cgl",
+      "target": "cuda",
+      "success": true
+    }
+  ],
+  "diagnosticReport": {
+    "schemaVersion": 1,
+    "diagnostics": []
+  }
+}

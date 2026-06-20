@@ -1,0 +1,1 @@
+$.result.toolRequirements.records[0].id: expected 'vulkan.toolchain.spirv-as'

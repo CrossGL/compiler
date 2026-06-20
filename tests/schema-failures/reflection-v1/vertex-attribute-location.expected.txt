@@ -1,0 +1,1 @@
+$.vertexLayouts[0].attributes[0].location: expected attribute index 0, got 1

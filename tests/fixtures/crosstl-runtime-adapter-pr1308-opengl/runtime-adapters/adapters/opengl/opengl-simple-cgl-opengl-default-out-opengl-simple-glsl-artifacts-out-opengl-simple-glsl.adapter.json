@@ -1,0 +1,64 @@
+{
+  "adapterKind": "opengl-glsl-adapter",
+  "adapterPlan": {
+    "kind": "crosstl-runtime-adapter-plan",
+    "scope": "runtime-adapter-integration-planning",
+    "success": true
+  },
+  "artifact": "simple.cgl|opengl|default|out/opengl/simple.glsl",
+  "artifactFormat": "GLSL source",
+  "binding": "simple.cgl|opengl|default|out/opengl/simple.glsl|artifacts/out/opengl/simple.glsl",
+  "defines": {},
+  "hostInterface": {
+    "artifactFormat": "GLSL source",
+    "constantCount": 0,
+    "constants": [],
+    "diagnosticRecords": [],
+    "diagnostics": [],
+    "entryPointCount": 1,
+    "entryPoints": [
+      {
+        "executionConfig": {},
+        "name": "main",
+        "stage": "vertex"
+      }
+    ],
+    "parser": "opengl-reflection",
+    "resourceCount": 0,
+    "resources": [],
+    "source": "compiled-artifact",
+    "status": "ready"
+  },
+  "hostResponsibilities": [
+    "Load the packaged GLSL artifact with the existing OpenGL shader creation path.",
+    "Bind uniforms, buffers, textures, and dispatch or draw state in host code."
+  ],
+  "id": "opengl.simple.cgl.opengl.default.out.opengl.simple.glsl.artifacts.out.opengl.simple.glsl",
+  "kind": "crosstl-runtime-adapter-descriptor",
+  "packagePath": "artifacts/out/opengl/simple.glsl",
+  "packageRoot": "tests/fixtures/crosstl-runtime-adapter-pr1308-opengl/runtime-package",
+  "requiredTools": [
+    "glslangValidator"
+  ],
+  "schemaVersion": 1,
+  "sourceBackend": "cgl",
+  "sourcePackage": "tests/fixtures/crosstl-runtime-adapter-pr1308-opengl/runtime-package.json",
+  "sourcePackageHash": {
+    "algorithm": "sha256",
+    "value": "1111111111111111111111111111111111111111111111111111111111111111"
+  },
+  "sourcePath": "out/opengl/simple.glsl",
+  "sourceRemap": {
+    "packagePath": "source-remaps/out/opengl/simple.source-remap.json",
+    "sourcePath": "out/opengl/simple.source-remap.json",
+    "status": "ready"
+  },
+  "stage": null,
+  "target": "opengl",
+  "validation": {
+    "artifact": "ready",
+    "packageInspection": "ready",
+    "sourceRemap": "ready"
+  },
+  "variant": null
+}

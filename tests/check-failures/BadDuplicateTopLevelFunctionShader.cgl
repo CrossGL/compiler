@@ -1,0 +1,15 @@
+shader BadDuplicateTopLevelFunctionShader {
+  void helper() {
+    return;
+  }
+
+  void helper() {
+    return;
+  }
+
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

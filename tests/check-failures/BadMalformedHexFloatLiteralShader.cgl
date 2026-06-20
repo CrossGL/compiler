@@ -1,0 +1,8 @@
+shader BadMalformedHexFloatLiteral {
+    compute {
+        void main() {
+            float scale = 0x1.8p+;
+            return;
+        }
+    }
+}

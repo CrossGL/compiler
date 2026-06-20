@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "metal",
+  "binaryKind": "metal.metallib",
+  "sourcePath": "backend/metal/SourceFreeMetalRuntimeExample.metal",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "bc4a48fe9fdc5290dee3a4349b1cfeec5f4c4a3bfef457d95e8a11c79c04ff2e"
+  },
+  "artifactPath": "backend/metal/SourceFreeMetalRuntimeExample.metallib",
+  "artifactHash": {
+    "algorithm": "sha256",
+    "value": "898dd097a7e0523372f05dfb31fe73a4635dbb5c44be80b99055427fa52fb353"
+  },
+  "sizeBytes": 21,
+  "toolchainProvenance": {
+    "producer": "runtime.examples.source_free_loader",
+    "tools": []
+  },
+  "optimizationLevel": "unknown",
+  "optimizationEvidence": {
+    "requestedLevel": "unknown",
+    "effectiveLevel": "unknown",
+    "policy": "metadata-only",
+    "status": "metadata-only",
+    "evidenceSource": {
+      "kind": "descriptor"
+    }
+  },
+  "validationStatus": "not-run",
+  "validationDiagnostics": []
+}

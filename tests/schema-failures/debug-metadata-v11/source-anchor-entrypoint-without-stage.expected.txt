@@ -1,0 +1,1 @@
+$.hirSourceLocations.statements[0].stage: expected non-empty when entryPoint is non-empty

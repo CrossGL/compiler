@@ -1,0 +1,723 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/reflection-v1.schema.json",
+  "title": "CrossGL Reflection JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "module",
+    "target",
+    "nativeBinary",
+    "entryPoints",
+    "structs",
+    "resources",
+    "targetResourceBindings",
+    "pushConstants",
+    "functionConstants",
+    "vertexLayouts",
+    "workgroupSizes",
+    "manualTextureCompareKernelSummary",
+    "manualTextureCompareKernels",
+    "targetFeatures"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "module": {
+      "type": "string"
+    },
+    "target": {
+      "$ref": "#/$defs/targetName"
+    },
+    "nativeBinary": {
+      "type": "string"
+    },
+    "legalizationCoreEvidenceIds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/targetLegalizationCoreEvidenceId"
+      }
+    },
+    "entryPoints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entryPoint"
+      }
+    },
+    "structs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/structure"
+      }
+    },
+    "resources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/resource"
+      }
+    },
+    "targetResourceBindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetResourceBinding"
+      }
+    },
+    "pushConstants": {
+      "type": "array"
+    },
+    "functionConstants": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/functionConstant"
+      }
+    },
+    "vertexLayouts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/vertexLayout"
+      }
+    },
+    "workgroupSizes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/workgroupSize"
+      }
+    },
+    "manualTextureCompareKernelSummary": {
+      "$ref": "#/$defs/manualTextureCompareKernelSummary"
+    },
+    "manualTextureCompareKernels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/manualTextureCompareKernel"
+      }
+    },
+    "targetFeatures": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetFeature"
+      }
+    }
+  },
+  "$defs": {
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "targetLegalizationCoreEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.(decision|state\\.(legalized|rejected)|support\\.(native|source-package|unsupported)|package-mode\\.(native|source-package|unsupported)|package-provenance\\.(native-package-available|source-package-only|unsupported-source-form|unsupported-native-form|unsupported)|optional-native-tool\\.missing|package-reason\\.[a-z0-9][a-z0-9-]*)$"
+    },
+    "targetLegalizationResourceBindingEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.resource-binding\\.[A-Za-z0-9_.-]+$"
+    },
+    "targetLegalizationTargetFeatureEvidenceId": {
+      "type": "string",
+      "pattern": "^target-legalization\\.v1\\.(metal|vulkan|directx|opengl)\\.(capability\\.(required|missing)\\.(metal|vulkan|directx|opengl)\\.[A-Za-z0-9_.-]+|abi\\.(required|missing)\\.[A-Za-z0-9_.-]+)$"
+    },
+    "parameter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        }
+      }
+    },
+    "arrayDimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "kind"
+      ],
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "elementCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "entryPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "sourceName",
+        "backendName",
+        "returnType",
+        "parameters"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "sourceName": {
+          "type": "string"
+        },
+        "backendName": {
+          "type": "string"
+        },
+        "returnType": {
+          "type": "string"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parameter"
+          }
+        }
+      }
+    },
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "arrayDimensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arrayDimension"
+          }
+        }
+      }
+    },
+    "structure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "fields"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          }
+        }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "name",
+        "kind",
+        "type"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "arrayDimensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arrayDimension"
+          }
+        },
+        "set": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "binding": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "addressSpace": {
+          "type": "string"
+        },
+        "storageImageFormat": {
+          "enum": [
+            "rgba32f",
+            "rgba32i",
+            "rgba32ui",
+            "r32f",
+            "r32i",
+            "r32ui"
+          ]
+        },
+        "storageImageAccess": {
+          "enum": [
+            "read",
+            "write",
+            "read_write"
+          ]
+        }
+      }
+    },
+    "storageBufferFieldLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type",
+        "offsetBytes",
+        "sizeBytes",
+        "storageSizeBytes",
+        "alignmentBytes"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "offsetBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "storageSizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "alignmentBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arrayElementCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arrayStrideBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arrayDimensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arrayDimension"
+          }
+        }
+      }
+    },
+    "storageBufferLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "elementType",
+        "elementSizeBytes",
+        "arrayStrideBytes",
+        "layout",
+        "alignmentBytes",
+        "supportsScalarLayout"
+      ],
+      "properties": {
+        "elementType": {
+          "type": "string"
+        },
+        "elementSizeBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arrayStrideBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "layout": {
+          "type": "string"
+        },
+        "alignmentBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "supportsScalarLayout": {
+          "type": "boolean"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/storageBufferFieldLayout"
+          }
+        }
+      }
+    },
+    "targetResourceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "stage",
+        "entryPoint",
+        "name",
+        "kind",
+        "sourceType",
+        "addressSpace",
+        "abi",
+        "bindingClass"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "sourceType": {
+          "type": "string"
+        },
+        "metalType": {
+          "type": "string"
+        },
+        "hlslType": {
+          "type": "string"
+        },
+        "descriptorType": {
+          "type": "string"
+        },
+        "storageClass": {
+          "type": "string"
+        },
+        "spirvType": {
+          "type": "string"
+        },
+        "storageImageFormat": {
+          "enum": [
+            "rgba32f",
+            "rgba32i",
+            "rgba32ui",
+            "r32f",
+            "r32i",
+            "r32ui"
+          ]
+        },
+        "storageImageAccess": {
+          "enum": [
+            "read",
+            "write",
+            "read_write"
+          ]
+        },
+        "addressSpace": {
+          "type": "string"
+        },
+        "abi": {
+          "type": "string"
+        },
+        "bindingClass": {
+          "type": "string"
+        },
+        "evidenceId": {
+          "$ref": "#/$defs/targetLegalizationResourceBindingEvidenceId"
+        },
+        "argumentIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "set": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "binding": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arraySize": {
+          "type": "string"
+        },
+        "arrayElementCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "arrayDimensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arrayDimension"
+          }
+        },
+        "storageBufferLayout": {
+          "$ref": "#/$defs/storageBufferLayout"
+        },
+        "usageRoles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "functionConstant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "specializationId": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "vertexAttribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type",
+        "location"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "vertexLayout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entryPoint",
+        "attributes"
+      ],
+      "properties": {
+        "entryPoint": {
+          "type": "string"
+        },
+        "attributes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/vertexAttribute"
+          }
+        }
+      }
+    },
+    "workgroupSize": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "entryPoint",
+        "x",
+        "y",
+        "z",
+        "sourceX",
+        "sourceY",
+        "sourceZ"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "x": {
+          "type": "string"
+        },
+        "y": {
+          "type": "string"
+        },
+        "z": {
+          "type": "string"
+        },
+        "sourceX": {
+          "type": "string"
+        },
+        "sourceY": {
+          "type": "string"
+        },
+        "sourceZ": {
+          "type": "string"
+        }
+      }
+    },
+    "manualTextureCompareKernelSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "totalCount",
+        "staticNormalizedCount",
+        "staticNonNormalizedCount",
+        "staticZeroSumCount",
+        "dynamicCount"
+      ],
+      "properties": {
+        "totalCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "staticNormalizedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "staticNonNormalizedCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "staticZeroSumCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "dynamicCount": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "manualTextureCompareKernel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "entryPoint",
+        "function",
+        "operation",
+        "sourceKind",
+        "canonicalOperation",
+        "compatibilityAlias",
+        "weightClass",
+        "tapCount",
+        "weightsStatic",
+        "weightsZeroSum",
+        "weightsNormalized"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "sourceKind": {
+          "type": "string"
+        },
+        "canonicalOperation": {
+          "type": "string"
+        },
+        "compatibilityAlias": {
+          "type": "boolean"
+        },
+        "weightClass": {
+          "type": "string"
+        },
+        "tapCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "weightsStatic": {
+          "type": "boolean"
+        },
+        "weightSum": {
+          "type": "number"
+        },
+        "weightsZeroSum": {
+          "type": "boolean"
+        },
+        "weightsNormalized": {
+          "type": "boolean"
+        }
+      }
+    },
+    "targetFeature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "kind",
+        "name"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/targetLegalizationTargetFeatureEvidenceId"
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

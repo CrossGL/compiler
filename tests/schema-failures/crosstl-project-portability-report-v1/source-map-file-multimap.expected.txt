@@ -1,0 +1,1 @@
+$.artifacts[0].sourceMap.mappings: expected exactly one source/generated span pair for file granularity

@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/package-release-publish-stage-v1.schema.json",
+  "title": "CrossGL Package Release Publish Stage JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "planPath",
+    "stagePath",
+    "success",
+    "packageCount",
+    "artifactCount",
+    "totalArtifactBytes",
+    "stagedArtifactCount",
+    "stagedArtifactBytes",
+    "artifacts",
+    "diagnosticCounts",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "planPath": {
+      "type": "string"
+    },
+    "stagePath": {
+      "type": "string"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "packageCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "artifactCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "totalArtifactBytes": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "stagedArtifactCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "stagedArtifactBytes": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/artifact"
+      }
+    },
+    "diagnosticCounts": {
+      "$ref": "#/$defs/diagnosticCounts"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "packagePath",
+        "module",
+        "target",
+        "sourcePath",
+        "packageArtifactPath",
+        "destinationPath",
+        "stagedPath",
+        "sizeBytes",
+        "sha256",
+        "staged"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "packagePath": {
+          "type": "string"
+        },
+        "module": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string",
+          "enum": [
+            "metal",
+            "vulkan",
+            "directx",
+            "opengl"
+          ]
+        },
+        "sourcePath": {
+          "type": "string"
+        },
+        "packageArtifactPath": {
+          "type": "string"
+        },
+        "destinationPath": {
+          "type": "string"
+        },
+        "stagedPath": {
+          "type": "string"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "staged": {
+          "type": "boolean"
+        }
+      }
+    },
+    "diagnosticCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note",
+        "warning",
+        "error"
+      ],
+      "properties": {
+        "note": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "warning": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "error": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endOffset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "location"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "target": {
+          "type": "string"
+        },
+        "missingCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

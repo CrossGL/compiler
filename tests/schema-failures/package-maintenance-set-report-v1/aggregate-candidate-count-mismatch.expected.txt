@@ -1,0 +1,1 @@
+$.candidateCount: expected aggregate candidate count 0, got 1

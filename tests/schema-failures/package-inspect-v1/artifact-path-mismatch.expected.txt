@@ -1,0 +1,1 @@
+$.artifacts.backendSource.path: expected manifest artifact path 'backend/directx/SemanticFixture.hlsl', got 'backend/directx/Other.hlsl'

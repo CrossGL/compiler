@@ -1,0 +1,14 @@
+shader BadStorageImageStoreCoordinateShapeShader {
+  compute {
+    layout(set = 0, binding = 0) uniform image2D colorImage;
+    layout(set = 0, binding = 1) uniform uimage2DArray maskAtlas;
+
+    void main() {
+      vec4 color = vec4(0.0, 0.25, 0.5, 1.0);
+      uvec4 mask = uvec4(1, 2, 3, 4);
+      imageStore(colorImage, ivec3(0, 1, 2), color);
+      imageStore(maskAtlas, ivec2(0, 1), mask);
+      return;
+    }
+  }
+}

@@ -1,0 +1,10 @@
+shader BadUnsupportedGeneric {
+  generic<T> struct Box {
+    T value;
+  }
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

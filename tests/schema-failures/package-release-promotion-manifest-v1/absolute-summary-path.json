@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "summaryPath": "/tmp/package-release-summary.json",
+  "manifestPath": "build/package-release-promotion-manifest.json",
+  "batchPath": "build/package-release-verification-batch.json",
+  "status": "blocked",
+  "releaseEligible": false,
+  "blockerCount": 1,
+  "blockers": [
+    {
+      "code": "verification-summary-mismatch",
+      "message": "package maintenance verification summary contains scan/set mismatches",
+      "count": 1
+    }
+  ],
+  "packageCount": 0,
+  "packages": [],
+  "summary": {
+    "summaryPath": "/tmp/package-release-summary.json",
+    "batchPath": "build/package-release-verification-batch.json",
+    "success": false,
+    "matches": false,
+    "releaseEligible": false,
+    "verificationCount": 1,
+    "matchedCount": 0,
+    "mismatchedCount": 1,
+    "failedCount": 0,
+    "scannedPackageCount": 1,
+    "setPackageCount": 0,
+    "missingFromSetCount": 1,
+    "extraInSetCount": 0,
+    "diagnosticCounts": {
+      "note": 0,
+      "warning": 1,
+      "error": 0
+    }
+  },
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 1,
+    "error": 0
+  }
+}

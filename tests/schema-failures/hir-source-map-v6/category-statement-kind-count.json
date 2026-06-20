@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 6,
+  "filters": {
+    "activeCount": 0
+  },
+  "pagination": {
+    "activeCount": 0,
+    "expressionOffset": 0,
+    "typeOffset": 0,
+    "expressionTotalCount": 2,
+    "expressionEmittedCount": 0,
+    "expressionHasMore": true,
+    "expressionNextOffset": 0,
+    "typeTotalCount": 0,
+    "typeEmittedCount": 0,
+    "typeHasMore": false,
+    "typeNextOffset": 0
+  },
+  "categoryCounts": {
+    "expressionTotalCount": 2,
+    "typeTotalCount": 0,
+    "recordTotalCount": 2,
+    "expressionKinds": [
+      {
+        "name": "literal",
+        "count": 2
+      }
+    ],
+    "statementKinds": [
+      {
+        "name": "decl",
+        "count": 1
+      }
+    ],
+    "typeOwnerKinds": []
+  },
+  "records": {
+    "enabled": false,
+    "activeCount": 0,
+    "offset": 0,
+    "totalCount": 2,
+    "emittedCount": 0,
+    "hasMore": false,
+    "nextOffset": 0,
+    "items": []
+  },
+  "hirSourceLocations": {
+    "expressionCount": 0,
+    "expressionWithLocationCount": 0,
+    "typeCount": 0,
+    "typeWithLocationCount": 0,
+    "expressions": [],
+    "types": []
+  }
+}

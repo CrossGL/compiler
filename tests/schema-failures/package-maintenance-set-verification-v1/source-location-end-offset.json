@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "rootPath": "packages",
+  "setPath": "package-set.json",
+  "success": false,
+  "matches": false,
+  "scannedPackageCount": 2,
+  "setPackageCount": 2,
+  "missingFromSetCount": 0,
+  "extraInSetCount": 0,
+  "scannedPackages": [
+    "alpha/package.cglb",
+    "beta/package.cglb"
+  ],
+  "setPackages": [
+    "alpha/package.cglb",
+    "beta/package.cglb"
+  ],
+  "missingFromSet": [],
+  "extraInSet": [],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "package.maintenance.set.verification.fixture",
+      "message": "fixture error",
+      "location": {
+        "file": "package-set.json",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 10,
+        "endLine": 1,
+        "endColumn": 11,
+        "endOffset": 8
+      }
+    }
+  ]
+}

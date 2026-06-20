@@ -1,0 +1,1 @@
+$.scannedPackages: expected sorted package paths

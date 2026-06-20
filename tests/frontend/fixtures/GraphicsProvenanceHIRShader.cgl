@@ -1,0 +1,40 @@
+shader GraphicsProvenanceHIRShader {
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+        vec4 color;
+    }
+
+    struct VertexOutput {
+        vec4 position;
+        vec2 uv;
+        vec4 tint;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+        vec4 tint;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            output.position = vec4(input.position, 1.0);
+            output.uv = input.texCoord;
+            output.tint = input.color;
+            return output;
+        }
+    }
+
+    fragment {
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            output.color = vec4(input.uv.x, input.uv.y, input.tint.z, 1.0);
+            return output;
+        }
+    }
+}

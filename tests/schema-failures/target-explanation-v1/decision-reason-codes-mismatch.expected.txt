@@ -1,0 +1,1 @@
+$.targets[0].decisionReasonCodes: expected decision reason codes ['package-mode:native', 'package-reason:native-package-available'], got ['package-mode:source-package', 'package-reason:source-package-available']

@@ -1,0 +1,1 @@
+$.targets: expected registry v0 target order ['metal', 'vulkan', 'directx', 'opengl', 'wgsl'], got ['directx']

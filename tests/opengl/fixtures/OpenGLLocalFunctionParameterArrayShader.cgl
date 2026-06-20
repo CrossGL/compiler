@@ -1,0 +1,19 @@
+shader OpenGLLocalFunctionParameterArrayShader {
+  const int COUNT = 4;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+    float readWeight(float weights[COUNT], int index) {
+      return weights[index];
+    }
+
+    void main() {
+      float weights[COUNT];
+      weights[0] = 1.0;
+      weights[1] = weights[0] + 2.0;
+      float first = readWeight(weights, 1);
+      return;
+    }
+  }
+}

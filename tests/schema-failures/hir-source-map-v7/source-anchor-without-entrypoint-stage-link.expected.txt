@@ -1,0 +1,1 @@
+$.hirSourceLocations: expected at least one emitted source anchor with non-empty stage and entryPoint

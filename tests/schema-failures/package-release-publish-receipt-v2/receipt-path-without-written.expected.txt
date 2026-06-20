@@ -1,0 +1,1 @@
+$.receiptPath: expected empty path when not receiptWritten

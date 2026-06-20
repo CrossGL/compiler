@@ -1,0 +1,52 @@
+shader VulkanGraphicsBooleanLogicShader {
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            output.uv = input.texCoord;
+            output.position = vec4(input.position, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            bool highX = input.uv.x > 0.25;
+            bool lowY = input.uv.y < 0.75;
+            bool inside = highX && lowY;
+            bool outside = !inside || input.uv.x == input.uv.y;
+            bool same = inside == highX;
+            bool different = outside != lowY;
+            vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
+            if (inside) {
+                color = vec4(1.0, 0.2, 0.1, 1.0);
+            }
+            if (outside) {
+                color = color + vec4(0.0, 0.1, 0.2, 0.0);
+            }
+            if (same && different) {
+                color = color + vec4(0.0, 0.4, 0.0, 0.0);
+            }
+            output.color = color;
+            return output;
+        }
+    }
+}

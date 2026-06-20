@@ -1,0 +1,34 @@
+shader ForOptimizerBoundaryHIRShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) buffer int* indices;
+
+    void main() {
+      int dynamicBase = indices[0];
+      int dynamicStride = indices[1];
+      float carry = values[dynamicBase];
+
+      for (int i = 0; i < 6; i = i + dynamicStride) {
+        float deadLoopLocal = carry + 100.0;
+
+        carry = carry + values[dynamicBase + i];
+        values[dynamicBase + i] = carry;
+
+        for (int j = 0; j < 2; j = j + 1) {
+          int nestedIndex = dynamicBase + i + j;
+          float deadNestedLocal = values[nestedIndex] + 50.0;
+          values[nestedIndex] = values[nestedIndex] + carry;
+        }
+      }
+
+      for (int k = 0; k < 6; k = k + (1 + 2)) {
+        float deadFoldedLocal = float(k) + 1.0;
+        values[k] = values[k] + carry;
+      }
+
+      values[dynamicBase] = carry;
+      return;
+    }
+  }
+}

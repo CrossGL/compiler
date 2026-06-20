@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "project": {
+    "root": ".",
+    "targets": [
+      "metal"
+    ],
+    "outputDir": "out"
+  },
+  "summary": {
+    "artifactCount": 1,
+    "diagnosticCounts": {
+      "note": 0,
+      "warning": 0,
+      "error": 1
+    },
+    "missingCapabilityCounts": {
+      "metal.feature.bindless-texture": 1
+    },
+    "sourceRemapCount": 0,
+    "sourceRemapMappingCount": 0
+  },
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "target": "metal",
+      "path": "out/metal/simple.metal",
+      "status": "failed",
+      "requiredCapabilities": [
+        "metal.feature.argument-buffer"
+      ],
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": null
+      }
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "target.capability.missing",
+      "message": "Target requires an unsupported capability.",
+      "location": {
+        "file": "crosstl.toml",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 0,
+        "endLine": 1,
+        "endColumn": 1,
+        "endOffset": 0
+      },
+      "target": "metal",
+      "sourceBackend": "cgl",
+      "missingCapabilities": [
+        "metal.feature.bindless-texture"
+      ]
+    }
+  ]
+}

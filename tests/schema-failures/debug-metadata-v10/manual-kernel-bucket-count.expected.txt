@@ -1,0 +1,1 @@
+$.manualTextureCompareKernelBuckets.dynamic: expected $.manualTextureCompareKernelSummary.dynamicCount 0, got 1

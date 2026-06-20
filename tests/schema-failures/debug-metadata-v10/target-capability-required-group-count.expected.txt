@@ -1,0 +1,1 @@
+$.targetCapabilities.summaries[0].requiredCapabilityGroups[0].count: expected $.targetCapabilities.summaries[0].requiredCapabilityGroups[0].capabilities length 1, got 0

@@ -1,0 +1,42 @@
+shader MetalGraphicsStagesShader {
+    struct MeshVertex {
+        vec3 position;
+        vec2 texCoord;
+        vec3 tint;
+    }
+
+    struct RasterPayload {
+        vec4 clipPosition;
+        vec2 uv;
+        vec3 tint;
+    }
+
+    struct FragmentPayload {
+        vec2 uv;
+        vec3 tint;
+    }
+
+    struct DualColorTargets {
+        vec4 primary;
+        vec4 secondary;
+    }
+
+    vertex {
+        RasterPayload main(MeshVertex input) {
+            RasterPayload output;
+            output.clipPosition = vec4(input.position, 1.0);
+            output.uv = input.texCoord;
+            output.tint = input.tint;
+            return output;
+        }
+    }
+
+    fragment {
+        DualColorTargets main(FragmentPayload input) {
+            DualColorTargets output;
+            output.primary = vec4(input.uv.x, input.uv.y, input.tint.z, 1.0);
+            output.secondary = vec4(input.tint, 1.0);
+            return output;
+        }
+    }
+}

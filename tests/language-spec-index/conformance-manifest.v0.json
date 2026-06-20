@@ -1,0 +1,54 @@
+{
+  "coverage_contract": {
+    "required_feature_statuses": [
+      {
+        "feature_group": "atomics",
+        "min_entries": 1,
+        "status": "accepted"
+      },
+      {
+        "feature_group": "compute-basics",
+        "min_entries": 1,
+        "status": "accepted"
+      },
+      {
+        "feature_group": "control-flow",
+        "min_entries": 1,
+        "status": "accepted"
+      },
+      {
+        "feature_group": "graphics-stages",
+        "min_entries": 1,
+        "status": "accepted"
+      },
+      {
+        "feature_group": "known-native-v0-unsupported",
+        "min_entries": 1,
+        "status": "unsupported"
+      },
+      {
+        "feature_group": "resources",
+        "min_entries": 1,
+        "status": "accepted"
+      },
+      {
+        "feature_group": "storage-images",
+        "min_entries": 1,
+        "status": "accepted"
+      },
+      {
+        "feature_group": "texture-sampling",
+        "min_entries": 1,
+        "status": "accepted"
+      }
+    ]
+  },
+  "entries": [
+    {
+      "feature_group": "compute-basics",
+      "id": "compute-basics.fixture",
+      "status": "accepted"
+    }
+  ],
+  "schema_version": "crossgl-conformance-manifest-v0"
+}

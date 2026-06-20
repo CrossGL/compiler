@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "SemanticFixture.cglb",
+  "packageFormat": "directory",
+  "summary": {
+    "module": "SemanticFixture",
+    "target": "directx",
+    "nativeBinaryStatus": "planned",
+    "artifactCount": 2,
+    "debugArtifactsPresent": false
+  },
+  "rootFiles": [
+    {
+      "name": "manifest",
+      "path": "manifest.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "reflection",
+      "path": "reflection.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "diagnostics",
+      "path": "diagnostics.json",
+      "provenance": {
+        "kind": "packageRootFile",
+        "source": "packageRoot"
+      },
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "backendSource",
+      "path": "backend/directx/SemanticFixture.hlsl",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "backendSource"
+      },
+      "packageRelative": true,
+      "exists": true,
+      "sizeBytes": 1,
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "name": "nativeBinary",
+      "path": "backend/directx/SemanticFixture.dxil",
+      "provenance": {
+        "kind": "manifestArtifact",
+        "source": "manifest.artifacts",
+        "manifestKey": "nativeBinary"
+      },
+      "packageRelative": true,
+      "exists": false,
+      "sizeBytes": null,
+      "sha256": null
+    }
+  ],
+  "manifest": {
+    "module": "SemanticFixture",
+    "target": "directx",
+    "artifacts": {
+      "backendSource": "backend/directx/SemanticFixture.hlsl",
+      "nativeBinary": "backend/directx/SemanticFixture.dxil",
+      "nativeBinaryStatus": "planned"
+    }
+  },
+  "reflection": {
+    "schemaVersion": 1,
+    "module": "SemanticFixture",
+    "target": "directx",
+    "nativeBinary": "",
+    "entryPoints": [
+      {
+        "stage": "fragment",
+        "sourceName": "main",
+        "backendName": "fragment_main",
+        "returnType": "void",
+        "parameters": []
+      }
+    ],
+    "structs": [],
+    "resources": [
+      {
+        "stage": "fragment",
+        "name": "albedo",
+        "kind": "texture",
+        "type": "sampler2D[TEXTURE_COUNT]",
+        "set": 1,
+        "binding": 2,
+        "arrayDimensions": [
+          {
+            "source": "TEXTURE_COUNT",
+            "kind": "fixed",
+            "elementCount": 4
+          }
+        ]
+      }
+    ],
+    "targetResourceBindings": [
+      {
+        "target": "directx",
+        "stage": "fragment",
+        "entryPoint": "fragment_main",
+        "name": "albedo",
+        "kind": "texture",
+        "sourceType": "sampler2D[TEXTURE_COUNT]",
+        "hlslType": "Texture2D<float4>",
+        "addressSpace": "shader-resource",
+        "abi": "registerBinding",
+        "bindingClass": "srv",
+        "descriptorType": "SRV",
+        "argumentIndex": 2,
+        "set": 1,
+        "binding": 2,
+        "arrayElementCount": 4
+      }
+    ],
+    "pushConstants": [],
+    "functionConstants": [],
+    "vertexLayouts": [],
+    "workgroupSizes": [],
+    "manualTextureCompareKernelSummary": {
+      "totalCount": 0,
+      "staticNormalizedCount": 0,
+      "staticNonNormalizedCount": 0,
+      "staticZeroSumCount": 0,
+      "dynamicCount": 0
+    },
+    "manualTextureCompareKernels": [],
+    "targetFeatures": []
+  },
+  "diagnostics": {
+    "schemaVersion": 1
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "build/SemanticFixture.cglb",
+  "requestedExists": true,
+  "publication": {
+    "state": "published",
+    "requestedPath": "build/OtherFixture.cglb",
+    "sidecarKind": null,
+    "sidecarToken": null,
+    "sidecarAttempt": null,
+    "siblingSidecarCount": 0,
+    "siblingSidecars": []
+  }
+}

@@ -1,0 +1,1 @@
+publish-stage record requires matching publish-plan record for package artifact ('packages/InventoryShader.cglb', 'ir/OtherShader.hir.json')

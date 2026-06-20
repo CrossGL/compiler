@@ -1,0 +1,34 @@
+shader VulkanCrossTLStorageBufferOverloadSelectionShader {
+  struct Particle {
+    vec4 position;
+    vec4 velocity;
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* scalars;
+    layout(set = 0, binding = 1) buffer vec4* vectors;
+    layout(set = 0, binding = 2) buffer Particle* particles;
+
+    float crosstl_select_scalar(int index) {
+      return scalars[index];
+    }
+
+    vec4 crosstl_select_vector(int index) {
+      return vectors[index];
+    }
+
+    vec4 crosstl_select_particle(int index) {
+      return particles[index].position + particles[index].velocity;
+    }
+
+    void main() {
+      int index = 0;
+      float scalar = crosstl_select_scalar(index);
+      vec4 vectorValue = crosstl_select_vector(index);
+      vec4 particleValue = crosstl_select_particle(index);
+      vectors[1] = vec4(scalar, scalar, scalar, 1.0) + vectorValue + particleValue;
+      return;
+    }
+  }
+}

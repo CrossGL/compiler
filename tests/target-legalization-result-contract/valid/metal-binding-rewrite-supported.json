@@ -1,0 +1,125 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "metal",
+    "targetProfile": {
+      "target": "metal",
+      "profile": "metal.v0.native",
+      "packageMode": "native"
+    },
+    "packageMode": "native",
+    "packageDecisionProvenance": "native-package-available",
+    "supportStatus": "native",
+    "moduleSupported": true,
+    "requiredCapabilities": [
+      "metal.backend.msl-lowering",
+      "metal.package.native-artifact"
+    ],
+    "missingCapabilities": [],
+    "toolRequirements": {
+      "requiredToolIds": [
+        "metal.toolchain.xcrun-metal",
+        "metal.toolchain.xcrun-metallib"
+      ],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal",
+        "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib",
+        "target-legalization.v1.metal.tool-requirements.present"
+      ],
+      "records": [
+        {
+          "id": "metal.toolchain.xcrun-metal",
+          "kind": "toolchain",
+          "name": "xcrun-metal",
+          "status": "required",
+          "target": "metal",
+          "evidenceIds": [
+            "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal"
+          ]
+        },
+        {
+          "id": "metal.toolchain.xcrun-metallib",
+          "kind": "toolchain",
+          "name": "xcrun-metallib",
+          "status": "required",
+          "target": "metal",
+          "evidenceIds": [
+            "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib"
+          ]
+        }
+      ],
+      "optionalNativeToolStatus": "not-required"
+    },
+    "diagnostics": [
+      {
+        "code": "target.native-package-selected",
+        "severity": "info",
+        "message": "Metal native emission canonicalized descriptor coordinates to packed argument slots.",
+        "target": "metal",
+        "missingCapabilities": [],
+        "evidenceIds": [
+          "target-legalization.v1.metal.diagnostic.native-package"
+        ]
+      }
+    ],
+    "rewrites": [
+      {
+        "id": "metal-argument-slot-packing",
+        "order": 0,
+        "status": "applied",
+        "description": "Metal native emission canonicalized descriptor set/binding coordinates to packed kernel argument slots.",
+        "evidenceIds": [
+          "target-legalization.v1.metal.rewrite.applied.resource-binding.metal-argument-slot-packing"
+        ]
+      }
+    ],
+    "abiFacts": {
+      "state": "complete",
+      "facts": [
+        {
+          "id": "metal.backend.msl-lowering",
+          "kind": "native-profile",
+          "status": "provided",
+          "target": "metal",
+          "evidenceIds": [
+            "target-legalization.v1.metal.abi.required.backend.msl-lowering"
+          ]
+        }
+      ],
+      "evidenceIds": [
+        "target-legalization.v1.metal.abi.present",
+        "target-legalization.v1.metal.abi.required.backend.msl-lowering"
+      ]
+    },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.metal.resource-binding.compute.compute_main.values",
+      "target-legalization.v1.metal.resource-bindings.present"
+    ],
+    "evidenceIds": [
+      "target-legalization.v1.metal.abi.present",
+      "target-legalization.v1.metal.abi.required.backend.msl-lowering",
+      "target-legalization.v1.metal.decision",
+      "target-legalization.v1.metal.diagnostic.native-package",
+      "target-legalization.v1.metal.package-mode.native",
+      "target-legalization.v1.metal.package-provenance.native-package-available",
+      "target-legalization.v1.metal.resource-binding.compute.compute_main.values",
+      "target-legalization.v1.metal.resource-bindings.present",
+      "target-legalization.v1.metal.rewrite.applied.resource-binding.metal-argument-slot-packing",
+      "target-legalization.v1.metal.rewrite.rewritten",
+      "target-legalization.v1.metal.state.legalized",
+      "target-legalization.v1.metal.support.native",
+      "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal",
+      "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metallib",
+      "target-legalization.v1.metal.tool-requirements.present"
+    ]
+  }
+}

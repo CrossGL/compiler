@@ -1,0 +1,68 @@
+shader MetalGraphicsDescriptorArrayShader {
+  const int RESOURCE_COUNT = 2;
+
+  struct FrameParams {
+    vec4 clipOffset;
+    vec4 tint;
+  }
+
+  struct MeshVertex {
+    vec3 position;
+    vec2 texCoord;
+    float shadowDepth;
+  }
+
+  struct RasterPayload {
+    vec4 clipPosition;
+    vec2 uv;
+    float shadowDepth;
+    vec4 tint;
+  }
+
+  struct FragmentPayload {
+    vec2 uv;
+    float shadowDepth;
+    vec4 tint;
+  }
+
+  struct ColorTarget {
+    vec4 color;
+  }
+
+  vertex {
+    layout(set = 0, binding = 1) uniform sampler2D heightMaps[RESOURCE_COUNT];
+    layout(set = 0, binding = 3) sampler heightSamplers[RESOURCE_COUNT];
+
+    RasterPayload main(MeshVertex input) {
+      RasterPayload output;
+      vec4 height = textureLod(heightMaps[1], heightSamplers[0], input.texCoord, 0.0);
+      output.clipPosition = vec4(input.position.x,
+                                input.position.y + height.x,
+                                input.position.z,
+                                1.0);
+      output.uv = input.texCoord;
+      output.shadowDepth = input.shadowDepth;
+      output.tint = height;
+      return output;
+    }
+  }
+
+  fragment {
+    layout(set = 0, binding = 1) uniform sampler2D colorMaps[RESOURCE_COUNT];
+    layout(set = 0, binding = 3) sampler linearSamplers[RESOURCE_COUNT];
+    layout(set = 0, binding = 6) uniform sampler2DShadow shadowMaps[RESOURCE_COUNT];
+    layout(set = 0, binding = 8) comparison_sampler shadowSamplers[RESOURCE_COUNT];
+
+    ColorTarget main(FragmentPayload input) {
+      ColorTarget output;
+      vec4 base = texture(colorMaps[0], linearSamplers[1], input.uv);
+      float visibility = textureCompareLod(shadowMaps[1],
+                                           shadowSamplers[0],
+                                           input.uv,
+                                           input.shadowDepth,
+                                           2.0);
+      output.color = base * input.tint * vec4(visibility, visibility, visibility, 1.0);
+      return output;
+    }
+  }
+}

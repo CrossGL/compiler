@@ -1,0 +1,1 @@
+$.toolchainProvenance.tools: validationStatus 'unavailable' must not include validator tool role

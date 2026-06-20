@@ -1,0 +1,1 @@
+$.manualTextureCompareKernelSummary: expected sum of bucket counts 2, got 3

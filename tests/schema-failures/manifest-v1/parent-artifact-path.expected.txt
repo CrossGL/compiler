@@ -1,0 +1,1 @@
+$.artifacts.nativeBinary: artifact path must stay inside package

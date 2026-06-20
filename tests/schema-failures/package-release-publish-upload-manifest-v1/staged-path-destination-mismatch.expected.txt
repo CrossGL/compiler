@@ -1,0 +1,1 @@
+$.requests[0].stagedPath: expected staged path to end with destinationPath

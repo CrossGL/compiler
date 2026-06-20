@@ -1,0 +1,1 @@
+$.diagnostics: failed recovery requires diagnostics

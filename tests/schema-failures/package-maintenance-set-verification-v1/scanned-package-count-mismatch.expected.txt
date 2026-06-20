@@ -1,0 +1,1 @@
+$.scannedPackageCount: expected scanned package path length 2, got 1

@@ -1,0 +1,1 @@
+$.categoryCounts.statementKinds: expected sum of entry counts 1, got 0

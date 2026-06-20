@@ -1,0 +1,1 @@
+$.result.targetProfile.selectionReason: auto requested targets must not use 'explicit-target'

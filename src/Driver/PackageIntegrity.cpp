@@ -1,0 +1,4069 @@
+#include "crossgl/Driver/PackageIntegrity.h"
+
+#include "PackageDebugArtifacts.h"
+#include "crossgl/Basic/Json.h"
+#include "crossgl/Basic/SHA256.h"
+#include "crossgl/Driver/PackageJson.h"
+#include "crossgl/Driver/PackageTargetContracts.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <fstream>
+#include <initializer_list>
+#include <limits>
+#include <optional>
+#include <ostream>
+#include <sstream>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
+
+namespace crossgl {
+namespace {
+
+std::string diagnosticCode(std::string_view suffix) {
+  return "package.verify." + std::string(suffix);
+}
+
+bool hasPrefix(std::string_view value, std::string_view prefix) {
+  return value.size() >= prefix.size() &&
+         value.substr(0, prefix.size()) == prefix;
+}
+
+bool isTargetLegalizationEvidenceSuffixChar(char ch) {
+  return (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+         (ch >= '0' && ch <= '9') || ch == '_' || ch == '.' || ch == '-';
+}
+
+std::string targetResourceBindingEvidencePrefix(std::string_view target) {
+  return "target-legalization.v1." + std::string(target) +
+         ".resource-binding.";
+}
+
+bool targetResourceBindingEvidenceIdMatchesTarget(
+    std::string_view evidenceId, std::string_view target) {
+  const std::string prefix = targetResourceBindingEvidencePrefix(target);
+  if (!hasPrefix(evidenceId, prefix) || evidenceId.size() == prefix.size()) {
+    return false;
+  }
+  return std::all_of(evidenceId.begin() + prefix.size(), evidenceId.end(),
+                     isTargetLegalizationEvidenceSuffixChar);
+}
+
+std::string targetFeatureEvidencePrefix(std::string_view target) {
+  return "target-legalization.v1." + std::string(target) + ".";
+}
+
+bool isKnownTargetName(std::string_view target) {
+  return target == "metal" || target == "vulkan" || target == "directx" ||
+         target == "opengl";
+}
+
+std::optional<std::string_view> parseTargetFeatureCapabilityTarget(
+    std::string_view suffix) {
+  constexpr std::string_view requiredPrefix = "capability.required.";
+  constexpr std::string_view missingPrefix = "capability.missing.";
+  std::string_view rest;
+  if (hasPrefix(suffix, requiredPrefix)) {
+    rest = suffix.substr(requiredPrefix.size());
+  } else if (hasPrefix(suffix, missingPrefix)) {
+    rest = suffix.substr(missingPrefix.size());
+  } else {
+    return std::nullopt;
+  }
+
+  const std::size_t delimiter = rest.find('.');
+  if (delimiter == std::string_view::npos || delimiter == 0 ||
+      delimiter + 1 == rest.size()) {
+    return std::string_view();
+  }
+  return rest.substr(0, delimiter);
+}
+
+bool isTargetFeatureAbiEvidenceSuffix(std::string_view suffix) {
+  constexpr std::string_view requiredPrefix = "abi.required.";
+  constexpr std::string_view missingPrefix = "abi.missing.";
+  if (hasPrefix(suffix, requiredPrefix)) {
+    return suffix.size() > requiredPrefix.size();
+  }
+  if (hasPrefix(suffix, missingPrefix)) {
+    return suffix.size() > missingPrefix.size();
+  }
+  return false;
+}
+
+bool hasValidTargetLegalizationSuffix(std::string_view suffix) {
+  return !suffix.empty() &&
+         std::all_of(suffix.begin(), suffix.end(),
+                     isTargetLegalizationEvidenceSuffixChar);
+}
+
+enum class TargetFeatureEvidenceMatch {
+  Valid,
+  PrefixMismatch,
+  CapabilityTargetMismatch,
+  Malformed,
+};
+
+TargetFeatureEvidenceMatch targetFeatureEvidenceIdMatchesFeature(
+    std::string_view evidenceId, std::string_view target,
+    std::optional<std::string> &capabilityTargetOut) {
+  constexpr std::string_view rootPrefix = "target-legalization.v1.";
+  if (!hasPrefix(evidenceId, rootPrefix)) {
+    return TargetFeatureEvidenceMatch::Malformed;
+  }
+  std::string_view remainder = evidenceId.substr(rootPrefix.size());
+  const std::size_t targetDelimiter = remainder.find('.');
+  if (targetDelimiter == std::string_view::npos || targetDelimiter == 0 ||
+      targetDelimiter + 1 == remainder.size()) {
+    return TargetFeatureEvidenceMatch::Malformed;
+  }
+
+  const std::string_view evidenceTarget = remainder.substr(0, targetDelimiter);
+  const std::string_view suffix = remainder.substr(targetDelimiter + 1);
+  if (!isKnownTargetName(evidenceTarget)) {
+    return TargetFeatureEvidenceMatch::Malformed;
+  }
+  if (evidenceTarget != target) {
+    return TargetFeatureEvidenceMatch::PrefixMismatch;
+  }
+
+  const std::optional<std::string_view> capabilityTarget =
+      parseTargetFeatureCapabilityTarget(suffix);
+  if (capabilityTarget) {
+    if (capabilityTarget->empty() || !isKnownTargetName(*capabilityTarget)) {
+      return TargetFeatureEvidenceMatch::Malformed;
+    }
+    const std::size_t evidenceSuffixBegin =
+        suffix.find('.', suffix.find('.') + 1);
+    if (evidenceSuffixBegin == std::string_view::npos ||
+        evidenceSuffixBegin + 1 == suffix.size() ||
+        !hasValidTargetLegalizationSuffix(
+            suffix.substr(evidenceSuffixBegin + 1))) {
+      return TargetFeatureEvidenceMatch::Malformed;
+    }
+    if (*capabilityTarget != target) {
+      capabilityTargetOut = std::string(*capabilityTarget);
+      return TargetFeatureEvidenceMatch::CapabilityTargetMismatch;
+    }
+    return TargetFeatureEvidenceMatch::Valid;
+  }
+
+  if (isTargetFeatureAbiEvidenceSuffix(suffix) &&
+      hasValidTargetLegalizationSuffix(suffix)) {
+    return TargetFeatureEvidenceMatch::Valid;
+  }
+  return TargetFeatureEvidenceMatch::Malformed;
+}
+
+const PackageArtifactRecord *findArtifact(const PackageMetadata &metadata,
+                                          std::string_view name) {
+  for (const PackageArtifactRecord &artifact : metadata.artifacts) {
+    if (artifact.name == name) {
+      return &artifact;
+    }
+  }
+  return nullptr;
+}
+
+SourceLocation locationOr(const std::optional<SourceLocation> &location,
+                          const SourceLocation &fallback) {
+  if (location) {
+    return *location;
+  }
+  return fallback;
+}
+
+SourceLocation artifactsLocation(const PackageMetadata &metadata) {
+  return locationOr(metadata.artifactsLocation, metadata.manifestLocation);
+}
+
+SourceLocation artifactLocation(const PackageMetadata &metadata,
+                                const PackageArtifactRecord &artifact) {
+  return locationOr(artifact.location, artifactsLocation(metadata));
+}
+
+std::string artifactLabel(std::string_view name,
+                          const PackageArtifactRecord *artifact) {
+  std::string label(name);
+  if (artifact && !artifact->path.empty()) {
+    label += " '" + artifact->path + "'";
+  }
+  return label;
+}
+
+SourceLocation sourceHashLocation(const PackageMetadata &metadata) {
+  return locationOr(metadata.sourceHashLocation, metadata.manifestLocation);
+}
+
+SourceLocation sourceHashAlgorithmLocation(const PackageMetadata &metadata) {
+  return locationOr(metadata.sourceHashAlgorithmLocation,
+                    sourceHashLocation(metadata));
+}
+
+SourceLocation sourceHashValueLocation(const PackageMetadata &metadata) {
+  return locationOr(metadata.sourceHashValueLocation,
+                    sourceHashLocation(metadata));
+}
+
+SourceLocation sourcePathLocation(const std::filesystem::path &path) {
+  SourceLocation location;
+  location.file = path.lexically_normal().generic_string();
+  return location;
+}
+
+void addRequiredPathArtifact(PackageArtifactRequirementsRecord &requirements,
+                             std::string name) {
+  requirements.requiredPathArtifacts.push_back({std::move(name), std::nullopt});
+}
+
+PackageArtifactRequirementsRecord
+legacyPackageArtifactRequirements(const PackageMetadata &metadata) {
+  PackageArtifactRequirementsRecord requirements;
+  requirements.location = metadata.manifestLocation;
+  requirements.target = metadata.target;
+  if (metadata.target == "metal") {
+    requirements.packageMode = "native";
+    addRequiredPathArtifact(requirements, "backendSource");
+    addRequiredPathArtifact(requirements, "intermediate");
+    addRequiredPathArtifact(requirements, "nativeBinary");
+  } else if (metadata.target == "vulkan") {
+    requirements.packageMode = "native";
+    addRequiredPathArtifact(requirements, "backendAssembly");
+    addRequiredPathArtifact(requirements, "nativeBinary");
+  } else if (metadata.target == "directx" || metadata.target == "opengl") {
+    requirements.packageMode = "source-package";
+    addRequiredPathArtifact(requirements, "backendSource");
+    addRequiredPathArtifact(requirements, "nativeBinary");
+    requirements.requiresNativeBinaryStatus = true;
+    requirements.allowsPlannedNativeBinary = true;
+    requirements.allowsPlannedNativeSourceEvidence = true;
+  }
+  return requirements;
+}
+
+PackageArtifactRequirementsRecord
+packageArtifactRequirementsForVerification(const PackageMetadata &metadata) {
+  if (metadata.artifactRequirements) {
+    return *metadata.artifactRequirements;
+  }
+  return legacyPackageArtifactRequirements(metadata);
+}
+
+std::optional<std::string>
+packageVerifyNativeBinaryStatus(const PackageMetadata &metadata) {
+  if (metadata.artifactRequirements) {
+    return metadata.nativeBinaryStatus;
+  }
+  return effectivePackageNativeBinaryStatus(metadata);
+}
+
+void noteLegacyArtifactRequirementsFallback(const PackageMetadata &metadata,
+                                            DiagnosticEngine &diagnostics) {
+  if (metadata.artifactRequirements) {
+    return;
+  }
+  diagnostics.note(
+      diagnosticCode("legacy-artifact-requirements-fallback"),
+      "manifest is missing packageArtifactRequirements and is using "
+      "legacy compatibility defaults for package verification only",
+      metadata.manifestLocation);
+}
+
+std::string_view
+expectedPackageArtifactRequirementMode(const PackageTargetContract &contract) {
+  return contract.allowsPlannedNativeBinary ? "source-package" : "native";
+}
+
+std::string formatRequiredPathArtifacts(
+    const PackageArtifactRequirementsRecord &requirements) {
+  std::ostringstream out;
+  out << "[";
+  for (std::size_t index = 0; index < requirements.requiredPathArtifacts.size();
+       ++index) {
+    if (index != 0) {
+      out << ", ";
+    }
+    out << requirements.requiredPathArtifacts[index].name;
+  }
+  out << "]";
+  return out.str();
+}
+
+std::string formatRequiredPathArtifacts(const PackageTargetContract &contract) {
+  std::ostringstream out;
+  out << "[";
+  for (std::size_t index = 0; index < contract.requiredArtifactCount; ++index) {
+    if (index != 0) {
+      out << ", ";
+    }
+    out << contract.requiredArtifacts[index];
+  }
+  out << "]";
+  return out.str();
+}
+
+bool requiredPathArtifactsMatchTargetContract(
+    const PackageArtifactRequirementsRecord &requirements,
+    const PackageTargetContract &contract) {
+  if (requirements.requiredPathArtifacts.size() !=
+      contract.requiredArtifactCount) {
+    return false;
+  }
+
+  for (std::size_t index = 0; index < contract.requiredArtifactCount; ++index) {
+    if (std::string_view(requirements.requiredPathArtifacts[index].name) !=
+        contract.requiredArtifacts[index]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool hasSingleRequiredPathArtifact(
+    const PackageArtifactRequirementsRecord &requirements,
+    std::string_view artifactName) {
+  return requirements.requiredPathArtifacts.size() == 1 &&
+         requirements.requiredPathArtifacts.front().name == artifactName;
+}
+
+bool hasRequiredPathArtifacts(
+    const PackageArtifactRequirementsRecord &requirements,
+    std::initializer_list<std::string_view> artifactNames) {
+  if (requirements.requiredPathArtifacts.size() != artifactNames.size()) {
+    return false;
+  }
+  auto expected = artifactNames.begin();
+  for (const PackageRequiredPathArtifactRecord &artifact :
+       requirements.requiredPathArtifacts) {
+    if (artifact.name != *expected) {
+      return false;
+    }
+    ++expected;
+  }
+  return true;
+}
+
+bool isDescriptorBackedNativeRequirements(
+    const PackageMetadata &metadata,
+    const PackageArtifactRequirementsRecord &requirements) {
+  const bool sourceFreeNativeRequirements =
+      hasSingleRequiredPathArtifact(requirements, "nativeBinary");
+  const bool directXNativeSourceSidecarRequirements =
+      metadata.target == "directx" &&
+      hasRequiredPathArtifacts(requirements, {"backendSource", "nativeBinary"});
+
+  if (requirements.target != metadata.target ||
+      requirements.packageMode != "native" ||
+      (!sourceFreeNativeRequirements &&
+       !directXNativeSourceSidecarRequirements) ||
+      requirements.requiresNativeBinaryStatus ||
+      requirements.allowsPlannedNativeBinary ||
+      requirements.allowsPlannedNativeSourceEvidence ||
+      findArtifact(metadata, "nativeBinary") == nullptr ||
+      findArtifact(metadata, "nativeArtifactDescriptor") == nullptr ||
+      findArtifact(metadata, "nativeBinaryStatus") != nullptr ||
+      findArtifact(metadata, "backendAssembly") != nullptr ||
+      findArtifact(metadata, "intermediate") != nullptr) {
+    return false;
+  }
+
+  if (sourceFreeNativeRequirements && findArtifact(metadata, "backendSource")) {
+    return false;
+  }
+
+  if (metadata.target == "directx" || metadata.target == "metal") {
+    return true;
+  }
+  return metadata.target == "vulkan" &&
+         findArtifact(metadata, "nativeProfile") != nullptr;
+}
+
+std::string packageArtifactEvidenceId(std::string_view target,
+                                      std::string_view suffix) {
+  return "target-legalization.v1." + std::string(target) + "." +
+         std::string(suffix);
+}
+
+std::vector<std::string> expectedPackageArtifactRequirementEvidenceIds(
+    const PackageArtifactRequirementsRecord &requirements) {
+  std::vector<std::string> evidenceIds;
+  evidenceIds.push_back(packageArtifactEvidenceId(
+      requirements.target, "package-artifacts." + requirements.packageMode));
+  for (const PackageRequiredPathArtifactRecord &artifact :
+       requirements.requiredPathArtifacts) {
+    evidenceIds.push_back(packageArtifactEvidenceId(
+        requirements.target, "package-artifact.required." + artifact.name));
+  }
+  if (requirements.requiresNativeBinaryStatus) {
+    evidenceIds.push_back(packageArtifactEvidenceId(
+        requirements.target, "package-artifact.native-binary-status.required"));
+  }
+  if (requirements.allowsPlannedNativeBinary) {
+    evidenceIds.push_back(packageArtifactEvidenceId(
+        requirements.target, "package-artifact.planned-native-binary.allowed"));
+  }
+  if (requirements.allowsPlannedNativeSourceEvidence) {
+    evidenceIds.push_back(packageArtifactEvidenceId(
+        requirements.target,
+        "package-artifact.planned-native-source-evidence.allowed"));
+  }
+  return evidenceIds;
+}
+
+bool verifyArtifactRequirementsForVerification(
+    const PackageMetadata &metadata,
+    const PackageArtifactRequirementsRecord &requirements,
+    DiagnosticEngine &diagnostics) {
+  bool valid = true;
+  if (requirements.target != metadata.target) {
+    diagnostics.error(
+        diagnosticCode("invalid-manifest"),
+        "package manifest packageArtifactRequirements target must match "
+        "manifest target",
+        requirements.targetLocation.value_or(requirements.location));
+    valid = false;
+  }
+
+  const PackageTargetContract *contract =
+      packageTargetContractFor(metadata.target);
+  const bool descriptorBackedNativeRequirements =
+      isDescriptorBackedNativeRequirements(metadata, requirements);
+  if (contract != nullptr && !descriptorBackedNativeRequirements) {
+    const std::string_view expectedPackageMode =
+        expectedPackageArtifactRequirementMode(*contract);
+    if (requirements.packageMode != expectedPackageMode) {
+      diagnostics.error(
+          diagnosticCode("invalid-manifest"),
+          "package manifest packageArtifactRequirements.packageMode must match "
+          "manifest target contract: expected '" +
+              std::string(expectedPackageMode) + "', got '" +
+              requirements.packageMode + "'",
+          requirements.packageModeLocation.value_or(requirements.location));
+      valid = false;
+    }
+
+    if (!requiredPathArtifactsMatchTargetContract(requirements, *contract)) {
+      diagnostics.error(diagnosticCode("invalid-manifest"),
+                        "package manifest "
+                        "packageArtifactRequirements.requiredPathArtifacts "
+                        "must match manifest "
+                        "target contract: expected " +
+                            formatRequiredPathArtifacts(*contract) + ", got " +
+                            formatRequiredPathArtifacts(requirements),
+                        requirements.requiredPathArtifactsLocation.value_or(
+                            requirements.location));
+      valid = false;
+    }
+
+    const bool expectedRequiresNativeBinaryStatus =
+        contract->requiresNativeBinaryStatus;
+    const bool expectedAllowsPlannedNativeBinary =
+        contract->allowsPlannedNativeBinary;
+    const bool expectedAllowsPlannedNativeSourceEvidence =
+        contract->allowsPlannedNativeSourceEvidence;
+    if (requirements.requiresNativeBinaryStatus !=
+            expectedRequiresNativeBinaryStatus ||
+        requirements.allowsPlannedNativeBinary !=
+            expectedAllowsPlannedNativeBinary ||
+        requirements.allowsPlannedNativeSourceEvidence !=
+            expectedAllowsPlannedNativeSourceEvidence) {
+      diagnostics.error(
+          diagnosticCode("invalid-manifest"),
+          "package manifest packageArtifactRequirements native binary policy "
+          "must match manifest target contract",
+          requirements.location);
+      valid = false;
+    }
+  }
+
+  if (metadata.artifactRequirements) {
+    const std::vector<std::string> expectedEvidenceIds =
+        expectedPackageArtifactRequirementEvidenceIds(requirements);
+    if (requirements.evidenceIds.empty()) {
+      diagnostics.error(
+          diagnosticCode(
+              "target-legalization-package-artifact-requirement-evidence-"
+              "missing"),
+          "package manifest packageArtifactRequirements.evidenceIds must "
+          "record target legalization package artifact requirement evidence",
+          requirements.evidenceIdsLocation.value_or(requirements.location));
+      valid = false;
+    } else if (requirements.evidenceIds != expectedEvidenceIds) {
+      diagnostics.error(
+          diagnosticCode(
+              "target-legalization-package-artifact-requirement-evidence-"
+              "mismatch"),
+          "package manifest packageArtifactRequirements.evidenceIds must "
+          "match recorded packageArtifactRequirements",
+          requirements.evidenceIdsLocation.value_or(requirements.location));
+      valid = false;
+    }
+    return valid;
+  }
+
+  return valid;
+}
+
+bool packageArtifactRequirementsContractIsValid(
+    const PackageMetadata &metadata) {
+  if (!metadata.artifactRequirements) {
+    return false;
+  }
+
+  const PackageArtifactRequirementsRecord &requirements =
+      *metadata.artifactRequirements;
+  if (requirements.target != metadata.target) {
+    return false;
+  }
+
+  const PackageTargetContract *contract =
+      packageTargetContractFor(metadata.target);
+  const bool descriptorBackedNativeRequirements =
+      isDescriptorBackedNativeRequirements(metadata, requirements);
+  if (contract != nullptr && !descriptorBackedNativeRequirements) {
+    if (requirements.packageMode !=
+        expectedPackageArtifactRequirementMode(*contract)) {
+      return false;
+    }
+    if (!requiredPathArtifactsMatchTargetContract(requirements, *contract)) {
+      return false;
+    }
+    if (requirements.requiresNativeBinaryStatus !=
+            contract->requiresNativeBinaryStatus ||
+        requirements.allowsPlannedNativeBinary !=
+            contract->allowsPlannedNativeBinary ||
+        requirements.allowsPlannedNativeSourceEvidence !=
+            contract->allowsPlannedNativeSourceEvidence) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool allowsPlannedNativeBinary(
+    const PackageMetadata &metadata, const PackageArtifactRecord &artifact,
+    const PackageArtifactRequirementsRecord &requirements) {
+  return artifact.name == "nativeBinary" &&
+         requirements.allowsPlannedNativeBinary &&
+         metadata.nativeBinaryStatus &&
+         *metadata.nativeBinaryStatus == "planned";
+}
+
+struct PackageTargetLegalizationSidecarEvidence {
+  bool artifactPresent = false;
+  bool artifactExists = false;
+  std::optional<std::string> target;
+  std::optional<std::string> packageMode;
+  std::optional<std::string> packageDecisionReason;
+  std::optional<bool> packageBuildSupported;
+  std::optional<std::uintmax_t> requiredToolCount;
+  std::optional<std::uintmax_t> missingToolCount;
+  std::optional<std::vector<std::string>> requiredToolIds;
+  std::optional<std::vector<std::string>> missingToolIds;
+  std::optional<bool> optionalNativeToolMissing;
+  std::optional<std::string> optionalNativeToolStatus;
+  std::optional<std::vector<std::string>> toolRequirementEvidenceIds;
+  std::optional<std::vector<std::string>> legalizationCoreEvidenceIds;
+  std::optional<std::vector<std::string>> packageArtifactRequirementEvidenceIds;
+};
+
+struct PackageTargetLegalizationManifestToolRequirements {
+  bool present = false;
+  std::optional<std::string> target;
+  std::optional<std::string> packageMode;
+  std::optional<std::uintmax_t> requiredToolCount;
+  std::optional<std::uintmax_t> missingToolCount;
+  std::optional<std::vector<std::string>> requiredToolIds;
+  std::optional<std::vector<std::string>> missingToolIds;
+  std::optional<bool> optionalNativeToolMissing;
+  std::optional<std::string> optionalNativeToolStatus;
+  std::optional<std::vector<std::string>> toolRequirementEvidenceIds;
+};
+
+struct PackageTargetLegalizationEvidence {
+  std::string health = "not-present";
+  std::optional<std::string> packageMode;
+  std::optional<std::string> packageModeSource;
+  PackageTargetLegalizationManifestToolRequirements manifestToolRequirements;
+  PackageTargetLegalizationSidecarEvidence debugMetadata;
+  PackageTargetLegalizationSidecarEvidence targetExplanation;
+  std::optional<std::vector<std::string>> packageArtifactRequirementEvidenceIds;
+  std::vector<std::string> missingEvidence;
+  std::optional<bool> manifestToolRequirementsTargetMatchesPackage;
+  std::optional<bool> manifestToolRequirementsPackageModeMatchesRequirements;
+  std::optional<bool> manifestToolRequirementEvidenceIdsPresent;
+  std::optional<bool> debugMetadataTargetMatchesPackage;
+  std::optional<bool> targetExplanationTargetMatchesPackage;
+  std::optional<bool> debugMetadataPackageModeMatchesRequirements;
+  std::optional<bool> targetExplanationPackageModeMatchesRequirements;
+  std::optional<bool> debugMetadataToolRequirementsMatchManifest;
+  std::optional<bool> targetExplanationToolRequirementsMatchManifest;
+  std::optional<bool> packageArtifactRequirementEvidenceIdsPresent;
+};
+
+std::optional<std::string> readRegularFile(const std::filesystem::path &path) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return std::nullopt;
+  }
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  if (input.bad()) {
+    return std::nullopt;
+  }
+  return buffer.str();
+}
+
+std::optional<std::string>
+readArtifactDocument(const PackageMetadata &metadata,
+                     const PackageArtifactRecord *artifact) {
+  if (!artifact || !artifact->packageRelative || !artifact->exists) {
+    return std::nullopt;
+  }
+  return readRegularFile(metadata.packagePath / artifact->path);
+}
+
+std::optional<std::vector<std::string>>
+parseJsonStringArray(std::string_view value) {
+  std::vector<std::string> strings;
+  std::size_t position = 0;
+  skipWhitespace(value, position);
+  if (position >= value.size() || value[position] != '[') {
+    return std::nullopt;
+  }
+  ++position;
+  skipWhitespace(value, position);
+  if (position < value.size() && value[position] == ']') {
+    ++position;
+    skipWhitespace(value, position);
+    return position == value.size()
+               ? std::optional<std::vector<std::string>>(std::move(strings))
+               : std::nullopt;
+  }
+
+  while (position < value.size()) {
+    std::string element;
+    if (!parseJsonString(value, position, element)) {
+      return std::nullopt;
+    }
+    strings.push_back(std::move(element));
+    skipWhitespace(value, position);
+    if (position < value.size() && value[position] == ',') {
+      ++position;
+      skipWhitespace(value, position);
+      continue;
+    }
+    if (position < value.size() && value[position] == ']') {
+      ++position;
+      skipWhitespace(value, position);
+      return position == value.size()
+                 ? std::optional<std::vector<std::string>>(std::move(strings))
+                 : std::nullopt;
+    }
+    return std::nullopt;
+  }
+  return std::nullopt;
+}
+
+std::optional<std::vector<std::string_view>>
+jsonArrayElements(std::string_view value) {
+  std::vector<std::string_view> elements;
+  std::size_t position = 0;
+  skipWhitespace(value, position);
+  if (position >= value.size() || value[position] != '[') {
+    return std::nullopt;
+  }
+  ++position;
+  skipWhitespace(value, position);
+  if (position < value.size() && value[position] == ']') {
+    ++position;
+    skipWhitespace(value, position);
+    return position == value.size()
+               ? std::optional<std::vector<std::string_view>>(
+                     std::move(elements))
+               : std::nullopt;
+  }
+
+  while (position < value.size()) {
+    const std::size_t elementBegin = position;
+    if (!skipJsonValue(value, position)) {
+      return std::nullopt;
+    }
+    elements.push_back(value.substr(elementBegin, position - elementBegin));
+    skipWhitespace(value, position);
+    if (position < value.size() && value[position] == ',') {
+      ++position;
+      skipWhitespace(value, position);
+      continue;
+    }
+    if (position < value.size() && value[position] == ']') {
+      ++position;
+      skipWhitespace(value, position);
+      return position == value.size()
+                 ? std::optional<std::vector<std::string_view>>(
+                       std::move(elements))
+                 : std::nullopt;
+    }
+    return std::nullopt;
+  }
+  return std::nullopt;
+}
+
+std::optional<std::vector<std::string>>
+stringArrayMember(std::string_view object, std::string_view key) {
+  const std::optional<std::string_view> value =
+      findObjectMemberValue(object, key);
+  if (!value) {
+    return std::nullopt;
+  }
+  return parseJsonStringArray(*value);
+}
+
+constexpr std::string_view kGraphicsAbiArtifactName = "graphicsAbi";
+constexpr std::string_view kGraphicsAbiDiagnosticPrefix =
+    "package.graphicsAbi.";
+
+bool isGraphicsAbiStage(std::string_view stage) {
+  return stage == "vertex" || stage == "fragment";
+}
+
+std::optional<std::vector<std::string_view>>
+arrayMemberElements(std::string_view object, std::string_view key) {
+  const std::optional<std::string_view> value =
+      findObjectMemberValue(object, key);
+  if (!value) {
+    return std::nullopt;
+  }
+  return jsonArrayElements(*value);
+}
+
+std::optional<std::string_view> objectMemberView(std::string_view object,
+                                                 std::string_view key) {
+  return findObjectMemberValue(object, key);
+}
+
+std::string stringMemberLabel(std::string_view object, std::string_view key) {
+  const std::optional<std::string> value = objectStringMember(object, key);
+  return value ? *value : std::string("<missing>");
+}
+
+std::string jsonStringLabel(std::string_view value) {
+  std::size_t position = 0;
+  std::string parsed;
+  if (parseJsonString(value, position, parsed)) {
+    skipWhitespace(value, position);
+    if (position == value.size()) {
+      return parsed;
+    }
+  }
+  return canonicalJson(value);
+}
+
+std::string unsignedMemberLabel(std::string_view object, std::string_view key) {
+  const std::optional<std::uintmax_t> value =
+      objectUnsignedMember(object, key);
+  return value ? std::to_string(*value) : std::string("<missing>");
+}
+
+std::string canonicalMemberLabel(std::string_view object, std::string_view key,
+                                 std::string_view defaultValue) {
+  const std::optional<std::string_view> value =
+      findObjectMemberValue(object, key);
+  return value ? canonicalJson(*value) : std::string(defaultValue);
+}
+
+struct GraphicsAbiField {
+  std::string name;
+  std::string value;
+};
+
+struct GraphicsAbiFact {
+  std::string key;
+  std::string label;
+  std::vector<GraphicsAbiField> fields;
+};
+
+void addGraphicsAbiField(GraphicsAbiFact &fact, std::string name,
+                         std::string value) {
+  fact.fields.push_back({std::move(name), std::move(value)});
+}
+
+const std::string *findGraphicsAbiField(const GraphicsAbiFact &fact,
+                                        std::string_view name) {
+  for (const GraphicsAbiField &field : fact.fields) {
+    if (field.name == name) {
+      return &field.value;
+    }
+  }
+  return nullptr;
+}
+
+const GraphicsAbiFact *findGraphicsAbiFact(
+    const std::vector<GraphicsAbiFact> &facts, std::string_view key) {
+  for (const GraphicsAbiFact &fact : facts) {
+    if (fact.key == key) {
+      return &fact;
+    }
+  }
+  return nullptr;
+}
+
+bool hasEarlierGraphicsAbiFact(const std::vector<GraphicsAbiFact> &facts,
+                               std::size_t index) {
+  for (std::size_t previous = 0; previous < index; ++previous) {
+    if (facts[previous].key == facts[index].key) {
+      return true;
+    }
+  }
+  return false;
+}
+
+std::string graphicsAbiDiagnosticCode(std::string_view suffix) {
+  return std::string(kGraphicsAbiDiagnosticPrefix) + std::string(suffix);
+}
+
+void addGraphicsAbiReleaseDiagnostic(PackageGraphicsAbiHealth &health,
+                                     std::string_view suffix,
+                                     std::string message) {
+  health.diagnostics.push_back(
+      {graphicsAbiDiagnosticCode(suffix), std::move(message)});
+}
+
+std::string entryPointKey(std::string_view stage, std::string_view sourceName) {
+  return std::string(stage) + "\n" + std::string(sourceName);
+}
+
+std::string entryPointLabel(std::string_view stage,
+                            std::string_view sourceName) {
+  return "entry point '" + std::string(stage) + ":" +
+         std::string(sourceName) + "'";
+}
+
+std::vector<GraphicsAbiFact>
+graphicsAbiEntryPointFacts(std::string_view document) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> entries =
+      arrayMemberElements(document, "entryPoints");
+  if (!entries) {
+    return facts;
+  }
+  for (std::string_view entry : *entries) {
+    const std::string stage = stringMemberLabel(entry, "stage");
+    const std::string sourceName = stringMemberLabel(entry, "sourceName");
+    GraphicsAbiFact fact;
+    fact.key = entryPointKey(stage, sourceName);
+    fact.label = entryPointLabel(stage, sourceName);
+    addGraphicsAbiField(fact, "stage", stage);
+    addGraphicsAbiField(fact, "sourceName", sourceName);
+    addGraphicsAbiField(fact, "backendName",
+                        stringMemberLabel(entry, "backendName"));
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+std::vector<GraphicsAbiFact>
+reflectionEntryPointFacts(std::string_view reflection) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> entries =
+      arrayMemberElements(reflection, "entryPoints");
+  if (!entries) {
+    return facts;
+  }
+  for (std::string_view entry : *entries) {
+    const std::string stage = stringMemberLabel(entry, "stage");
+    if (!isGraphicsAbiStage(stage)) {
+      continue;
+    }
+    const std::string sourceName = stringMemberLabel(entry, "sourceName");
+    GraphicsAbiFact fact;
+    fact.key = entryPointKey(stage, sourceName);
+    fact.label = entryPointLabel(stage, sourceName);
+    addGraphicsAbiField(fact, "stage", stage);
+    addGraphicsAbiField(fact, "sourceName", sourceName);
+    addGraphicsAbiField(fact, "backendName",
+                        stringMemberLabel(entry, "backendName"));
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+std::string vertexInputKey(std::string_view entryPoint,
+                           std::string_view name) {
+  return std::string(entryPoint) + "\n" + std::string(name);
+}
+
+std::string vertexInputLabel(std::string_view entryPoint,
+                             std::string_view name) {
+  return "vertex input '" + std::string(entryPoint) + ":" +
+         std::string(name) + "'";
+}
+
+std::vector<GraphicsAbiFact>
+graphicsAbiVertexInputFacts(std::string_view document) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> inputs =
+      arrayMemberElements(document, "vertexInputs");
+  if (!inputs) {
+    return facts;
+  }
+  for (std::string_view input : *inputs) {
+    const std::string entryPoint = stringMemberLabel(input, "entryPoint");
+    const std::string name = stringMemberLabel(input, "name");
+    GraphicsAbiFact fact;
+    fact.key = vertexInputKey(entryPoint, name);
+    fact.label = vertexInputLabel(entryPoint, name);
+    addGraphicsAbiField(fact, "stage", stringMemberLabel(input, "stage"));
+    addGraphicsAbiField(fact, "entryPoint", entryPoint);
+    addGraphicsAbiField(fact, "name", name);
+    addGraphicsAbiField(fact, "type", stringMemberLabel(input, "type"));
+    addGraphicsAbiField(fact, "location", unsignedMemberLabel(input, "location"));
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+std::vector<GraphicsAbiFact>
+reflectionVertexInputFacts(std::string_view reflection) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> layouts =
+      arrayMemberElements(reflection, "vertexLayouts");
+  if (!layouts) {
+    return facts;
+  }
+  for (std::string_view layout : *layouts) {
+    const std::string entryPoint = stringMemberLabel(layout, "entryPoint");
+    const std::optional<std::vector<std::string_view>> attributes =
+        arrayMemberElements(layout, "attributes");
+    if (!attributes) {
+      continue;
+    }
+    for (std::string_view attribute : *attributes) {
+      const std::string name = stringMemberLabel(attribute, "name");
+      GraphicsAbiFact fact;
+      fact.key = vertexInputKey(entryPoint, name);
+      fact.label = vertexInputLabel(entryPoint, name);
+      addGraphicsAbiField(fact, "stage", "vertex");
+      addGraphicsAbiField(fact, "entryPoint", entryPoint);
+      addGraphicsAbiField(fact, "name", name);
+      addGraphicsAbiField(fact, "type", stringMemberLabel(attribute, "type"));
+      addGraphicsAbiField(fact, "location",
+                          unsignedMemberLabel(attribute, "location"));
+      facts.push_back(std::move(fact));
+    }
+  }
+  return facts;
+}
+
+std::optional<std::string_view> findReflectionStruct(std::string_view reflection,
+                                                     std::string_view name) {
+  const std::optional<std::vector<std::string_view>> structs =
+      arrayMemberElements(reflection, "structs");
+  if (!structs) {
+    return std::nullopt;
+  }
+  for (std::string_view structure : *structs) {
+    const std::optional<std::string> structName =
+        objectStringMember(structure, "name");
+    if (structName && *structName == name) {
+      return structure;
+    }
+  }
+  return std::nullopt;
+}
+
+std::string fragmentOutputKey(std::string_view entryPoint,
+                              std::string_view name) {
+  return std::string(entryPoint) + "\n" + std::string(name);
+}
+
+std::string fragmentOutputLabel(std::string_view entryPoint,
+                                std::string_view name) {
+  return "fragment output '" + std::string(entryPoint) + ":" +
+         std::string(name) + "'";
+}
+
+std::vector<GraphicsAbiFact>
+graphicsAbiFragmentOutputFacts(std::string_view document) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> outputs =
+      arrayMemberElements(document, "fragmentOutputs");
+  if (!outputs) {
+    return facts;
+  }
+  for (std::string_view output : *outputs) {
+    const std::string entryPoint = stringMemberLabel(output, "entryPoint");
+    const std::string name = stringMemberLabel(output, "name");
+    GraphicsAbiFact fact;
+    fact.key = fragmentOutputKey(entryPoint, name);
+    fact.label = fragmentOutputLabel(entryPoint, name);
+    addGraphicsAbiField(fact, "stage", stringMemberLabel(output, "stage"));
+    addGraphicsAbiField(fact, "entryPoint", entryPoint);
+    addGraphicsAbiField(fact, "name", name);
+    addGraphicsAbiField(fact, "type", stringMemberLabel(output, "type"));
+    addGraphicsAbiField(fact, "location",
+                        unsignedMemberLabel(output, "location"));
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+std::vector<GraphicsAbiFact>
+reflectionFragmentOutputFacts(std::string_view reflection) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> entries =
+      arrayMemberElements(reflection, "entryPoints");
+  if (!entries) {
+    return facts;
+  }
+  for (std::string_view entry : *entries) {
+    const std::optional<std::string> stage = objectStringMember(entry, "stage");
+    if (!stage || *stage != "fragment") {
+      continue;
+    }
+    const std::string entryPoint = stringMemberLabel(entry, "backendName");
+    const std::optional<std::string> returnType =
+        objectStringMember(entry, "returnType");
+    if (!returnType || *returnType == "void") {
+      continue;
+    }
+    const std::optional<std::string_view> structure =
+        findReflectionStruct(reflection, *returnType);
+    if (!structure) {
+      continue;
+    }
+    const std::optional<std::vector<std::string_view>> fields =
+        arrayMemberElements(*structure, "fields");
+    if (!fields) {
+      continue;
+    }
+    for (std::size_t index = 0; index < fields->size(); ++index) {
+      const std::string_view field = (*fields)[index];
+      const std::string name = stringMemberLabel(field, "name");
+      GraphicsAbiFact fact;
+      fact.key = fragmentOutputKey(entryPoint, name);
+      fact.label = fragmentOutputLabel(entryPoint, name);
+      addGraphicsAbiField(fact, "stage", "fragment");
+      addGraphicsAbiField(fact, "entryPoint", entryPoint);
+      addGraphicsAbiField(fact, "name", name);
+      addGraphicsAbiField(fact, "type", stringMemberLabel(field, "type"));
+      addGraphicsAbiField(fact, "location", std::to_string(index));
+      facts.push_back(std::move(fact));
+    }
+  }
+  return facts;
+}
+
+std::string abiRecordKey(std::string_view stage, std::string_view entryPoint,
+                         std::string_view name, std::string_view kind) {
+  return std::string(stage) + "\n" + std::string(entryPoint) + "\n" +
+         std::string(name) + "\n" + std::string(kind);
+}
+
+std::string abiRecordLabel(std::string_view stage, std::string_view entryPoint,
+                           std::string_view name, std::string_view kind) {
+  return "ABI record '" + std::string(stage) + ":" +
+         std::string(entryPoint) + ":" + std::string(name) + ":" +
+         std::string(kind) + "'";
+}
+
+void addAbiRecordFields(GraphicsAbiFact &fact, std::string_view record) {
+  addGraphicsAbiField(fact, "target", stringMemberLabel(record, "target"));
+  addGraphicsAbiField(fact, "stage", stringMemberLabel(record, "stage"));
+  addGraphicsAbiField(fact, "entryPoint",
+                      stringMemberLabel(record, "entryPoint"));
+  addGraphicsAbiField(fact, "name", stringMemberLabel(record, "name"));
+  addGraphicsAbiField(fact, "kind", stringMemberLabel(record, "kind"));
+  addGraphicsAbiField(fact, "sourceType",
+                      stringMemberLabel(record, "sourceType"));
+  addGraphicsAbiField(fact, "addressSpace",
+                      stringMemberLabel(record, "addressSpace"));
+  addGraphicsAbiField(fact, "abi", stringMemberLabel(record, "abi"));
+  addGraphicsAbiField(fact, "bindingClass",
+                      stringMemberLabel(record, "bindingClass"));
+  addGraphicsAbiField(fact, "descriptorType",
+                      stringMemberLabel(record, "descriptorType"));
+  addGraphicsAbiField(fact, "set", unsignedMemberLabel(record, "set"));
+  addGraphicsAbiField(fact, "binding", unsignedMemberLabel(record, "binding"));
+  addGraphicsAbiField(fact, "argumentIndex",
+                      unsignedMemberLabel(record, "argumentIndex"));
+  addGraphicsAbiField(fact, "storageImageFormat",
+                      stringMemberLabel(record, "storageImageFormat"));
+  addGraphicsAbiField(fact, "storageImageAccess",
+                      stringMemberLabel(record, "storageImageAccess"));
+  addGraphicsAbiField(fact, "arrayElementCount",
+                      unsignedMemberLabel(record, "arrayElementCount"));
+  addGraphicsAbiField(fact, "arrayDimensions",
+                      canonicalMemberLabel(record, "arrayDimensions", "[]"));
+  addGraphicsAbiField(fact, "evidenceId",
+                      stringMemberLabel(record, "evidenceId"));
+}
+
+std::vector<GraphicsAbiFact> graphicsAbiRecordFacts(std::string_view document) {
+  std::vector<GraphicsAbiFact> facts;
+  const std::optional<std::vector<std::string_view>> records =
+      arrayMemberElements(document, "abiRecords");
+  if (!records) {
+    return facts;
+  }
+  for (std::string_view record : *records) {
+    const std::string stage = stringMemberLabel(record, "stage");
+    if (!isGraphicsAbiStage(stage)) {
+      continue;
+    }
+    const std::string entryPoint = stringMemberLabel(record, "entryPoint");
+    const std::string name = stringMemberLabel(record, "name");
+    const std::string kind = stringMemberLabel(record, "kind");
+    GraphicsAbiFact fact;
+    fact.key = abiRecordKey(stage, entryPoint, name, kind);
+    fact.label = abiRecordLabel(stage, entryPoint, name, kind);
+    addAbiRecordFields(fact, record);
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+bool hasReflectionTargetResourceBindingReportIdentity(
+    const PackageReflectionTargetResourceBindingRecord &binding);
+
+std::vector<GraphicsAbiFact>
+reflectionAbiRecordFacts(const PackageMetadata &metadata) {
+  std::vector<GraphicsAbiFact> facts;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target != metadata.target || !isGraphicsAbiStage(binding.stage) ||
+        !hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      continue;
+    }
+
+    GraphicsAbiFact fact;
+    fact.key =
+        abiRecordKey(binding.stage, binding.entryPoint, binding.name, binding.kind);
+    fact.label = abiRecordLabel(binding.stage, binding.entryPoint, binding.name,
+                                binding.kind);
+    addGraphicsAbiField(fact, "target", binding.target);
+    addGraphicsAbiField(fact, "stage", binding.stage);
+    addGraphicsAbiField(fact, "entryPoint", binding.entryPoint);
+    addGraphicsAbiField(fact, "name", binding.name);
+    addGraphicsAbiField(fact, "kind", binding.kind);
+    addGraphicsAbiField(fact, "sourceType", binding.sourceType);
+    addGraphicsAbiField(fact, "addressSpace",
+                        binding.addressSpace.value_or("<missing>"));
+    addGraphicsAbiField(fact, "abi", jsonStringLabel(binding.abiJson));
+    addGraphicsAbiField(fact, "bindingClass",
+                        binding.bindingClass.value_or("<missing>"));
+    addGraphicsAbiField(fact, "descriptorType",
+                        binding.descriptorType.value_or("<missing>"));
+    addGraphicsAbiField(fact, "set",
+                        binding.set ? std::to_string(*binding.set)
+                                    : std::string("<missing>"));
+    addGraphicsAbiField(fact, "binding",
+                        binding.binding ? std::to_string(*binding.binding)
+                                        : std::string("<missing>"));
+    addGraphicsAbiField(fact, "argumentIndex",
+                        binding.argumentIndex
+                            ? std::to_string(*binding.argumentIndex)
+                            : std::string("<missing>"));
+    addGraphicsAbiField(fact, "storageImageFormat",
+                        binding.storageImageFormat.value_or("<missing>"));
+    addGraphicsAbiField(fact, "storageImageAccess",
+                        binding.storageImageAccess.value_or("<missing>"));
+    addGraphicsAbiField(fact, "arrayElementCount",
+                        binding.arrayElementCount
+                            ? std::to_string(*binding.arrayElementCount)
+                            : std::string("<missing>"));
+    addGraphicsAbiField(fact, "arrayDimensions", binding.arrayDimensionsJson);
+    addGraphicsAbiField(fact, "evidenceId",
+                        binding.evidenceId.value_or("<missing>"));
+    facts.push_back(std::move(fact));
+  }
+  return facts;
+}
+
+void compareGraphicsAbiFacts(PackageGraphicsAbiHealth &health,
+                             std::string_view category,
+                             std::string_view codeSuffix,
+                             const std::vector<GraphicsAbiFact> &expected,
+                             const std::vector<GraphicsAbiFact> &actual) {
+  for (std::size_t index = 0; index < actual.size(); ++index) {
+    if (hasEarlierGraphicsAbiFact(actual, index)) {
+      addGraphicsAbiReleaseDiagnostic(
+          health, std::string("duplicate-") + std::string(codeSuffix),
+          "graphics ABI " + std::string(category) + " " + actual[index].label +
+              " duplicates an earlier sidecar record");
+    }
+  }
+
+  for (const GraphicsAbiFact &expectedFact : expected) {
+    const GraphicsAbiFact *actualFact =
+        findGraphicsAbiFact(actual, expectedFact.key);
+    if (actualFact == nullptr) {
+      addGraphicsAbiReleaseDiagnostic(
+          health, std::string(codeSuffix) + "-missing",
+          "graphics ABI " + std::string(category) + " " + expectedFact.label +
+              " is missing from the sidecar");
+      continue;
+    }
+    for (const GraphicsAbiField &expectedField : expectedFact.fields) {
+      const std::string *actualValue =
+          findGraphicsAbiField(*actualFact, expectedField.name);
+      if (actualValue == nullptr || *actualValue != expectedField.value) {
+        const std::string mismatchCode =
+            codeSuffix == "abi-record" && expectedField.name == "evidenceId"
+                ? "target-evidence-mismatch"
+                : std::string(codeSuffix) + "-mismatch";
+        addGraphicsAbiReleaseDiagnostic(
+            health, mismatchCode,
+            "graphics ABI " + std::string(category) + " " +
+                expectedFact.label + " field '" + expectedField.name +
+                "' must match reflection: expected '" + expectedField.value +
+                "', got '" +
+                (actualValue == nullptr ? std::string("<missing>") : *actualValue) +
+                "'");
+      }
+    }
+  }
+
+  for (const GraphicsAbiFact &actualFact : actual) {
+    if (findGraphicsAbiFact(expected, actualFact.key) == nullptr) {
+      addGraphicsAbiReleaseDiagnostic(
+          health, std::string(codeSuffix) + "-stale",
+          "graphics ABI " + std::string(category) + " " + actualFact.label +
+              " is not present in reflection");
+    }
+  }
+}
+
+void checkDuplicateGraphicsAbiCoordinates(PackageGraphicsAbiHealth &health,
+                                          std::string_view document) {
+  if (const std::optional<std::vector<std::string_view>> inputs =
+          arrayMemberElements(document, "vertexInputs")) {
+    std::vector<std::string> coordinates;
+    for (std::string_view input : *inputs) {
+      const std::string entryPoint = stringMemberLabel(input, "entryPoint");
+      const std::string location = unsignedMemberLabel(input, "location");
+      const std::string coordinate = entryPoint + "\n" + location;
+      if (std::find(coordinates.begin(), coordinates.end(), coordinate) !=
+          coordinates.end()) {
+        addGraphicsAbiReleaseDiagnostic(
+            health, "duplicate-vertex-coordinate",
+            "graphics ABI vertex input location " + entryPoint + ":" +
+                location + " duplicates an earlier sidecar coordinate");
+      } else {
+        coordinates.push_back(coordinate);
+      }
+    }
+  }
+
+  if (const std::optional<std::vector<std::string_view>> varyings =
+          arrayMemberElements(document, "varyings")) {
+    std::vector<std::string> coordinates;
+    for (std::string_view varying : *varyings) {
+      const std::optional<std::string_view> producer =
+          objectMemberView(varying, "producer");
+      const std::optional<std::string_view> consumer =
+          objectMemberView(varying, "consumer");
+      if (!producer || !consumer) {
+        continue;
+      }
+      const std::string coordinate =
+          stringMemberLabel(*producer, "entryPoint") + "\n" +
+          stringMemberLabel(*consumer, "entryPoint") + "\n" +
+          unsignedMemberLabel(*producer, "location");
+      if (std::find(coordinates.begin(), coordinates.end(), coordinate) !=
+          coordinates.end()) {
+        addGraphicsAbiReleaseDiagnostic(
+            health, "duplicate-varying-coordinate",
+            "graphics ABI varying location duplicates an earlier sidecar "
+            "producer/consumer coordinate");
+      } else {
+        coordinates.push_back(coordinate);
+      }
+    }
+  }
+}
+
+PackageGraphicsAbiHealth
+collectPackageGraphicsAbiReleaseHealth(const PackageMetadata &metadata) {
+  PackageGraphicsAbiHealth health = collectPackageGraphicsAbiHealth(metadata);
+  if (!health.artifactPresent || health.health != "ok") {
+    return health;
+  }
+
+  const PackageArtifactRecord *graphicsAbi =
+      findArtifact(metadata, kGraphicsAbiArtifactName);
+  const std::optional<std::string> document =
+      readArtifactDocument(metadata, graphicsAbi);
+  if (!document) {
+    return health;
+  }
+
+  compareGraphicsAbiFacts(health, "entry point", "entry-point",
+                          reflectionEntryPointFacts(metadata.documents.reflection),
+                          graphicsAbiEntryPointFacts(*document));
+  compareGraphicsAbiFacts(health, "vertex layout", "vertex-input",
+                          reflectionVertexInputFacts(metadata.documents.reflection),
+                          graphicsAbiVertexInputFacts(*document));
+  compareGraphicsAbiFacts(health, "fragment output", "fragment-output",
+                          reflectionFragmentOutputFacts(
+                              metadata.documents.reflection),
+                          graphicsAbiFragmentOutputFacts(*document));
+  compareGraphicsAbiFacts(health, "resource binding", "abi-record",
+                          reflectionAbiRecordFacts(metadata),
+                          graphicsAbiRecordFacts(*document));
+  checkDuplicateGraphicsAbiCoordinates(health, *document);
+
+  if (!health.diagnostics.empty()) {
+    health.health = "drift";
+  }
+  return health;
+}
+
+bool reflectionRequiresGraphicsAbi(const PackageMetadata &metadata) {
+  bool hasVertex = false;
+  bool hasFragment = false;
+  const std::optional<std::vector<std::string_view>> entries =
+      arrayMemberElements(metadata.documents.reflection, "entryPoints");
+  if (!entries) {
+    return false;
+  }
+  for (std::string_view entry : *entries) {
+    const std::optional<std::string> stage = objectStringMember(entry, "stage");
+    if (stage && *stage == "vertex") {
+      hasVertex = true;
+    } else if (stage && *stage == "fragment") {
+      hasFragment = true;
+    }
+  }
+  return hasVertex && hasFragment;
+}
+
+std::string packageVerifyGraphicsAbiDiagnosticSuffix(std::string_view code) {
+  if (code.starts_with(kGraphicsAbiDiagnosticPrefix)) {
+    return std::string(code.substr(kGraphicsAbiDiagnosticPrefix.size()));
+  }
+  return "health";
+}
+
+void verifyGraphicsAbiReleaseAuthority(const PackageMetadata &metadata,
+                                       DiagnosticEngine &diagnostics) {
+  const PackageArtifactRecord *graphicsAbi =
+      findArtifact(metadata, kGraphicsAbiArtifactName);
+  if (graphicsAbi == nullptr) {
+    if (reflectionRequiresGraphicsAbi(metadata)) {
+      diagnostics.error(
+          diagnosticCode("graphics-abi-missing-artifact"),
+          "graphics package reflection requires manifest.artifacts.graphicsAbi",
+          artifactsLocation(metadata));
+    }
+    return;
+  }
+
+  const PackageGraphicsAbiHealth health =
+      collectPackageGraphicsAbiReleaseHealth(metadata);
+  if (health.health == "ok") {
+    return;
+  }
+
+  const SourceLocation location = artifactLocation(metadata, *graphicsAbi);
+  for (const PackageGraphicsAbiDiagnostic &diagnostic : health.diagnostics) {
+    diagnostics.error(
+        diagnosticCode("graphics-abi-" +
+                       packageVerifyGraphicsAbiDiagnosticSuffix(
+                           diagnostic.code)),
+        diagnostic.message, location);
+  }
+}
+
+bool hasEvidenceIds(
+    const std::optional<std::vector<std::string>> &evidenceIds) {
+  return evidenceIds && !evidenceIds->empty();
+}
+
+template <typename T>
+bool optionalFieldDrift(const std::optional<T> &left,
+                        const std::optional<T> &right) {
+  return left && right && *left != *right;
+}
+
+bool sidecarToolRequirementsDrift(
+    const PackageTargetLegalizationSidecarEvidence &left,
+    const PackageTargetLegalizationSidecarEvidence &right) {
+  return optionalFieldDrift(left.requiredToolCount, right.requiredToolCount) ||
+         optionalFieldDrift(left.missingToolCount, right.missingToolCount) ||
+         optionalFieldDrift(left.requiredToolIds, right.requiredToolIds) ||
+         optionalFieldDrift(left.missingToolIds, right.missingToolIds) ||
+         optionalFieldDrift(left.optionalNativeToolMissing,
+                            right.optionalNativeToolMissing) ||
+         optionalFieldDrift(left.optionalNativeToolStatus,
+                            right.optionalNativeToolStatus) ||
+         optionalFieldDrift(left.toolRequirementEvidenceIds,
+                            right.toolRequirementEvidenceIds);
+}
+
+bool sidecarHasToolRequirements(
+    const PackageTargetLegalizationSidecarEvidence &evidence) {
+  return evidence.requiredToolCount && evidence.missingToolCount &&
+         evidence.requiredToolIds && evidence.missingToolIds &&
+         evidence.optionalNativeToolMissing &&
+         evidence.optionalNativeToolStatus &&
+         evidence.toolRequirementEvidenceIds;
+}
+
+bool manifestToolRequirementsDrift(
+    const PackageTargetLegalizationManifestToolRequirements &manifest,
+    const PackageTargetLegalizationSidecarEvidence &sidecar) {
+  return optionalFieldDrift(manifest.requiredToolCount,
+                            sidecar.requiredToolCount) ||
+         optionalFieldDrift(manifest.missingToolCount,
+                            sidecar.missingToolCount) ||
+         optionalFieldDrift(manifest.requiredToolIds,
+                            sidecar.requiredToolIds) ||
+         optionalFieldDrift(manifest.missingToolIds, sidecar.missingToolIds) ||
+         optionalFieldDrift(manifest.optionalNativeToolMissing,
+                            sidecar.optionalNativeToolMissing) ||
+         optionalFieldDrift(manifest.optionalNativeToolStatus,
+                            sidecar.optionalNativeToolStatus) ||
+         optionalFieldDrift(manifest.toolRequirementEvidenceIds,
+                            sidecar.toolRequirementEvidenceIds);
+}
+
+std::optional<bool> sidecarToolRequirementsMatchManifest(
+    const PackageTargetLegalizationManifestToolRequirements &manifest,
+    const PackageTargetLegalizationSidecarEvidence &sidecar) {
+  if (!manifest.present || !sidecar.artifactExists) {
+    return std::nullopt;
+  }
+  return sidecarHasToolRequirements(sidecar) &&
+         !manifestToolRequirementsDrift(manifest, sidecar);
+}
+
+bool sidecarRequirementEvidenceIdsDrift(
+    const PackageTargetLegalizationSidecarEvidence &sidecar,
+    const std::optional<std::vector<std::string>> &expectedEvidenceIds) {
+  return sidecar.packageArtifactRequirementEvidenceIds &&
+         (!expectedEvidenceIds ||
+          *sidecar.packageArtifactRequirementEvidenceIds !=
+              *expectedEvidenceIds);
+}
+
+bool sidecarProjectionIncomplete(
+    const PackageTargetLegalizationSidecarEvidence &evidence) {
+  return evidence.artifactPresent &&
+         (!evidence.artifactExists || !evidence.target ||
+          !evidence.packageMode || !evidence.packageBuildSupported ||
+          !hasEvidenceIds(evidence.legalizationCoreEvidenceIds));
+}
+
+std::optional<std::string_view> findTargetRecord(std::string_view arrayText,
+                                                 std::string_view target) {
+  std::size_t position = 0;
+  skipWhitespace(arrayText, position);
+  if (position >= arrayText.size() || arrayText[position] != '[') {
+    return std::nullopt;
+  }
+  ++position;
+  skipWhitespace(arrayText, position);
+  while (position < arrayText.size() && arrayText[position] != ']') {
+    const std::size_t recordBegin = position;
+    if (!skipJsonObject(arrayText, position)) {
+      return std::nullopt;
+    }
+    const std::string_view record =
+        arrayText.substr(recordBegin, position - recordBegin);
+    const std::optional<std::string> recordTarget =
+        objectStringMember(record, "target");
+    if (recordTarget && *recordTarget == target) {
+      return record;
+    }
+    skipWhitespace(arrayText, position);
+    if (position < arrayText.size() && arrayText[position] == ',') {
+      ++position;
+      skipWhitespace(arrayText, position);
+      continue;
+    }
+  }
+  return std::nullopt;
+}
+
+std::optional<std::string_view>
+findTargetCapabilitySummary(std::string_view debugMetadata,
+                            std::string_view target) {
+  const std::optional<std::string_view> capabilities =
+      findObjectMemberValue(debugMetadata, "targetCapabilities");
+  const std::optional<std::string_view> summaries =
+      capabilities ? findObjectMemberValue(*capabilities, "summaries")
+                   : std::nullopt;
+  if (!summaries) {
+    return std::nullopt;
+  }
+  return findTargetRecord(*summaries, target);
+}
+
+PackageTargetLegalizationSidecarEvidence
+debugMetadataLegalizationEvidence(const PackageMetadata &metadata) {
+  PackageTargetLegalizationSidecarEvidence evidence;
+  evidence.artifactPresent = metadata.debugMetadataArtifactPresent;
+  const PackageArtifactRecord *debugMetadata =
+      findArtifact(metadata, "debugMetadata");
+  evidence.artifactExists = debugMetadata != nullptr && debugMetadata->exists;
+
+  const std::optional<std::string> document =
+      readArtifactDocument(metadata, debugMetadata);
+  if (!document) {
+    return evidence;
+  }
+
+  const std::optional<std::string_view> decision =
+      findObjectMemberValue(*document, "targetDecision");
+  if (!decision) {
+    return evidence;
+  }
+
+  evidence.target = objectStringMember(*decision, "selectedTarget");
+  evidence.packageMode =
+      objectStringMember(*decision, "selectedTargetPackageMode");
+  evidence.packageBuildSupported =
+      objectBoolMember(*decision, "selectedTargetPackageBuildSupported");
+  evidence.legalizationCoreEvidenceIds =
+      stringArrayMember(*decision, "selectedTargetLegalizationCoreEvidenceIds");
+  evidence.packageArtifactRequirementEvidenceIds =
+      stringArrayMember(*decision, "packageArtifactRequirementEvidenceIds");
+  evidence.requiredToolCount =
+      objectUnsignedMember(*decision, "selectedTargetRequiredToolCount");
+  evidence.missingToolCount =
+      objectUnsignedMember(*decision, "selectedTargetMissingToolCount");
+  evidence.requiredToolIds =
+      stringArrayMember(*decision, "selectedTargetRequiredToolIds");
+  evidence.missingToolIds =
+      stringArrayMember(*decision, "selectedTargetMissingToolIds");
+  evidence.optionalNativeToolMissing =
+      objectBoolMember(*decision, "selectedTargetOptionalNativeToolMissing");
+  evidence.optionalNativeToolStatus =
+      objectStringMember(*decision, "selectedTargetOptionalNativeToolStatus");
+  evidence.toolRequirementEvidenceIds =
+      stringArrayMember(*decision, "selectedTargetToolRequirementEvidenceIds");
+
+  if (evidence.target) {
+    const std::optional<std::string_view> summary =
+        findTargetCapabilitySummary(*document, *evidence.target);
+    if (summary) {
+      evidence.packageDecisionReason =
+          objectStringMember(*summary, "packageDecisionReason");
+      if (!evidence.requiredToolCount) {
+        evidence.requiredToolCount =
+            objectUnsignedMember(*summary, "requiredToolCount");
+      }
+      if (!evidence.missingToolCount) {
+        evidence.missingToolCount =
+            objectUnsignedMember(*summary, "missingToolCount");
+      }
+      if (!evidence.requiredToolIds) {
+        evidence.requiredToolIds =
+            stringArrayMember(*summary, "requiredToolIds");
+      }
+      if (!evidence.missingToolIds) {
+        evidence.missingToolIds = stringArrayMember(*summary, "missingToolIds");
+      }
+      if (!evidence.optionalNativeToolMissing) {
+        evidence.optionalNativeToolMissing =
+            objectBoolMember(*summary, "optionalNativeToolMissing");
+      }
+      if (!evidence.optionalNativeToolStatus) {
+        evidence.optionalNativeToolStatus =
+            objectStringMember(*summary, "optionalNativeToolStatus");
+      }
+      if (!evidence.toolRequirementEvidenceIds) {
+        evidence.toolRequirementEvidenceIds =
+            stringArrayMember(*summary, "toolRequirementEvidenceIds");
+      }
+      if (!evidence.packageArtifactRequirementEvidenceIds) {
+        evidence.packageArtifactRequirementEvidenceIds = stringArrayMember(
+            *summary, "packageArtifactRequirementEvidenceIds");
+      }
+    }
+  }
+  return evidence;
+}
+
+PackageTargetLegalizationSidecarEvidence
+targetExplanationLegalizationEvidence(const PackageMetadata &metadata) {
+  PackageTargetLegalizationSidecarEvidence evidence;
+  const PackageArtifactRecord *targetExplanation =
+      findArtifact(metadata, "targetExplanation");
+  evidence.artifactPresent = targetExplanation != nullptr;
+  evidence.artifactExists =
+      targetExplanation != nullptr && targetExplanation->exists;
+
+  const std::optional<std::string> document =
+      readArtifactDocument(metadata, targetExplanation);
+  if (!document) {
+    return evidence;
+  }
+
+  const std::optional<std::string_view> targets =
+      findObjectMemberValue(*document, "targets");
+  const std::optional<std::string_view> record =
+      targets ? findTargetRecord(*targets, metadata.target) : std::nullopt;
+  if (!record) {
+    return evidence;
+  }
+
+  evidence.target = objectStringMember(*record, "target");
+  evidence.packageMode = objectStringMember(*record, "packageMode");
+  evidence.packageBuildSupported =
+      objectBoolMember(*record, "packageBuildSupported");
+  evidence.packageDecisionReason =
+      objectStringMember(*record, "packageDecisionReason");
+  evidence.requiredToolCount =
+      objectUnsignedMember(*record, "requiredToolCount");
+  evidence.missingToolCount = objectUnsignedMember(*record, "missingToolCount");
+  evidence.requiredToolIds = stringArrayMember(*record, "requiredToolIds");
+  evidence.missingToolIds = stringArrayMember(*record, "missingToolIds");
+  evidence.optionalNativeToolMissing =
+      objectBoolMember(*record, "optionalNativeToolMissing");
+  evidence.optionalNativeToolStatus =
+      objectStringMember(*record, "optionalNativeToolStatus");
+  evidence.toolRequirementEvidenceIds =
+      stringArrayMember(*record, "toolRequirementEvidenceIds");
+  evidence.legalizationCoreEvidenceIds =
+      stringArrayMember(*record, "legalizationCoreEvidenceIds");
+  evidence.packageArtifactRequirementEvidenceIds =
+      stringArrayMember(*record, "packageArtifactRequirementEvidenceIds");
+  return evidence;
+}
+
+std::optional<std::vector<std::string>>
+manifestPackageArtifactRequirementEvidenceIds(const PackageMetadata &metadata) {
+  if (metadata.artifactRequirements &&
+      !metadata.artifactRequirements->evidenceIds.empty()) {
+    return metadata.artifactRequirements->evidenceIds;
+  }
+  return std::nullopt;
+}
+
+PackageTargetLegalizationManifestToolRequirements
+manifestToolRequirementsEvidence(const PackageMetadata &metadata) {
+  PackageTargetLegalizationManifestToolRequirements evidence;
+  if (!metadata.targetLegalizationToolRequirements) {
+    return evidence;
+  }
+
+  const PackageTargetLegalizationToolRequirementsRecord &requirements =
+      *metadata.targetLegalizationToolRequirements;
+  evidence.present = true;
+  evidence.target = requirements.target;
+  evidence.packageMode = requirements.packageMode;
+  evidence.requiredToolCount = requirements.requiredToolCount;
+  evidence.missingToolCount = requirements.missingToolCount;
+  evidence.requiredToolIds = requirements.requiredToolIds;
+  evidence.missingToolIds = requirements.missingToolIds;
+  evidence.optionalNativeToolMissing = requirements.optionalNativeToolMissing;
+  evidence.optionalNativeToolStatus = requirements.optionalNativeToolStatus;
+  evidence.toolRequirementEvidenceIds = requirements.toolRequirementEvidenceIds;
+  return evidence;
+}
+
+std::optional<std::vector<std::string>>
+firstEvidenceIds(const std::optional<std::vector<std::string>> &first,
+                 const std::optional<std::vector<std::string>> &second,
+                 const std::optional<std::vector<std::string>> &third) {
+  if (hasEvidenceIds(first)) {
+    return first;
+  }
+  if (hasEvidenceIds(second)) {
+    return second;
+  }
+  if (hasEvidenceIds(third)) {
+    return third;
+  }
+  return std::nullopt;
+}
+
+void appendMissingEvidence(std::vector<std::string> &missingEvidence,
+                           std::string value) {
+  missingEvidence.push_back(std::move(value));
+}
+
+PackageTargetLegalizationEvidence
+collectPackageTargetLegalizationEvidence(const PackageMetadata &metadata) {
+  PackageTargetLegalizationEvidence evidence;
+  evidence.manifestToolRequirements =
+      manifestToolRequirementsEvidence(metadata);
+  evidence.debugMetadata = debugMetadataLegalizationEvidence(metadata);
+  evidence.targetExplanation = targetExplanationLegalizationEvidence(metadata);
+  evidence.packageArtifactRequirementEvidenceIds = firstEvidenceIds(
+      manifestPackageArtifactRequirementEvidenceIds(metadata),
+      evidence.debugMetadata.packageArtifactRequirementEvidenceIds,
+      evidence.targetExplanation.packageArtifactRequirementEvidenceIds);
+
+  if (metadata.artifactRequirements) {
+    evidence.packageMode = metadata.artifactRequirements->packageMode;
+    evidence.packageModeSource = "manifest.packageArtifactRequirements";
+  } else if (evidence.debugMetadata.packageMode) {
+    evidence.packageMode = evidence.debugMetadata.packageMode;
+    evidence.packageModeSource =
+        "debugMetadata.targetDecision.selectedTargetPackageMode";
+  } else if (evidence.targetExplanation.packageMode) {
+    evidence.packageMode = evidence.targetExplanation.packageMode;
+    evidence.packageModeSource = "targetExplanation.targets[].packageMode";
+  }
+
+  if (evidence.debugMetadata.target) {
+    evidence.debugMetadataTargetMatchesPackage =
+        *evidence.debugMetadata.target == metadata.target;
+  }
+  if (evidence.targetExplanation.target) {
+    evidence.targetExplanationTargetMatchesPackage =
+        *evidence.targetExplanation.target == metadata.target;
+  }
+  if (metadata.artifactRequirements && evidence.debugMetadata.packageMode) {
+    evidence.debugMetadataPackageModeMatchesRequirements =
+        *evidence.debugMetadata.packageMode ==
+        metadata.artifactRequirements->packageMode;
+  }
+  if (metadata.artifactRequirements && evidence.targetExplanation.packageMode) {
+    evidence.targetExplanationPackageModeMatchesRequirements =
+        *evidence.targetExplanation.packageMode ==
+        metadata.artifactRequirements->packageMode;
+  }
+  if (metadata.artifactRequirements) {
+    evidence.packageArtifactRequirementEvidenceIdsPresent =
+        hasEvidenceIds(evidence.packageArtifactRequirementEvidenceIds);
+  }
+  if (evidence.manifestToolRequirements.present) {
+    evidence.manifestToolRequirementsTargetMatchesPackage =
+        evidence.manifestToolRequirements.target &&
+        *evidence.manifestToolRequirements.target == metadata.target;
+    if (metadata.artifactRequirements) {
+      evidence.manifestToolRequirementsPackageModeMatchesRequirements =
+          evidence.manifestToolRequirements.packageMode &&
+          *evidence.manifestToolRequirements.packageMode ==
+              metadata.artifactRequirements->packageMode;
+    }
+    evidence.manifestToolRequirementEvidenceIdsPresent = hasEvidenceIds(
+        evidence.manifestToolRequirements.toolRequirementEvidenceIds);
+    evidence.debugMetadataToolRequirementsMatchManifest =
+        sidecarToolRequirementsMatchManifest(evidence.manifestToolRequirements,
+                                             evidence.debugMetadata);
+    evidence.targetExplanationToolRequirementsMatchManifest =
+        sidecarToolRequirementsMatchManifest(evidence.manifestToolRequirements,
+                                             evidence.targetExplanation);
+  }
+
+  if (evidence.debugMetadata.artifactExists &&
+      !hasEvidenceIds(evidence.debugMetadata.legalizationCoreEvidenceIds)) {
+    appendMissingEvidence(evidence.missingEvidence,
+                          "debugMetadata.targetDecision."
+                          "selectedTargetLegalizationCoreEvidenceIds");
+  }
+  if (evidence.targetExplanation.artifactExists &&
+      !hasEvidenceIds(evidence.targetExplanation.legalizationCoreEvidenceIds)) {
+    appendMissingEvidence(
+        evidence.missingEvidence,
+        "targetExplanation.targets[].legalizationCoreEvidenceIds");
+  }
+  if (metadata.artifactRequirements &&
+      !hasEvidenceIds(evidence.packageArtifactRequirementEvidenceIds)) {
+    appendMissingEvidence(evidence.missingEvidence,
+                          "packageArtifactRequirementEvidenceIds");
+  }
+  if (evidence.manifestToolRequirements.present &&
+      !hasEvidenceIds(
+          evidence.manifestToolRequirements.toolRequirementEvidenceIds)) {
+    appendMissingEvidence(evidence.missingEvidence,
+                          "manifest.targetLegalizationToolRequirements."
+                          "toolRequirementEvidenceIds");
+  }
+
+  const bool applicable = metadata.artifactRequirements.has_value() ||
+                          evidence.manifestToolRequirements.present ||
+                          evidence.debugMetadata.artifactPresent ||
+                          evidence.targetExplanation.artifactPresent;
+  const bool artifactRequirementsContractIsValid =
+      packageArtifactRequirementsContractIsValid(metadata);
+  const bool incomplete =
+      sidecarProjectionIncomplete(evidence.debugMetadata) ||
+      sidecarProjectionIncomplete(evidence.targetExplanation);
+  const bool drift =
+      (evidence.manifestToolRequirementsTargetMatchesPackage &&
+       !*evidence.manifestToolRequirementsTargetMatchesPackage) ||
+      (evidence.manifestToolRequirementsPackageModeMatchesRequirements &&
+       !*evidence.manifestToolRequirementsPackageModeMatchesRequirements) ||
+      (evidence.debugMetadataTargetMatchesPackage &&
+       !*evidence.debugMetadataTargetMatchesPackage) ||
+      (evidence.targetExplanationTargetMatchesPackage &&
+       !*evidence.targetExplanationTargetMatchesPackage) ||
+      (evidence.debugMetadataPackageModeMatchesRequirements &&
+       !*evidence.debugMetadataPackageModeMatchesRequirements) ||
+      (evidence.targetExplanationPackageModeMatchesRequirements &&
+       !*evidence.targetExplanationPackageModeMatchesRequirements) ||
+      (artifactRequirementsContractIsValid &&
+       (sidecarRequirementEvidenceIdsDrift(
+            evidence.debugMetadata,
+            evidence.packageArtifactRequirementEvidenceIds) ||
+        sidecarRequirementEvidenceIdsDrift(
+            evidence.targetExplanation,
+            evidence.packageArtifactRequirementEvidenceIds))) ||
+      (evidence.debugMetadataToolRequirementsMatchManifest &&
+       !*evidence.debugMetadataToolRequirementsMatchManifest) ||
+      (evidence.targetExplanationToolRequirementsMatchManifest &&
+       !*evidence.targetExplanationToolRequirementsMatchManifest) ||
+      sidecarToolRequirementsDrift(evidence.debugMetadata,
+                                   evidence.targetExplanation);
+  const bool partial =
+      (evidence.packageArtifactRequirementEvidenceIdsPresent &&
+       !*evidence.packageArtifactRequirementEvidenceIdsPresent) ||
+      (evidence.manifestToolRequirementEvidenceIdsPresent &&
+       !*evidence.manifestToolRequirementEvidenceIdsPresent);
+
+  if (!applicable) {
+    evidence.health = "not-present";
+  } else if (drift) {
+    evidence.health = "drift";
+  } else if (incomplete) {
+    evidence.health = "incomplete";
+  } else if (partial) {
+    evidence.health = "partial";
+  } else {
+    evidence.health = "ok";
+  }
+  return evidence;
+}
+
+std::string artifactPathIssueMessage(PackagePathIssue issue) {
+  switch (issue) {
+  case PackagePathIssue::None:
+    return "";
+  case PackagePathIssue::Empty:
+    return "path must not be empty";
+  case PackagePathIssue::BackslashSeparator:
+    return "artifact paths must use '/' separators";
+  case PackagePathIssue::Absolute:
+    return "path must be package-relative";
+  case PackagePathIssue::ParentTraversal:
+    return "path must stay inside package";
+  }
+  return "path is invalid";
+}
+
+std::string reflectionNativeBinaryPathIssueMessage(PackagePathIssue issue) {
+  switch (issue) {
+  case PackagePathIssue::None:
+    return "";
+  case PackagePathIssue::Empty:
+    return "path must not be empty";
+  case PackagePathIssue::BackslashSeparator:
+    return "path must use '/' separators";
+  case PackagePathIssue::Absolute:
+    return "path must be package-relative";
+  case PackagePathIssue::ParentTraversal:
+    return "path must stay inside package";
+  }
+  return "path is invalid";
+}
+
+void verifyRequiredArtifacts(
+    const PackageMetadata &metadata,
+    const PackageArtifactRequirementsRecord &requirements,
+    DiagnosticEngine &diagnostics) {
+  for (const PackageRequiredPathArtifactRecord &artifactRequirement :
+       requirements.requiredPathArtifacts) {
+    if (!findArtifact(metadata, artifactRequirement.name)) {
+      diagnostics.error(diagnosticCode("missing-required-artifact"),
+                        metadata.target + " packages require " +
+                            artifactRequirement.name,
+                        artifactsLocation(metadata));
+    }
+  }
+
+  if (requirements.requiresNativeBinaryStatus &&
+      !metadata.nativeBinaryStatus.has_value()) {
+    diagnostics.error(diagnosticCode("missing-native-status"),
+                      metadata.target + " packages require nativeBinaryStatus",
+                      artifactsLocation(metadata));
+  }
+}
+
+void verifyNativeBinaryStatus(
+    const PackageMetadata &metadata,
+    const PackageArtifactRequirementsRecord &requirements,
+    DiagnosticEngine &diagnostics) {
+  if (!metadata.nativeBinaryStatus) {
+    return;
+  }
+
+  if (!requirements.requiresNativeBinaryStatus) {
+    diagnostics.error(diagnosticCode("unexpected-native-status"),
+                      metadata.target +
+                          " packages must not declare nativeBinaryStatus",
+                      locationOr(metadata.nativeBinaryStatusLocation,
+                                 artifactsLocation(metadata)));
+    return;
+  }
+
+  if (*metadata.nativeBinaryStatus == "planned" &&
+      !requirements.allowsPlannedNativeBinary) {
+    diagnostics.error(
+        diagnosticCode("planned-native-status-disallowed"),
+        "package manifest packageArtifactRequirements does not allow "
+        "nativeBinaryStatus planned",
+        locationOr(metadata.nativeBinaryStatusLocation,
+                   artifactsLocation(metadata)));
+  }
+
+  const PackageArtifactRecord *nativeBinary =
+      findArtifact(metadata, "nativeBinary");
+  if (!nativeBinary) {
+    diagnostics.error(diagnosticCode("native-status-without-native"),
+                      "nativeBinaryStatus requires nativeBinary",
+                      locationOr(metadata.nativeBinaryStatusLocation,
+                                 artifactsLocation(metadata)));
+    return;
+  }
+
+  if (*metadata.nativeBinaryStatus == "planned" && nativeBinary->exists) {
+    diagnostics.error(
+        diagnosticCode("planned-native-status-with-produced-native"),
+        "nativeBinaryStatus planned requires the nativeBinary artifact path to "
+        "be declared but not produced",
+        artifactLocation(metadata, *nativeBinary));
+  }
+}
+
+void verifyDebugArtifacts(const PackageMetadata &metadata,
+                          DiagnosticEngine &diagnostics) {
+  const PackageArtifactRecord *sourceRemap =
+      findArtifact(metadata, "sourceRemap");
+  if (sourceRemap && !(metadata.debugMetadataArtifactPresent &&
+                       metadata.hirSourceMapArtifactPresent)) {
+    diagnostics.error(diagnosticCode("source-remap-without-debug-artifacts"),
+                      artifactLabel("sourceRemap", sourceRemap) +
+                          " requires debugMetadata and hirSourceMap",
+                      artifactLocation(metadata, *sourceRemap));
+  }
+
+  const PackageArtifactRecord *backendSourceMap =
+      findArtifact(metadata, "backendSourceMap");
+  if (backendSourceMap && !(metadata.debugMetadataArtifactPresent &&
+                            metadata.hirSourceMapArtifactPresent)) {
+    diagnostics.error(
+        diagnosticCode("backend-source-map-without-debug-artifacts"),
+        artifactLabel("backendSourceMap", backendSourceMap) +
+            " requires debugMetadata and hirSourceMap",
+        artifactLocation(metadata, *backendSourceMap));
+  }
+
+  if (metadata.debugMetadataArtifactPresent !=
+      metadata.hirSourceMapArtifactPresent) {
+    const PackageArtifactRecord *debugMetadata =
+        findArtifact(metadata, "debugMetadata");
+    const PackageArtifactRecord *hirSourceMap =
+        findArtifact(metadata, "hirSourceMap");
+    SourceLocation location = artifactsLocation(metadata);
+    if (debugMetadata) {
+      location = artifactLocation(metadata, *debugMetadata);
+    } else if (hirSourceMap) {
+      location = artifactLocation(metadata, *hirSourceMap);
+    }
+    std::string message =
+        "debugMetadata and hirSourceMap must be emitted together";
+    if (debugMetadata && !hirSourceMap) {
+      message = "debug artifact pair mismatch: " +
+                artifactLabel("debugMetadata", debugMetadata) +
+                " requires hirSourceMap";
+    } else if (hirSourceMap && !debugMetadata) {
+      message = "debug artifact pair mismatch: " +
+                artifactLabel("hirSourceMap", hirSourceMap) +
+                " requires debugMetadata";
+    }
+    diagnostics.error(diagnosticCode("debug-artifact-pair"), std::move(message),
+                      std::move(location));
+  }
+}
+
+void verifySourceRemapProvenanceHealth(
+    const PackageMetadata &metadata,
+    const PackageSourceRemapProvenanceHealth &health,
+    DiagnosticEngine &diagnostics) {
+  if (!health.artifactPresent || health.health == "ok") {
+    return;
+  }
+
+  const PackageArtifactRecord *sourceRemap =
+      findArtifact(metadata, "sourceRemap");
+  const SourceLocation location =
+      sourceRemap ? artifactLocation(metadata, *sourceRemap)
+                  : artifactsLocation(metadata);
+  const std::string label = artifactLabel("sourceRemap", sourceRemap);
+  if (!health.exists) {
+    diagnostics.error(diagnosticCode("source-remap-provenance-missing"),
+                      label + " provenance artifact does not exist", location);
+    return;
+  }
+
+  const PackageSourceRemapProvenanceChecks &checks = health.checks;
+  if (checks.identityMatchesContract && !*checks.identityMatchesContract) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-contract-invalid"),
+        label + " must use the source-remap-provenance-v1 contract",
+        location);
+  }
+  if (checks.targetMatchesPackage && !*checks.targetMatchesPackage) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-target-mismatch"),
+        label + " target must match package target '" + metadata.target + "'",
+        location);
+  }
+  if (checks.generatedFilePresent && !*checks.generatedFilePresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-generated-file-missing"),
+        label + " generatedFile must be recorded", location);
+  }
+  if (checks.mappingGranularityMatchesContract &&
+      !*checks.mappingGranularityMatchesContract) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-granularity-mismatch"),
+        label + " mappingGranularity must be source-span", location);
+  }
+  if (checks.mappingCountPositive && !*checks.mappingCountPositive) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-mapping-count-invalid"),
+        label + " mappingCount must be positive", location);
+  }
+  if (checks.sourcePathPresent && !*checks.sourcePathPresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-path-missing"),
+        label + " sourceRemap.path must be recorded", location);
+  }
+  if (checks.sourceHashPresent && !*checks.sourceHashPresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-hash-invalid"),
+        label + " sourceRemap.sha256 must record a lowercase sha256 digest",
+        location);
+  }
+  if (checks.sourceSizeBytesPresent && !*checks.sourceSizeBytesPresent) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-size-missing"),
+        label + " sourceRemap.sizeBytes must be recorded", location);
+  }
+  if (checks.sourceRemapTargetMatchesContract &&
+      !*checks.sourceRemapTargetMatchesContract) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-remap-target-invalid"),
+        label + " sourceRemap.target must be a normalized target name when "
+                "recorded",
+        location);
+  }
+  if (checks.sourceRemapMappingGranularityMatchesContract &&
+      !*checks.sourceRemapMappingGranularityMatchesContract) {
+    diagnostics.error(
+        diagnosticCode(
+            "source-remap-provenance-source-remap-granularity-invalid"),
+        label +
+            " sourceRemap.mappingGranularity must be file, line, statement, "
+            "or token when recorded",
+        location);
+  }
+  if (checks.sourceRemapSourceBackendValid &&
+      !*checks.sourceRemapSourceBackendValid) {
+    diagnostics.error(
+        diagnosticCode(
+            "source-remap-provenance-source-remap-source-backend-invalid"),
+        label + " sourceRemap.sourceBackend must be non-empty when recorded",
+        location);
+  }
+  if (checks.sourceRemapVariantValid && !*checks.sourceRemapVariantValid) {
+    diagnostics.error(
+        diagnosticCode("source-remap-provenance-source-remap-variant-invalid"),
+        label + " sourceRemap.variant must be non-empty when recorded",
+        location);
+  }
+}
+
+void verifyBackendSourceMapHealth(
+    const PackageMetadata &metadata,
+    const PackageBackendSourceMapHealth &health,
+    DiagnosticEngine &diagnostics) {
+  if (!health.artifactPresent || health.health == "ok") {
+    return;
+  }
+
+  const PackageArtifactRecord *backendSourceMap =
+      findArtifact(metadata, "backendSourceMap");
+  const SourceLocation location =
+      backendSourceMap ? artifactLocation(metadata, *backendSourceMap)
+                       : artifactsLocation(metadata);
+  const std::string label =
+      artifactLabel("backendSourceMap", backendSourceMap);
+  if (!health.exists) {
+    diagnostics.error(diagnosticCode("backend-source-map-missing"),
+                      label + " artifact does not exist", location);
+    return;
+  }
+
+  const PackageBackendSourceMapChecks &checks = health.checks;
+  bool emittedDiagnostic = false;
+  const auto emitError = [&](std::string_view suffix, std::string message) {
+    diagnostics.error(diagnosticCode(suffix), std::move(message), location);
+    emittedDiagnostic = true;
+  };
+  if (checks.identityMatchesContract && !*checks.identityMatchesContract) {
+    emitError("backend-source-map-contract-invalid",
+              label + " must use the backend-source-map-v1 contract");
+  }
+  if (checks.targetMatchesPackage && !*checks.targetMatchesPackage) {
+    emitError("backend-source-map-target-mismatch",
+              label + " target must match package target '" + metadata.target +
+                  "'");
+  }
+  if (checks.moduleMatchesPackage && !*checks.moduleMatchesPackage) {
+    emitError("backend-source-map-module-mismatch",
+              label + " module must match package module '" + metadata.module +
+                  "'");
+  }
+  if (checks.mappingGranularityMatchesContract &&
+      !*checks.mappingGranularityMatchesContract) {
+    emitError("backend-source-map-granularity-mismatch",
+              label + " mappingGranularity must be statement");
+  }
+  if (checks.sourceBackendPresent && !*checks.sourceBackendPresent) {
+    emitError("backend-source-map-source-missing",
+              label + " sourceBackend must be recorded");
+  }
+  if (checks.targetBackendMatchesBackendLanguage &&
+      !*checks.targetBackendMatchesBackendLanguage) {
+    emitError("backend-source-map-language-mismatch",
+              label + " targetBackend must match backend.language and the "
+                      "package target backend language");
+  }
+  if (checks.backendLanguagePresent && !*checks.backendLanguagePresent) {
+    emitError("backend-source-map-language-missing",
+              label + " backend.language must be recorded");
+  }
+  if (checks.backendLineCountPresent && !*checks.backendLineCountPresent) {
+    emitError("backend-source-map-line-count-missing",
+              label + " backend.lineCount must be recorded");
+  }
+  if (checks.backendLineCountMatchesSource &&
+      !*checks.backendLineCountMatchesSource) {
+    emitError("backend-source-map-line-count-mismatch",
+              label +
+                  " backend.lineCount must match backend source line count");
+  }
+  if (checks.backendSpansWithinSource && !*checks.backendSpansWithinSource) {
+    emitError("backend-source-map-span-outside-source",
+              label +
+                  " backend spans must stay within backend source line count");
+  }
+  if (checks.mappingCountMatchesMappings &&
+      !*checks.mappingCountMatchesMappings) {
+    emitError("backend-source-map-mapping-count-mismatch",
+              label + " mappingCount must match mappings length");
+  }
+  if (checks.sourceRemapPathPackageRelative &&
+      !*checks.sourceRemapPathPackageRelative) {
+    emitError("backend-source-map-source-remap-path-invalid",
+              label + " sourceRemap.path must be package-relative");
+  }
+  if (checks.sourceRemapGeneratedFilePackageRelative &&
+      !*checks.sourceRemapGeneratedFilePackageRelative) {
+    emitError("backend-source-map-source-remap-generated-file-invalid",
+              label +
+                  " sourceRemap.generatedFile must be package-relative");
+  }
+  if (checks.sourceRemapHashPresent && !*checks.sourceRemapHashPresent) {
+    emitError("backend-source-map-source-remap-hash-invalid",
+              label +
+                  " sourceRemap.sha256 must record a lowercase sha256 digest");
+  }
+  if (checks.sourceRemapMappingCountPositive &&
+      !*checks.sourceRemapMappingCountPositive) {
+    emitError("backend-source-map-source-remap-mapping-count-invalid",
+              label + " sourceRemap.mappingCount must be positive");
+  }
+  if (checks.sourceRemapTargetMatchesContract &&
+      !*checks.sourceRemapTargetMatchesContract) {
+    emitError("backend-source-map-source-remap-target-invalid",
+              label +
+                  " sourceRemap.target must be a normalized target name when "
+                  "recorded");
+  }
+  if (checks.sourceRemapMappingGranularityMatchesContract &&
+      !*checks.sourceRemapMappingGranularityMatchesContract) {
+    emitError("backend-source-map-source-remap-granularity-invalid",
+              label +
+                  " sourceRemap.mappingGranularity must be file, line, "
+                  "statement, or token when recorded");
+  }
+  if (checks.sourceRemapSourceBackendValid &&
+      !*checks.sourceRemapSourceBackendValid) {
+    emitError("backend-source-map-source-remap-source-backend-invalid",
+              label +
+                  " sourceRemap.sourceBackend must be non-empty when recorded");
+  }
+  if (checks.sourceRemapVariantValid && !*checks.sourceRemapVariantValid) {
+    emitError("backend-source-map-source-remap-variant-invalid",
+              label + " sourceRemap.variant must be non-empty when recorded");
+  }
+  if (checks.sourceRemapMatchesProvenance &&
+      !*checks.sourceRemapMatchesProvenance) {
+    emitError("backend-source-map-source-remap-provenance-mismatch",
+              label +
+                  " sourceRemap metadata must match sourceRemap provenance");
+  }
+  if (!emittedDiagnostic) {
+    emitError("backend-source-map-invalid", label + " health must be ok");
+  }
+}
+
+void verifyDebugArtifactHealth(const PackageMetadata &metadata,
+                               DiagnosticEngine &diagnostics) {
+  if (!metadata.debugMetadataArtifactPresent ||
+      !metadata.hirSourceMapArtifactPresent) {
+    return;
+  }
+
+  const PackageDebugArtifactHealth health =
+      collectPackageDebugArtifactHealth(metadata);
+  if (health.health != "drift") {
+    return;
+  }
+
+  const PackageArtifactRecord *debugMetadata =
+      findArtifact(metadata, "debugMetadata");
+  const PackageArtifactRecord *hirSourceMap =
+      findArtifact(metadata, "hirSourceMap");
+  const SourceLocation sourceMapLocation =
+      hirSourceMap ? artifactLocation(metadata, *hirSourceMap)
+                   : artifactsLocation(metadata);
+  const std::string debugMetadataName =
+      artifactLabel("debugMetadata", debugMetadata);
+  const std::string hirSourceMapName =
+      artifactLabel("hirSourceMap", hirSourceMap);
+
+  if (health.hirSourceLocationsMatch && !*health.hirSourceLocationsMatch) {
+    diagnostics.error(diagnosticCode("debug-source-locations-mismatch"),
+                      hirSourceMapName + " hirSourceLocations must match " +
+                          debugMetadataName,
+                      sourceMapLocation);
+  }
+  if (health.sourceMapUnfiltered && !*health.sourceMapUnfiltered) {
+    diagnostics.error(diagnosticCode("debug-source-map-filtered"),
+                      hirSourceMapName + " must be unfiltered",
+                      sourceMapLocation);
+  }
+  if (health.sourceMapUnpaged && !*health.sourceMapUnpaged) {
+    diagnostics.error(diagnosticCode("debug-source-map-paged"),
+                      hirSourceMapName + " pagination must be inactive",
+                      sourceMapLocation);
+  }
+  if (health.sourceMapRecordsDisabled && !*health.sourceMapRecordsDisabled) {
+    diagnostics.error(diagnosticCode("debug-source-map-records-enabled"),
+                      hirSourceMapName + " records must be disabled",
+                      sourceMapLocation);
+  }
+  if (health.sourceMapCategoryCountsConsistent &&
+      !*health.sourceMapCategoryCountsConsistent) {
+    diagnostics.error(diagnosticCode("debug-source-map-category-counts"),
+                      hirSourceMapName +
+                          " categoryCounts must match hirSourceLocations",
+                      sourceMapLocation);
+  }
+  if (health.recordsTotalCountMatchesCategoryCounts &&
+      !*health.recordsTotalCountMatchesCategoryCounts) {
+    diagnostics.error(
+        diagnosticCode("debug-source-map-record-total"),
+        hirSourceMapName +
+            " records.totalCount must match categoryCounts.recordTotalCount",
+        sourceMapLocation);
+  }
+  verifySourceRemapProvenanceHealth(metadata, health.sourceRemap, diagnostics);
+  verifyBackendSourceMapHealth(metadata, health.backendSourceMap, diagnostics);
+}
+
+void verifyVulkanNativeProfileHealth(const PackageMetadata &metadata,
+                                     DiagnosticEngine &diagnostics) {
+  const PackageVulkanNativeProfileHealth health =
+      collectPackageVulkanNativeProfileHealth(metadata);
+  if (!health.applicable || health.health == "ok") {
+    return;
+  }
+
+  const PackageArtifactRecord *nativeProfile =
+      findArtifact(metadata, "nativeProfile");
+  const SourceLocation location =
+      nativeProfile ? artifactLocation(metadata, *nativeProfile)
+                    : artifactsLocation(metadata);
+  const std::string label = artifactLabel("nativeProfile", nativeProfile);
+
+  if (!health.nativeProfileArtifactPresent) {
+    diagnostics.error(diagnosticCode("vulkan-native-profile-required"),
+                      "vulkan package verification requires nativeProfile "
+                      "artifact evidence",
+                      location);
+    return;
+  }
+  if (!health.nativeProfileExists) {
+    diagnostics.error(diagnosticCode("vulkan-native-profile-missing"),
+                      label + " artifact does not exist", location);
+    return;
+  }
+  diagnostics.error(diagnosticCode("vulkan-native-profile-drift"),
+                    label + " health must be ok", location);
+}
+
+void verifyNativeArtifactDescriptor(
+    const PackageMetadata &metadata,
+    const PackageArtifactRequirementsRecord &requirements,
+    DiagnosticEngine &diagnostics) {
+  const PackageArtifactRecord *descriptor =
+      findArtifact(metadata, "nativeArtifactDescriptor");
+  if (descriptor == nullptr) {
+    const std::optional<std::string> nativeBinaryStatus =
+        packageVerifyNativeBinaryStatus(metadata);
+    const bool nativeReady =
+        requirements.packageMode == "native" ||
+        (nativeBinaryStatus && *nativeBinaryStatus != "planned");
+    if (nativeReady) {
+      diagnostics.error(diagnosticCode("native-artifact-descriptor-required"),
+                        metadata.target +
+                            " native-ready package verification requires "
+                            "nativeArtifactDescriptor artifact evidence",
+                        artifactsLocation(metadata));
+    }
+    return;
+  }
+
+  const SourceLocation location = artifactLocation(metadata, *descriptor);
+  const PackageNativeArtifactDescriptorHealth health =
+      collectPackageNativeArtifactDescriptorHealth(metadata);
+  if (!health.descriptorExists) {
+    diagnostics.error(diagnosticCode("native-artifact-descriptor-missing"),
+                      "native artifact descriptor does not exist: " +
+                          descriptor->path,
+                      location);
+    return;
+  }
+
+  if (health.health == "invalid") {
+    diagnostics.error(
+        diagnosticCode("native-artifact-descriptor-invalid"),
+        "native artifact descriptor must use the native-artifact-v0 contract",
+        location);
+  }
+
+  const PackageNativeArtifactDescriptorChecks &checks = health.checks;
+  if (checks.targetMatchesPackage && !*checks.targetMatchesPackage) {
+    diagnostics.error(diagnosticCode("native-artifact-target-mismatch"),
+                      "native artifact descriptor target must match package "
+                      "target '" +
+                          metadata.target + "'",
+                      location);
+  }
+  if (checks.nativeBinaryStatusMatchesPackage &&
+      !*checks.nativeBinaryStatusMatchesPackage) {
+    const std::optional<std::string> expected =
+        packageVerifyNativeBinaryStatus(metadata);
+    diagnostics.error(diagnosticCode("native-artifact-status-mismatch"),
+                      "native artifact descriptor nativeBinaryStatus must "
+                      "match package status '" +
+                          (expected ? *expected : std::string("null")) + "'",
+                      location);
+  }
+  if (checks.sourcePathMatchesManifest && !*checks.sourcePathMatchesManifest) {
+    diagnostics.error(
+        diagnosticCode("native-artifact-source-path-mismatch"),
+        "native artifact descriptor sourcePath must match manifest source "
+        "artifact",
+        location);
+  }
+  if (checks.sourceHashMatchesFile && !*checks.sourceHashMatchesFile) {
+    diagnostics.error(
+        diagnosticCode("native-artifact-source-hash-mismatch"),
+        "native artifact descriptor sourceHash must match sourcePath '" +
+            health.sourcePath.value_or(std::string()) + "'",
+        location);
+  }
+  if (checks.artifactPathMatchesManifest &&
+      !*checks.artifactPathMatchesManifest) {
+    diagnostics.error(
+        diagnosticCode("native-artifact-path-mismatch"),
+        "native artifact descriptor artifactPath must match manifest "
+        "artifacts.nativeBinary",
+        location);
+  }
+  if (checks.artifactHashMatchesFile && !*checks.artifactHashMatchesFile) {
+    diagnostics.error(
+        diagnosticCode("native-artifact-hash-mismatch"),
+        "native artifact descriptor artifactHash must match artifactPath '" +
+            health.artifactPath.value_or(std::string()) + "'",
+        location);
+  }
+  if (checks.sizeBytesMatchesFile && !*checks.sizeBytesMatchesFile) {
+    diagnostics.error(
+        diagnosticCode("native-artifact-size-mismatch"),
+        "native artifact descriptor sizeBytes must match artifactPath '" +
+            health.artifactPath.value_or(std::string()) + "'",
+        location);
+  }
+  if (checks.validationStatusMatchesNativeStatus &&
+      !*checks.validationStatusMatchesNativeStatus) {
+    diagnostics.error(
+        diagnosticCode("native-artifact-validation-status-mismatch"),
+        "native artifact descriptor validationStatus and nativeBinaryStatus "
+        "must agree on validated state",
+        location);
+  }
+}
+
+void verifyTargetLegalizationEvidence(const PackageMetadata &metadata,
+                                      DiagnosticEngine &diagnostics) {
+  const PackageTargetLegalizationEvidence evidence =
+      collectPackageTargetLegalizationEvidence(metadata);
+
+  if (evidence.manifestToolRequirementsTargetMatchesPackage &&
+      !*evidence.manifestToolRequirementsTargetMatchesPackage &&
+      metadata.targetLegalizationToolRequirements) {
+    diagnostics.error(
+        diagnosticCode("target-legalization-manifest-tool-target-mismatch"),
+        "targetLegalizationToolRequirements target must match package target "
+        "'" +
+            metadata.target + "'",
+        metadata.targetLegalizationToolRequirements->targetLocation.value_or(
+            metadata.targetLegalizationToolRequirements->location));
+  }
+
+  if (evidence.manifestToolRequirementsPackageModeMatchesRequirements &&
+      !*evidence.manifestToolRequirementsPackageModeMatchesRequirements &&
+      metadata.targetLegalizationToolRequirements) {
+    diagnostics.error(
+        diagnosticCode(
+            "target-legalization-manifest-tool-package-mode-mismatch"),
+        "targetLegalizationToolRequirements.packageMode must match "
+        "packageArtifactRequirements.packageMode",
+        metadata.targetLegalizationToolRequirements->packageModeLocation
+            .value_or(metadata.targetLegalizationToolRequirements->location));
+  }
+
+  if (evidence.manifestToolRequirementEvidenceIdsPresent &&
+      !*evidence.manifestToolRequirementEvidenceIdsPresent &&
+      metadata.targetLegalizationToolRequirements) {
+    diagnostics.error(
+        diagnosticCode("target-legalization-manifest-tool-evidence-missing"),
+        "targetLegalizationToolRequirements.toolRequirementEvidenceIds must "
+        "record tool requirement evidence",
+        metadata.targetLegalizationToolRequirements
+            ->toolRequirementEvidenceIdsLocation.value_or(
+                metadata.targetLegalizationToolRequirements->location));
+  }
+
+  if (evidence.debugMetadataTargetMatchesPackage &&
+      !*evidence.debugMetadataTargetMatchesPackage) {
+    const PackageArtifactRecord *debugMetadata =
+        findArtifact(metadata, "debugMetadata");
+    diagnostics.error(
+        diagnosticCode("target-legalization-debug-metadata-target-mismatch"),
+        "debugMetadata target legalization evidence target must match package "
+        "target '" +
+            metadata.target + "'",
+        debugMetadata ? artifactLocation(metadata, *debugMetadata)
+                      : artifactsLocation(metadata));
+  }
+
+  if (sidecarProjectionIncomplete(evidence.debugMetadata)) {
+    const PackageArtifactRecord *debugMetadata =
+        findArtifact(metadata, "debugMetadata");
+    diagnostics.error(
+        diagnosticCode("target-legalization-debug-metadata-incomplete"),
+        "debugMetadata target legalization projection evidence must include "
+        "selected target, supported package state, packageMode, and "
+        "legalizationCoreEvidenceIds",
+        debugMetadata ? artifactLocation(metadata, *debugMetadata)
+                      : artifactsLocation(metadata));
+  }
+
+  if (evidence.debugMetadata.packageBuildSupported &&
+      !*evidence.debugMetadata.packageBuildSupported) {
+    const PackageArtifactRecord *debugMetadata =
+        findArtifact(metadata, "debugMetadata");
+    diagnostics.error(
+        diagnosticCode("target-legalization-debug-metadata-unsupported"),
+        "debugMetadata target legalization projection rejects package target "
+        "'" +
+            metadata.target + "'",
+        debugMetadata ? artifactLocation(metadata, *debugMetadata)
+                      : artifactsLocation(metadata));
+  }
+
+  if (evidence.targetExplanationTargetMatchesPackage &&
+      !*evidence.targetExplanationTargetMatchesPackage) {
+    const PackageArtifactRecord *targetExplanation =
+        findArtifact(metadata, "targetExplanation");
+    diagnostics.error(
+        diagnosticCode(
+            "target-legalization-target-explanation-target-mismatch"),
+        "targetExplanation target legalization evidence target must match "
+        "package target '" +
+            metadata.target + "'",
+        targetExplanation ? artifactLocation(metadata, *targetExplanation)
+                          : artifactsLocation(metadata));
+  }
+
+  if (sidecarProjectionIncomplete(evidence.targetExplanation)) {
+    const PackageArtifactRecord *targetExplanation =
+        findArtifact(metadata, "targetExplanation");
+    diagnostics.error(
+        diagnosticCode("target-legalization-target-explanation-incomplete"),
+        "targetExplanation target legalization projection evidence must "
+        "include target, supported package state, packageMode, and "
+        "legalizationCoreEvidenceIds",
+        targetExplanation ? artifactLocation(metadata, *targetExplanation)
+                          : artifactsLocation(metadata));
+  }
+
+  if (evidence.targetExplanation.packageBuildSupported &&
+      !*evidence.targetExplanation.packageBuildSupported) {
+    const PackageArtifactRecord *targetExplanation =
+        findArtifact(metadata, "targetExplanation");
+    diagnostics.error(
+        diagnosticCode("target-legalization-target-explanation-unsupported"),
+        "targetExplanation target legalization projection rejects package "
+        "target '" +
+            metadata.target + "'",
+        targetExplanation ? artifactLocation(metadata, *targetExplanation)
+                          : artifactsLocation(metadata));
+  }
+
+  if (evidence.debugMetadataPackageModeMatchesRequirements &&
+      !*evidence.debugMetadataPackageModeMatchesRequirements) {
+    const PackageArtifactRecord *debugMetadata =
+        findArtifact(metadata, "debugMetadata");
+    const std::string expected =
+        metadata.artifactRequirements
+            ? metadata.artifactRequirements->packageMode
+            : std::string("unknown");
+    diagnostics.error(
+        diagnosticCode(
+            "target-legalization-debug-metadata-package-mode-mismatch"),
+        "debugMetadata target legalization packageMode must match "
+        "packageArtifactRequirements.packageMode '" +
+            expected + "'",
+        debugMetadata ? artifactLocation(metadata, *debugMetadata)
+                      : artifactsLocation(metadata));
+  }
+
+  if (packageArtifactRequirementsContractIsValid(metadata) &&
+      sidecarRequirementEvidenceIdsDrift(
+          evidence.debugMetadata,
+          evidence.packageArtifactRequirementEvidenceIds)) {
+    const PackageArtifactRecord *debugMetadata =
+        findArtifact(metadata, "debugMetadata");
+    diagnostics.error(
+        diagnosticCode(
+            "target-legalization-debug-metadata-requirement-evidence-mismatch"),
+        "debugMetadata target legalization "
+        "packageArtifactRequirementEvidenceIds must match recorded "
+        "packageArtifactRequirements.evidenceIds",
+        debugMetadata ? artifactLocation(metadata, *debugMetadata)
+                      : artifactsLocation(metadata));
+  }
+
+  if (evidence.debugMetadataToolRequirementsMatchManifest &&
+      !*evidence.debugMetadataToolRequirementsMatchManifest) {
+    const PackageArtifactRecord *debugMetadata =
+        findArtifact(metadata, "debugMetadata");
+    diagnostics.error(
+        diagnosticCode(
+            "target-legalization-debug-metadata-tool-requirements-mismatch"),
+        "debugMetadata target legalization tool requirements must match "
+        "manifest targetLegalizationToolRequirements",
+        debugMetadata ? artifactLocation(metadata, *debugMetadata)
+                      : artifactsLocation(metadata));
+  }
+
+  if (evidence.targetExplanationPackageModeMatchesRequirements &&
+      !*evidence.targetExplanationPackageModeMatchesRequirements) {
+    const PackageArtifactRecord *targetExplanation =
+        findArtifact(metadata, "targetExplanation");
+    const std::string expected =
+        metadata.artifactRequirements
+            ? metadata.artifactRequirements->packageMode
+            : std::string("unknown");
+    diagnostics.error(
+        diagnosticCode(
+            "target-legalization-target-explanation-package-mode-mismatch"),
+        "targetExplanation target legalization packageMode must match "
+        "packageArtifactRequirements.packageMode '" +
+            expected + "'",
+        targetExplanation ? artifactLocation(metadata, *targetExplanation)
+                          : artifactsLocation(metadata));
+  }
+
+  if (evidence.targetExplanationToolRequirementsMatchManifest &&
+      !*evidence.targetExplanationToolRequirementsMatchManifest) {
+    const PackageArtifactRecord *targetExplanation =
+        findArtifact(metadata, "targetExplanation");
+    diagnostics.error(
+        diagnosticCode("target-legalization-target-explanation-"
+                       "tool-requirements-mismatch"),
+        "targetExplanation target legalization tool requirements must match "
+        "manifest targetLegalizationToolRequirements",
+        targetExplanation ? artifactLocation(metadata, *targetExplanation)
+                          : artifactsLocation(metadata));
+  }
+
+  if (packageArtifactRequirementsContractIsValid(metadata) &&
+      sidecarRequirementEvidenceIdsDrift(
+          evidence.targetExplanation,
+          evidence.packageArtifactRequirementEvidenceIds)) {
+    const PackageArtifactRecord *targetExplanation =
+        findArtifact(metadata, "targetExplanation");
+    diagnostics.error(
+        diagnosticCode("target-legalization-target-explanation-"
+                       "requirement-evidence-mismatch"),
+        "targetExplanation target legalization "
+        "packageArtifactRequirementEvidenceIds must match recorded "
+        "packageArtifactRequirements.evidenceIds",
+        targetExplanation ? artifactLocation(metadata, *targetExplanation)
+                          : artifactsLocation(metadata));
+  }
+}
+
+void verifyArtifacts(const PackageMetadata &metadata,
+                     const PackageArtifactRequirementsRecord &requirements,
+                     DiagnosticEngine &diagnostics) {
+  for (const PackageArtifactRecord &artifact : metadata.artifacts) {
+    if (artifact.pathIssue != PackagePathIssue::None) {
+      std::string message = "package artifact '" + artifact.name + "' " +
+                            artifactPathIssueMessage(artifact.pathIssue);
+      if (!artifact.path.empty()) {
+        message += ": " + artifact.path;
+      }
+      diagnostics.error(diagnosticCode("invalid-artifact-path"),
+                        std::move(message),
+                        artifactLocation(metadata, artifact));
+      continue;
+    }
+
+    if (!artifact.pathExists &&
+        !allowsPlannedNativeBinary(metadata, artifact, requirements)) {
+      diagnostics.error(diagnosticCode("missing-artifact"),
+                        "package artifact '" + artifact.name +
+                            "' does not exist: " + artifact.path,
+                        artifactLocation(metadata, artifact));
+      continue;
+    }
+
+    if (!artifact.exists &&
+        !allowsPlannedNativeBinary(metadata, artifact, requirements)) {
+      diagnostics.error(diagnosticCode("artifact-not-file"),
+                        "package artifact '" + artifact.name +
+                            "' is not a file: " + artifact.path,
+                        artifactLocation(metadata, artifact));
+    }
+  }
+}
+
+void verifyReflectionNativeBinary(const PackageMetadata &metadata,
+                                  DiagnosticEngine &diagnostics) {
+  if (!metadata.reflectionNativeBinary ||
+      metadata.reflectionNativeBinary->empty()) {
+    return;
+  }
+
+  const PackagePathIssue pathIssue =
+      packagePathIssue(*metadata.reflectionNativeBinary);
+  if (pathIssue != PackagePathIssue::None) {
+    diagnostics.error(diagnosticCode("invalid-reflection-native-binary"),
+                      "reflection nativeBinary " +
+                          reflectionNativeBinaryPathIssueMessage(pathIssue) +
+                          ": " + *metadata.reflectionNativeBinary,
+                      locationOr(metadata.reflectionNativeBinaryLocation,
+                                 metadata.reflectionLocation));
+    return;
+  }
+
+  const PackageArtifactRecord *nativeBinary =
+      findArtifact(metadata, "nativeBinary");
+  if (nativeBinary && nativeBinary->path != *metadata.reflectionNativeBinary) {
+    diagnostics.error(diagnosticCode("reflection-native-binary-mismatch"),
+                      "reflection nativeBinary must match manifest "
+                      "artifacts.nativeBinary: expected '" +
+                          nativeBinary->path + "', got '" +
+                          *metadata.reflectionNativeBinary + "'",
+                      locationOr(metadata.reflectionNativeBinaryLocation,
+                                 metadata.reflectionLocation));
+  }
+}
+
+bool hasReflectionResourceIdentity(
+    const PackageReflectionResourceRecord &resource) {
+  return !resource.stage.empty() && !resource.name.empty() &&
+         !resource.kind.empty();
+}
+
+bool hasReflectionTargetResourceBindingIdentity(
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  return !binding.stage.empty() && !binding.name.empty() &&
+         !binding.kind.empty();
+}
+
+bool hasReflectionTargetResourceBindingDuplicateIdentity(
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  return !binding.stage.empty() && !binding.entryPoint.empty() &&
+         !binding.name.empty();
+}
+
+bool hasReflectionTargetResourceBindingReportIdentity(
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  return !binding.stage.empty() && !binding.entryPoint.empty() &&
+         !binding.name.empty() && !binding.kind.empty();
+}
+
+bool reflectionIdentityMatches(
+    const PackageReflectionResourceRecord &resource,
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  return resource.stage == binding.stage && resource.name == binding.name &&
+         resource.kind == binding.kind;
+}
+
+bool reflectionTargetBindingDuplicateIdentityMatches(
+    const PackageReflectionTargetResourceBindingRecord &left,
+    const PackageReflectionTargetResourceBindingRecord &right) {
+  return left.target == right.target && left.stage == right.stage &&
+         left.entryPoint == right.entryPoint && left.name == right.name &&
+         left.kind == right.kind;
+}
+
+std::string reflectionIdentityLabel(std::string_view stage,
+                                    std::string_view name,
+                                    std::string_view kind) {
+  return "stage '" + std::string(stage) + "' name '" + std::string(name) +
+         "' kind '" + std::string(kind) + "'";
+}
+
+std::string reflectionTargetBindingDuplicateIdentityLabel(
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  return "stage '" + binding.stage + "' entryPoint '" + binding.entryPoint +
+         "' name '" + binding.name + "' kind '" + binding.kind + "'";
+}
+
+std::string
+reflectionResourceLabel(const PackageReflectionResourceRecord &resource) {
+  if (!resource.name.empty()) {
+    return "'" + resource.name + "'";
+  }
+  return reflectionIdentityLabel(resource.stage, resource.name, resource.kind);
+}
+
+std::string reflectionTargetBindingLabel(
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  if (!binding.name.empty()) {
+    return "'" + binding.name + "'";
+  }
+  return reflectionIdentityLabel(binding.stage, binding.name, binding.kind);
+}
+
+const PackageReflectionTargetResourceBindingRecord *
+findSelectedTargetBindingForResource(
+    const PackageMetadata &metadata,
+    const PackageReflectionResourceRecord &resource) {
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target == metadata.target &&
+        hasReflectionTargetResourceBindingIdentity(binding) &&
+        reflectionIdentityMatches(resource, binding)) {
+      return &binding;
+    }
+  }
+  return nullptr;
+}
+
+const PackageReflectionResourceRecord *findReflectionResourceForBinding(
+    const PackageMetadata &metadata,
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  for (const PackageReflectionResourceRecord &resource :
+       metadata.reflectionResources) {
+    if (hasReflectionResourceIdentity(resource) &&
+        reflectionIdentityMatches(resource, binding)) {
+      return &resource;
+    }
+  }
+  return nullptr;
+}
+
+const PackageReflectionResourceRecord *findReflectionResourceByName(
+    const PackageMetadata &metadata,
+    const PackageReflectionTargetResourceBindingRecord &binding) {
+  if (binding.name.empty()) {
+    return nullptr;
+  }
+  for (const PackageReflectionResourceRecord &resource :
+       metadata.reflectionResources) {
+    if (hasReflectionResourceIdentity(resource) &&
+        resource.name == binding.name) {
+      return &resource;
+    }
+  }
+  return nullptr;
+}
+
+std::string optionalUnsignedLabel(std::optional<std::uintmax_t> value) {
+  if (!value) {
+    return "<missing>";
+  }
+  return std::to_string(*value);
+}
+
+std::string optionalStringLabel(const std::optional<std::string> &value) {
+  if (!value) {
+    return "<missing>";
+  }
+  return "'" + *value + "'";
+}
+
+std::string canonicalReflectionAddressSpace(std::string_view addressSpace) {
+  if (addressSpace == "shared" || addressSpace == "groupshared" ||
+      addressSpace == "threadgroup" || addressSpace == "Workgroup") {
+    return "workgroup-shared";
+  }
+  return std::string(addressSpace);
+}
+
+bool reflectionAddressSpacesMatch(
+    const std::optional<std::string> &resourceAddressSpace,
+    const std::optional<std::string> &bindingAddressSpace) {
+  if (!resourceAddressSpace || !bindingAddressSpace) {
+    return resourceAddressSpace == bindingAddressSpace;
+  }
+  return canonicalReflectionAddressSpace(*resourceAddressSpace) ==
+         canonicalReflectionAddressSpace(*bindingAddressSpace);
+}
+
+std::optional<std::uintmax_t>
+fixedArrayElementCountFromDimensions(std::string_view arrayDimensionsJson) {
+  const std::optional<std::vector<std::string_view>> dimensions =
+      jsonArrayElements(arrayDimensionsJson);
+  if (!dimensions || dimensions->empty()) {
+    return std::nullopt;
+  }
+
+  std::uintmax_t product = 1;
+  for (std::string_view dimension : *dimensions) {
+    const std::optional<std::string> kind =
+        objectStringMember(dimension, "kind");
+    if (!kind || *kind != "fixed") {
+      return std::nullopt;
+    }
+    const std::optional<std::uintmax_t> elementCount =
+        objectUnsignedMember(dimension, "elementCount");
+    if (!elementCount) {
+      return std::nullopt;
+    }
+    if (*elementCount != 0 &&
+        product > std::numeric_limits<std::uintmax_t>::max() / *elementCount) {
+      return std::nullopt;
+    }
+    product *= *elementCount;
+  }
+  return product;
+}
+
+void diagnoseReflectionBindingMismatch(
+    const PackageReflectionTargetResourceBindingRecord &binding,
+    std::string field, std::string expected, std::string actual,
+    DiagnosticEngine &diagnostics) {
+  diagnostics.error(diagnosticCode("reflection-target-resource-identity-"
+                                   "mismatch"),
+                    "reflection target resource binding " +
+                        reflectionTargetBindingLabel(binding) + " " + field +
+                        " must match reflected resource: expected " + expected +
+                        ", got " + actual,
+                    binding.location);
+}
+
+void diagnoseReflectionBindingArrayMismatch(
+    const PackageReflectionTargetResourceBindingRecord &binding,
+    std::string field, std::string expected, std::string actual,
+    DiagnosticEngine &diagnostics) {
+  diagnostics.error(
+      diagnosticCode("reflection-target-resource-binding-array-"
+                     "mismatch"),
+      "reflection selected-target resource binding " +
+          reflectionTargetBindingLabel(binding) + " " + field +
+          " must match reflected resource array metadata: expected " +
+          expected + ", got " + actual,
+      binding.location);
+}
+
+void verifyReflectionBindingResourceFields(
+    const PackageReflectionResourceRecord &resource,
+    const PackageReflectionTargetResourceBindingRecord &binding,
+    DiagnosticEngine &diagnostics) {
+  if (binding.sourceType != resource.type) {
+    diagnoseReflectionBindingMismatch(
+        binding, "sourceType", "'" + resource.type + "'",
+        "'" + binding.sourceType + "'", diagnostics);
+  }
+  if (binding.arrayDimensionsJson != resource.arrayDimensionsJson) {
+    diagnoseReflectionBindingArrayMismatch(
+        binding, "arrayDimensions", resource.arrayDimensionsJson,
+        binding.arrayDimensionsJson, diagnostics);
+  }
+  const std::optional<std::uintmax_t> resourceFixedArrayElementCount =
+      fixedArrayElementCountFromDimensions(resource.arrayDimensionsJson);
+  if (resourceFixedArrayElementCount && !binding.arrayElementCount) {
+    diagnoseReflectionBindingArrayMismatch(
+        binding, "arrayElementCount",
+        std::to_string(*resourceFixedArrayElementCount), "<missing>",
+        diagnostics);
+  } else if (resourceFixedArrayElementCount &&
+             *resourceFixedArrayElementCount != *binding.arrayElementCount) {
+    diagnoseReflectionBindingArrayMismatch(
+        binding, "arrayElementCount",
+        std::to_string(*resourceFixedArrayElementCount),
+        std::to_string(*binding.arrayElementCount), diagnostics);
+  }
+  if (binding.set != resource.set) {
+    diagnoseReflectionBindingMismatch(
+        binding, "set", optionalUnsignedLabel(resource.set),
+        optionalUnsignedLabel(binding.set), diagnostics);
+  }
+  if (binding.binding != resource.binding) {
+    diagnoseReflectionBindingMismatch(
+        binding, "binding", optionalUnsignedLabel(resource.binding),
+        optionalUnsignedLabel(binding.binding), diagnostics);
+  }
+  if (resource.addressSpace &&
+      !reflectionAddressSpacesMatch(resource.addressSpace,
+                                    binding.addressSpace)) {
+    diagnoseReflectionBindingMismatch(
+        binding, "addressSpace", optionalStringLabel(resource.addressSpace),
+        optionalStringLabel(binding.addressSpace), diagnostics);
+  }
+  if ((resource.storageImageFormat || binding.storageImageFormat) &&
+      binding.storageImageFormat != resource.storageImageFormat) {
+    diagnoseReflectionBindingMismatch(
+        binding, "storageImageFormat",
+        optionalStringLabel(resource.storageImageFormat),
+        optionalStringLabel(binding.storageImageFormat), diagnostics);
+  }
+  if ((resource.storageImageAccess || binding.storageImageAccess) &&
+      binding.storageImageAccess != resource.storageImageAccess) {
+    diagnoseReflectionBindingMismatch(
+        binding, "storageImageAccess",
+        optionalStringLabel(resource.storageImageAccess),
+        optionalStringLabel(binding.storageImageAccess), diagnostics);
+  }
+}
+
+void verifyReflectionTargetResourceBindingEvidence(
+    const PackageMetadata &metadata, DiagnosticEngine &diagnostics) {
+  std::vector<std::string> selectedEvidenceIds;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target != metadata.target ||
+        !hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      continue;
+    }
+
+    const SourceLocation evidenceLocation =
+        locationOr(binding.evidenceIdLocation, binding.location);
+    if (!binding.evidenceId || binding.evidenceId->empty()) {
+      diagnostics.error(
+          diagnosticCode(
+              "reflection-target-resource-binding-evidence-missing"),
+          "reflection selected-target resource binding " +
+              reflectionTargetBindingLabel(binding) +
+              " must record target legalization resource binding evidenceId",
+          evidenceLocation);
+      continue;
+    }
+
+    if (!targetResourceBindingEvidenceIdMatchesTarget(*binding.evidenceId,
+                                                      metadata.target)) {
+      diagnostics.error(
+          diagnosticCode(
+              "reflection-target-resource-binding-evidence-invalid"),
+          "reflection selected-target resource binding " +
+              reflectionTargetBindingLabel(binding) +
+              " evidenceId must use target legalization resource binding "
+              "prefix '" +
+              targetResourceBindingEvidencePrefix(metadata.target) + "'",
+          evidenceLocation);
+    }
+
+    if (std::find(selectedEvidenceIds.begin(), selectedEvidenceIds.end(),
+                  *binding.evidenceId) != selectedEvidenceIds.end()) {
+      diagnostics.error(
+          diagnosticCode(
+              "reflection-target-resource-binding-evidence-duplicate"),
+          "reflection selected-target resource binding " +
+              reflectionTargetBindingLabel(binding) +
+              " duplicates target legalization resource binding evidenceId '" +
+              *binding.evidenceId + "'",
+          evidenceLocation);
+      continue;
+    }
+    selectedEvidenceIds.push_back(*binding.evidenceId);
+  }
+}
+
+void verifyReflectionTargetFeatureEvidence(const PackageMetadata &metadata,
+                                           DiagnosticEngine &diagnostics) {
+  std::vector<std::string> selectedEvidenceIds;
+  for (const PackageReflectionTargetFeatureRecord &feature :
+       metadata.reflectionTargetFeatures) {
+    if (feature.target != metadata.target) {
+      continue;
+    }
+
+    for (const std::string &evidenceId : feature.evidenceIds) {
+      std::optional<std::string> capabilityTarget;
+      const TargetFeatureEvidenceMatch match =
+          targetFeatureEvidenceIdMatchesFeature(evidenceId, metadata.target,
+                                                capabilityTarget);
+      switch (match) {
+      case TargetFeatureEvidenceMatch::Valid:
+        break;
+      case TargetFeatureEvidenceMatch::PrefixMismatch:
+        diagnostics.error(
+            diagnosticCode("reflection-target-feature-evidence-invalid"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name +
+                "' evidenceId must use target legalization feature prefix '" +
+                targetFeatureEvidencePrefix(metadata.target) + "'",
+            feature.location);
+        break;
+      case TargetFeatureEvidenceMatch::CapabilityTargetMismatch:
+        diagnostics.error(
+            diagnosticCode(
+                "reflection-target-feature-evidence-capability-target"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name + "' evidenceId capability target must be '" +
+                metadata.target + "', got '" +
+                capabilityTarget.value_or(std::string()) + "'",
+            feature.location);
+        break;
+      case TargetFeatureEvidenceMatch::Malformed:
+        diagnostics.error(
+            diagnosticCode("reflection-target-feature-evidence-invalid"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name +
+                "' evidenceId must be target legalization capability or ABI "
+                "evidence",
+            feature.location);
+        break;
+      }
+
+      if (std::find(selectedEvidenceIds.begin(), selectedEvidenceIds.end(),
+                    evidenceId) != selectedEvidenceIds.end()) {
+        diagnostics.error(
+            diagnosticCode("reflection-target-feature-evidence-duplicate"),
+            "reflection selected-target feature '" + feature.kind + ":" +
+                feature.name +
+                "' duplicates target legalization feature evidenceId '" +
+                evidenceId + "'",
+            feature.location);
+        continue;
+      }
+      selectedEvidenceIds.push_back(evidenceId);
+    }
+  }
+}
+
+void verifyReflectionTargetResourceBindings(const PackageMetadata &metadata,
+                                            DiagnosticEngine &diagnostics) {
+  for (auto binding = metadata.reflectionTargetResourceBindings.begin();
+       binding != metadata.reflectionTargetResourceBindings.end(); ++binding) {
+    if (binding->target != metadata.target ||
+        !hasReflectionTargetResourceBindingDuplicateIdentity(*binding)) {
+      continue;
+    }
+    const auto duplicate = std::find_if(
+        metadata.reflectionTargetResourceBindings.begin(), binding,
+        [&](const PackageReflectionTargetResourceBindingRecord &candidate) {
+          return candidate.target == metadata.target &&
+                 hasReflectionTargetResourceBindingDuplicateIdentity(
+                     candidate) &&
+                 reflectionTargetBindingDuplicateIdentityMatches(candidate,
+                                                                 *binding);
+        });
+    if (duplicate == binding) {
+      continue;
+    }
+    diagnostics.error(
+        diagnosticCode("reflection-target-resource-binding-duplicate"),
+        "reflection selected-target resource binding " +
+            reflectionTargetBindingDuplicateIdentityLabel(*binding) +
+            " duplicates an earlier binding for target '" + metadata.target +
+            "'",
+        binding->location);
+  }
+
+  verifyReflectionTargetResourceBindingEvidence(metadata, diagnostics);
+
+  for (const PackageReflectionResourceRecord &resource :
+       metadata.reflectionResources) {
+    if (!hasReflectionResourceIdentity(resource)) {
+      continue;
+    }
+    if (findSelectedTargetBindingForResource(metadata, resource) == nullptr) {
+      diagnostics.error(
+          diagnosticCode("reflection-resource-target-binding-missing"),
+          "reflection resource " + reflectionResourceLabel(resource) +
+              " is missing selected-target resource binding for target '" +
+              metadata.target + "'",
+          resource.location);
+    }
+  }
+
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target != metadata.target ||
+        !hasReflectionTargetResourceBindingIdentity(binding)) {
+      continue;
+    }
+
+    const PackageReflectionResourceRecord *resource =
+        findReflectionResourceForBinding(metadata, binding);
+    if (resource != nullptr) {
+      verifyReflectionBindingResourceFields(*resource, binding, diagnostics);
+      continue;
+    }
+
+    const PackageReflectionResourceRecord *sameNameResource =
+        findReflectionResourceByName(metadata, binding);
+    if (sameNameResource != nullptr) {
+      diagnostics.error(
+          diagnosticCode("reflection-target-resource-identity-mismatch"),
+          "reflection target resource binding " +
+              reflectionTargetBindingLabel(binding) +
+              " identity must match reflected resource: expected " +
+              reflectionIdentityLabel(sameNameResource->stage,
+                                      sameNameResource->name,
+                                      sameNameResource->kind) +
+              ", got " +
+              reflectionIdentityLabel(binding.stage, binding.name,
+                                      binding.kind),
+          binding.location);
+      continue;
+    }
+
+    diagnostics.error(
+        diagnosticCode("reflection-target-binding-source-missing"),
+        "reflection selected-target resource binding " +
+            reflectionTargetBindingLabel(binding) +
+            " has no reflected source resource for target '" + metadata.target +
+            "'",
+        binding.location);
+  }
+}
+
+bool isLowercaseSha256(std::string_view value) {
+  if (value.size() != 64) {
+    return false;
+  }
+  for (const char ch : value) {
+    const bool digit = ch >= '0' && ch <= '9';
+    const bool lowerHex = ch >= 'a' && ch <= 'f';
+    if (!digit && !lowerHex) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool verifySourceHashMetadata(const PackageMetadata &metadata,
+                              DiagnosticEngine &diagnostics) {
+  if (!metadata.sourceHashAlgorithm || !metadata.sourceHashValue) {
+    diagnostics.error(diagnosticCode("missing-source-hash"),
+                      "package manifest sourceHash must contain string "
+                      "algorithm and value fields",
+                      sourceHashLocation(metadata));
+    return false;
+  }
+
+  if (*metadata.sourceHashAlgorithm != "sha256") {
+    diagnostics.error(diagnosticCode("unsupported-source-hash"),
+                      "package manifest sourceHash.algorithm must be sha256",
+                      sourceHashAlgorithmLocation(metadata));
+    return false;
+  }
+
+  if (!isLowercaseSha256(*metadata.sourceHashValue)) {
+    diagnostics.error(diagnosticCode("invalid-source-hash"),
+                      "package manifest sourceHash.value must be 64 "
+                      "lowercase hexadecimal sha256",
+                      sourceHashValueLocation(metadata));
+    return false;
+  }
+
+  return true;
+}
+
+void writeNullableString(std::ostream &out,
+                         const std::optional<std::string> &value) {
+  if (value) {
+    out << "\"" << escapeJson(*value) << "\"";
+  } else {
+    out << "null";
+  }
+}
+
+void writeNullableBool(std::ostream &out, const std::optional<bool> &value) {
+  if (value) {
+    out << (*value ? "true" : "false");
+  } else {
+    out << "null";
+  }
+}
+
+void writeNullableUnsigned(std::ostream &out,
+                           const std::optional<std::uintmax_t> &value) {
+  if (value) {
+    out << *value;
+  } else {
+    out << "null";
+  }
+}
+
+void writeStringArray(std::ostream &out,
+                      const std::vector<std::string> &values) {
+  out << "[";
+  for (std::size_t index = 0; index < values.size(); ++index) {
+    if (index != 0) {
+      out << ", ";
+    }
+    out << "\"" << escapeJson(values[index]) << "\"";
+  }
+  out << "]";
+}
+
+void appendUniqueString(std::vector<std::string> &values,
+                        const std::string &value) {
+  if (value.empty() ||
+      std::find(values.begin(), values.end(), value) != values.end()) {
+    return;
+  }
+  values.push_back(value);
+}
+
+void writeNullableStringArray(
+    std::ostream &out, const std::optional<std::vector<std::string>> &values) {
+  if (values) {
+    writeStringArray(out, *values);
+  } else {
+    out << "null";
+  }
+}
+
+std::size_t selectedTargetResourceBindingCount(const PackageMetadata &metadata) {
+  std::size_t count = 0;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target == metadata.target &&
+        hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+std::vector<std::string>
+selectedTargetFeatureEvidenceIds(const PackageMetadata &metadata) {
+  std::vector<std::string> evidenceIds;
+  for (const PackageReflectionTargetFeatureRecord &feature :
+       metadata.reflectionTargetFeatures) {
+    if (feature.target != metadata.target) {
+      continue;
+    }
+    for (const std::string &evidenceId : feature.evidenceIds) {
+      std::optional<std::string> capabilityTarget;
+      if (targetFeatureEvidenceIdMatchesFeature(evidenceId, metadata.target,
+                                                capabilityTarget) !=
+          TargetFeatureEvidenceMatch::Valid) {
+        continue;
+      }
+      appendUniqueString(evidenceIds, evidenceId);
+    }
+  }
+  return evidenceIds;
+}
+
+std::size_t selectedTargetFeatureCount(const PackageMetadata &metadata) {
+  return std::count_if(
+      metadata.reflectionTargetFeatures.begin(),
+      metadata.reflectionTargetFeatures.end(),
+      [&](const PackageReflectionTargetFeatureRecord &feature) {
+        return feature.target == metadata.target;
+      });
+}
+
+void writeReflectionSummary(std::ostream &out, const PackageMetadata &metadata,
+                            std::string_view indent) {
+  const std::size_t bindingCount =
+      selectedTargetResourceBindingCount(metadata);
+  const std::vector<std::string> targetFeatureEvidenceIds =
+      selectedTargetFeatureEvidenceIds(metadata);
+  out << "{\n"
+      << indent << "  \"selectedTargetResourceBindingCount\": "
+      << bindingCount << ",\n"
+      << indent << "  \"selectedTargetResourceBindings\": [";
+  bool wroteBinding = false;
+  for (const PackageReflectionTargetResourceBindingRecord &binding :
+       metadata.reflectionTargetResourceBindings) {
+    if (binding.target != metadata.target ||
+        !hasReflectionTargetResourceBindingReportIdentity(binding)) {
+      continue;
+    }
+    out << (wroteBinding ? ",\n" : "\n")
+        << indent << "    {\n"
+        << indent << "      \"target\": \"" << escapeJson(binding.target)
+        << "\",\n"
+        << indent << "      \"stage\": \"" << escapeJson(binding.stage)
+        << "\",\n"
+        << indent << "      \"entryPoint\": \""
+        << escapeJson(binding.entryPoint) << "\",\n"
+        << indent << "      \"name\": \"" << escapeJson(binding.name)
+        << "\",\n"
+        << indent << "      \"kind\": \"" << escapeJson(binding.kind)
+        << "\",\n"
+        << indent << "      \"evidenceId\": ";
+    writeNullableString(out, binding.evidenceId);
+    out << "\n" << indent << "    }";
+    wroteBinding = true;
+  }
+  if (wroteBinding) {
+    out << "\n" << indent << "  ";
+  }
+  out << "],\n"
+      << indent << "  \"targetFeatureCount\": "
+      << selectedTargetFeatureCount(metadata) << ",\n"
+      << indent << "  \"targetFeatureEvidenceIds\": ";
+  writeStringArray(out, targetFeatureEvidenceIds);
+  out << "\n" << indent << "}";
+}
+
+void writeSourceRemapProvenanceSummary(
+    std::ostream &out, const PackageSourceRemapProvenanceHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"artifactPresent\": "
+      << (health.artifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"exists\": " << (health.exists ? "true" : "false")
+      << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health)
+      << "\",\n"
+      << indent << "  \"path\": ";
+  writeNullableString(out, health.path);
+  out << ",\n" << indent << "  \"target\": ";
+  writeNullableString(out, health.target);
+  out << ",\n" << indent << "  \"generatedFile\": ";
+  writeNullableString(out, health.generatedFile);
+  out << ",\n" << indent << "  \"mappingGranularity\": ";
+  writeNullableString(out, health.mappingGranularity);
+  out << ",\n" << indent << "  \"mappingCount\": ";
+  writeNullableUnsigned(out, health.mappingCount);
+  out << ",\n" << indent << "  \"sourcePath\": ";
+  writeNullableString(out, health.sourcePath);
+  out << ",\n" << indent << "  \"sourceSha256\": ";
+  writeNullableString(out, health.sourceSha256);
+  out << ",\n" << indent << "  \"sourceSizeBytes\": ";
+  writeNullableUnsigned(out, health.sourceSizeBytes);
+  out << ",\n" << indent << "  \"sourceRemapTarget\": ";
+  writeNullableString(out, health.sourceRemapTarget);
+  out << ",\n" << indent << "  \"sourceRemapMappingGranularity\": ";
+  writeNullableString(out, health.sourceRemapMappingGranularity);
+  out << ",\n" << indent << "  \"sourceRemapSourceBackend\": ";
+  writeNullableString(out, health.sourceRemapSourceBackend);
+  out << ",\n" << indent << "  \"sourceRemapVariant\": ";
+  writeNullableString(out, health.sourceRemapVariant);
+  out << ",\n"
+      << indent << "  \"checks\": {\n"
+      << indent << "    \"identityMatchesContract\": ";
+  writeNullableBool(out, health.checks.identityMatchesContract);
+  out << ",\n" << indent << "    \"targetMatchesPackage\": ";
+  writeNullableBool(out, health.checks.targetMatchesPackage);
+  out << ",\n" << indent << "    \"generatedFilePresent\": ";
+  writeNullableBool(out, health.checks.generatedFilePresent);
+  out << ",\n" << indent << "    \"mappingGranularityMatchesContract\": ";
+  writeNullableBool(out, health.checks.mappingGranularityMatchesContract);
+  out << ",\n" << indent << "    \"mappingCountPositive\": ";
+  writeNullableBool(out, health.checks.mappingCountPositive);
+  out << ",\n" << indent << "    \"sourcePathPresent\": ";
+  writeNullableBool(out, health.checks.sourcePathPresent);
+  out << ",\n" << indent << "    \"sourceHashPresent\": ";
+  writeNullableBool(out, health.checks.sourceHashPresent);
+  out << ",\n" << indent << "    \"sourceSizeBytesPresent\": ";
+  writeNullableBool(out, health.checks.sourceSizeBytesPresent);
+  out << ",\n" << indent << "    \"sourceRemapTargetMatchesContract\": ";
+  writeNullableBool(out, health.checks.sourceRemapTargetMatchesContract);
+  out << ",\n"
+      << indent << "    \"sourceRemapMappingGranularityMatchesContract\": ";
+  writeNullableBool(
+      out, health.checks.sourceRemapMappingGranularityMatchesContract);
+  out << ",\n" << indent << "    \"sourceRemapSourceBackendValid\": ";
+  writeNullableBool(out, health.checks.sourceRemapSourceBackendValid);
+  out << ",\n" << indent << "    \"sourceRemapVariantValid\": ";
+  writeNullableBool(out, health.checks.sourceRemapVariantValid);
+  out << "\n" << indent << "  }\n" << indent << "}";
+}
+
+void writeBackendSourceMapSummary(
+    std::ostream &out, const PackageBackendSourceMapHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"artifactPresent\": "
+      << (health.artifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"exists\": " << (health.exists ? "true" : "false")
+      << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health)
+      << "\",\n"
+      << indent << "  \"path\": ";
+  writeNullableString(out, health.path);
+  out << ",\n" << indent << "  \"target\": ";
+  writeNullableString(out, health.target);
+  out << ",\n" << indent << "  \"module\": ";
+  writeNullableString(out, health.module);
+  out << ",\n" << indent << "  \"mappingGranularity\": ";
+  writeNullableString(out, health.mappingGranularity);
+  out << ",\n" << indent << "  \"sourceBackend\": ";
+  writeNullableString(out, health.sourceBackend);
+  out << ",\n" << indent << "  \"targetBackend\": ";
+  writeNullableString(out, health.targetBackend);
+  out << ",\n" << indent << "  \"backendLanguage\": ";
+  writeNullableString(out, health.backendLanguage);
+  out << ",\n" << indent << "  \"backendLineCount\": ";
+  writeNullableUnsigned(out, health.backendLineCount);
+  out << ",\n" << indent << "  \"backendSourceLineCount\": ";
+  writeNullableUnsigned(out, health.backendSourceLineCount);
+  out << ",\n" << indent << "  \"mappingCount\": ";
+  writeNullableUnsigned(out, health.mappingCount);
+  out << ",\n" << indent << "  \"mappingRecordCount\": ";
+  writeNullableUnsigned(out, health.mappingRecordCount);
+  out << ",\n" << indent << "  \"backendMaxMappedLine\": ";
+  writeNullableUnsigned(out, health.backendMaxMappedLine);
+  out << ",\n" << indent << "  \"sourceRemapPresent\": "
+      << (health.sourceRemapPresent ? "true" : "false");
+  out << ",\n" << indent << "  \"sourceRemapPath\": ";
+  writeNullableString(out, health.sourceRemapPath);
+  out << ",\n" << indent << "  \"sourceRemapGeneratedFile\": ";
+  writeNullableString(out, health.sourceRemapGeneratedFile);
+  out << ",\n" << indent << "  \"sourceRemapTarget\": ";
+  writeNullableString(out, health.sourceRemapTarget);
+  out << ",\n" << indent << "  \"sourceRemapMappingGranularity\": ";
+  writeNullableString(out, health.sourceRemapMappingGranularity);
+  out << ",\n" << indent << "  \"sourceRemapMappingCount\": ";
+  writeNullableUnsigned(out, health.sourceRemapMappingCount);
+  out << ",\n" << indent << "  \"sourceRemapSourceBackend\": ";
+  writeNullableString(out, health.sourceRemapSourceBackend);
+  out << ",\n" << indent << "  \"sourceRemapVariant\": ";
+  writeNullableString(out, health.sourceRemapVariant);
+  out << ",\n" << indent << "  \"sourceRemapSha256\": ";
+  writeNullableString(out, health.sourceRemapSha256);
+  out << ",\n" << indent << "  \"sourceRemapSizeBytes\": ";
+  writeNullableUnsigned(out, health.sourceRemapSizeBytes);
+  out << ",\n"
+      << indent << "  \"checks\": {\n"
+      << indent << "    \"identityMatchesContract\": ";
+  writeNullableBool(out, health.checks.identityMatchesContract);
+  out << ",\n" << indent << "    \"targetMatchesPackage\": ";
+  writeNullableBool(out, health.checks.targetMatchesPackage);
+  out << ",\n" << indent << "    \"moduleMatchesPackage\": ";
+  writeNullableBool(out, health.checks.moduleMatchesPackage);
+  out << ",\n" << indent << "    \"mappingGranularityMatchesContract\": ";
+  writeNullableBool(out, health.checks.mappingGranularityMatchesContract);
+  out << ",\n" << indent << "    \"sourceBackendPresent\": ";
+  writeNullableBool(out, health.checks.sourceBackendPresent);
+  out << ",\n" << indent << "    \"targetBackendMatchesBackendLanguage\": ";
+  writeNullableBool(out, health.checks.targetBackendMatchesBackendLanguage);
+  out << ",\n" << indent << "    \"backendLanguagePresent\": ";
+  writeNullableBool(out, health.checks.backendLanguagePresent);
+  out << ",\n" << indent << "    \"backendLineCountPresent\": ";
+  writeNullableBool(out, health.checks.backendLineCountPresent);
+  out << ",\n" << indent << "    \"backendLineCountMatchesSource\": ";
+  writeNullableBool(out, health.checks.backendLineCountMatchesSource);
+  out << ",\n" << indent << "    \"backendSpansWithinSource\": ";
+  writeNullableBool(out, health.checks.backendSpansWithinSource);
+  out << ",\n" << indent << "    \"mappingCountMatchesMappings\": ";
+  writeNullableBool(out, health.checks.mappingCountMatchesMappings);
+  out << ",\n" << indent << "    \"sourceRemapPathPackageRelative\": ";
+  writeNullableBool(out, health.checks.sourceRemapPathPackageRelative);
+  out << ",\n"
+      << indent << "    \"sourceRemapGeneratedFilePackageRelative\": ";
+  writeNullableBool(out,
+                    health.checks.sourceRemapGeneratedFilePackageRelative);
+  out << ",\n" << indent << "    \"sourceRemapHashPresent\": ";
+  writeNullableBool(out, health.checks.sourceRemapHashPresent);
+  out << ",\n" << indent << "    \"sourceRemapMappingCountPositive\": ";
+  writeNullableBool(out, health.checks.sourceRemapMappingCountPositive);
+  out << ",\n" << indent << "    \"sourceRemapTargetMatchesContract\": ";
+  writeNullableBool(out, health.checks.sourceRemapTargetMatchesContract);
+  out << ",\n"
+      << indent << "    \"sourceRemapMappingGranularityMatchesContract\": ";
+  writeNullableBool(
+      out, health.checks.sourceRemapMappingGranularityMatchesContract);
+  out << ",\n" << indent << "    \"sourceRemapSourceBackendValid\": ";
+  writeNullableBool(out, health.checks.sourceRemapSourceBackendValid);
+  out << ",\n" << indent << "    \"sourceRemapVariantValid\": ";
+  writeNullableBool(out, health.checks.sourceRemapVariantValid);
+  out << ",\n" << indent << "    \"sourceRemapMatchesProvenance\": ";
+  writeNullableBool(out, health.checks.sourceRemapMatchesProvenance);
+  out << "\n" << indent << "  }\n" << indent << "}";
+}
+
+void writeNativeArtifactDescriptorSummary(
+    std::ostream &out, const PackageNativeArtifactDescriptorHealth &health) {
+  out << "{\n"
+      << "      \"artifactPresent\": "
+      << (health.artifactPresent ? "true" : "false") << ",\n"
+      << "      \"descriptorExists\": "
+      << (health.descriptorExists ? "true" : "false") << ",\n"
+      << "      \"health\": \"" << escapeJson(health.health) << "\",\n"
+      << "      \"path\": ";
+  writeNullableString(out, health.path);
+  out << ",\n"
+      << "      \"optimizationLevel\": ";
+  writeNullableString(out, health.optimizationLevel);
+  out << ",\n"
+      << "      \"optimizationEvidence\": ";
+  if (health.optimizationEvidence && !health.optimizationEvidence->empty() &&
+      health.optimizationEvidence->front() == '{') {
+    out << *health.optimizationEvidence;
+  } else {
+    out << "null";
+  }
+  out << "\n"
+      << "    }";
+}
+
+void writeVulkanNativeProfileSummary(
+    std::ostream &out, const PackageVulkanNativeProfileHealth &health,
+    std::string_view indent) {
+  out << "{\n"
+      << indent
+      << "  \"applicable\": " << (health.applicable ? "true" : "false")
+      << ",\n"
+      << indent << "  \"nativeProfileArtifactPresent\": "
+      << (health.nativeProfileArtifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"nativeProfileExists\": "
+      << (health.nativeProfileExists ? "true" : "false") << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health)
+      << "\",\n"
+      << indent << "  \"schemaVersion\": ";
+  writeNullableUnsigned(out, health.schemaVersion);
+  out << ",\n" << indent << "  \"api\": ";
+  writeNullableString(out, health.api);
+  out << ",\n" << indent << "  \"profileName\": ";
+  writeNullableString(out, health.profileName);
+  out << ",\n" << indent << "  \"vulkanVersion\": ";
+  writeNullableString(out, health.vulkanVersion);
+  out << ",\n" << indent << "  \"spirvVersion\": ";
+  writeNullableString(out, health.spirvVersion);
+  out << ",\n" << indent << "  \"generator\": ";
+  writeNullableString(out, health.generator);
+  out << ",\n" << indent << "  \"nativeBinary\": ";
+  writeNullableString(out, health.nativeBinary);
+  out << ",\n" << indent << "  \"backendAssembly\": ";
+  writeNullableString(out, health.backendAssembly);
+  out << ",\n" << indent << "  \"disassemblyStatus\": ";
+  writeNullableString(out, health.disassemblyStatus);
+  out << ",\n" << indent << "  \"disassemblyPath\": ";
+  writeNullableString(out, health.disassemblyPath);
+  out << ",\n" << indent << "  \"disassemblyExists\": ";
+  writeNullableBool(out, health.disassemblyExists);
+  out << ",\n"
+      << indent << "  \"checks\": {\n"
+      << indent << "    \"targetMatchesPackage\": ";
+  writeNullableBool(out, health.targetMatchesPackage);
+  out << ",\n" << indent << "    \"moduleMatchesPackage\": ";
+  writeNullableBool(out, health.moduleMatchesPackage);
+  out << ",\n" << indent << "    \"nativeBinaryMatchesManifest\": ";
+  writeNullableBool(out, health.nativeBinaryMatchesManifest);
+  out << ",\n" << indent << "    \"backendAssemblyMatchesManifest\": ";
+  writeNullableBool(out, health.backendAssemblyMatchesManifest);
+  out << ",\n" << indent << "    \"emittedDisassemblyExists\": ";
+  writeNullableBool(out, health.emittedDisassemblyExists);
+  out << ",\n" << indent << "    \"spirvProfilePresent\": ";
+  writeNullableBool(out, health.spirvProfilePresent);
+  out << "\n" << indent << "  }\n" << indent << "}";
+}
+
+void writeGraphicsAbiSummary(std::ostream &out,
+                             const PackageGraphicsAbiSummary &summary,
+                             std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"module\": \"" << escapeJson(summary.module) << "\",\n"
+      << indent << "  \"target\": \"" << escapeJson(summary.target) << "\",\n"
+      << indent << "  \"entryPointCount\": " << summary.entryPointCount << ",\n"
+      << indent << "  \"vertexInputCount\": " << summary.vertexInputCount
+      << ",\n"
+      << indent << "  \"varyingCount\": " << summary.varyingCount << ",\n"
+      << indent << "  \"fragmentOutputCount\": " << summary.fragmentOutputCount
+      << ",\n"
+      << indent << "  \"builtinCount\": " << summary.builtinCount << ",\n"
+      << indent << "  \"resourceCount\": " << summary.resourceCount << ",\n"
+      << indent << "  \"abiRecordCount\": " << summary.abiRecordCount << "\n"
+      << indent << "}";
+}
+
+void writeGraphicsAbiDiagnostics(
+    std::ostream &out,
+    const std::vector<PackageGraphicsAbiDiagnostic> &diagnostics,
+    std::string_view indent) {
+  out << "[";
+  for (std::size_t index = 0; index < diagnostics.size(); ++index) {
+    const PackageGraphicsAbiDiagnostic &diagnostic = diagnostics[index];
+    out << (index == 0 ? "\n" : ",\n") << indent << "{\n"
+        << indent << "  \"severity\": \"error\",\n"
+        << indent << "  \"code\": \"" << escapeJson(diagnostic.code) << "\",\n"
+        << indent << "  \"message\": \"" << escapeJson(diagnostic.message)
+        << "\"\n"
+        << indent << "}";
+  }
+  if (!diagnostics.empty()) {
+    std::string closingIndent(indent);
+    if (closingIndent.size() >= 2) {
+      closingIndent.resize(closingIndent.size() - 2);
+    }
+    out << "\n" << closingIndent;
+  }
+  out << "]";
+}
+
+void writeGraphicsAbiHealth(std::ostream &out,
+                            const PackageGraphicsAbiHealth &health,
+                            std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"artifactPresent\": "
+      << (health.artifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"path\": ";
+  writeNullableString(out, health.path);
+  out << ",\n"
+      << indent << "  \"exists\": " << (health.exists ? "true" : "false")
+      << ",\n"
+      << indent << "  \"health\": \"" << escapeJson(health.health) << "\",\n"
+      << indent << "  \"validation\": \"lightweight-structural\",\n"
+      << indent << "  \"schemaVersion\": ";
+  writeNullableUnsigned(out, health.schemaVersion);
+  out << ",\n" << indent << "  \"summary\": ";
+  if (health.summary) {
+    writeGraphicsAbiSummary(out, *health.summary, std::string(indent) + "  ");
+  } else {
+    out << "null";
+  }
+  out << ",\n"
+      << indent << "  \"diagnosticCounts\": {\n"
+      << indent << "    \"note\": 0,\n"
+      << indent << "    \"warning\": 0,\n"
+      << indent << "    \"error\": " << health.diagnostics.size() << "\n"
+      << indent << "  },\n"
+      << indent << "  \"diagnostics\": ";
+  writeGraphicsAbiDiagnostics(out, health.diagnostics,
+                              std::string(indent) + "    ");
+  out << "\n" << indent << "}";
+}
+
+void writeTargetLegalizationSidecarEvidence(
+    std::ostream &out, const PackageTargetLegalizationSidecarEvidence &evidence,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"artifactPresent\": "
+      << (evidence.artifactPresent ? "true" : "false") << ",\n"
+      << indent << "  \"artifactExists\": "
+      << (evidence.artifactExists ? "true" : "false") << ",\n"
+      << indent << "  \"target\": ";
+  writeNullableString(out, evidence.target);
+  out << ",\n" << indent << "  \"packageMode\": ";
+  writeNullableString(out, evidence.packageMode);
+  out << ",\n" << indent << "  \"packageDecisionReason\": ";
+  writeNullableString(out, evidence.packageDecisionReason);
+  out << ",\n" << indent << "  \"requiredToolCount\": ";
+  writeNullableUnsigned(out, evidence.requiredToolCount);
+  out << ",\n" << indent << "  \"missingToolCount\": ";
+  writeNullableUnsigned(out, evidence.missingToolCount);
+  out << ",\n" << indent << "  \"requiredToolIds\": ";
+  writeNullableStringArray(out, evidence.requiredToolIds);
+  out << ",\n" << indent << "  \"missingToolIds\": ";
+  writeNullableStringArray(out, evidence.missingToolIds);
+  out << ",\n" << indent << "  \"optionalNativeToolMissing\": ";
+  writeNullableBool(out, evidence.optionalNativeToolMissing);
+  out << ",\n" << indent << "  \"optionalNativeToolStatus\": ";
+  writeNullableString(out, evidence.optionalNativeToolStatus);
+  out << ",\n" << indent << "  \"toolRequirementEvidenceIds\": ";
+  writeNullableStringArray(out, evidence.toolRequirementEvidenceIds);
+  out << ",\n" << indent << "  \"legalizationCoreEvidenceIds\": ";
+  writeNullableStringArray(out, evidence.legalizationCoreEvidenceIds);
+  out << ",\n" << indent << "  \"packageArtifactRequirementEvidenceIds\": ";
+  writeNullableStringArray(out, evidence.packageArtifactRequirementEvidenceIds);
+  out << "\n" << indent << "}";
+}
+
+void writeTargetLegalizationManifestToolRequirements(
+    std::ostream &out,
+    const PackageTargetLegalizationManifestToolRequirements &evidence,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"present\": " << (evidence.present ? "true" : "false")
+      << ",\n"
+      << indent << "  \"target\": ";
+  writeNullableString(out, evidence.target);
+  out << ",\n" << indent << "  \"packageMode\": ";
+  writeNullableString(out, evidence.packageMode);
+  out << ",\n" << indent << "  \"requiredToolCount\": ";
+  writeNullableUnsigned(out, evidence.requiredToolCount);
+  out << ",\n" << indent << "  \"missingToolCount\": ";
+  writeNullableUnsigned(out, evidence.missingToolCount);
+  out << ",\n" << indent << "  \"requiredToolIds\": ";
+  writeNullableStringArray(out, evidence.requiredToolIds);
+  out << ",\n" << indent << "  \"missingToolIds\": ";
+  writeNullableStringArray(out, evidence.missingToolIds);
+  out << ",\n" << indent << "  \"optionalNativeToolMissing\": ";
+  writeNullableBool(out, evidence.optionalNativeToolMissing);
+  out << ",\n" << indent << "  \"optionalNativeToolStatus\": ";
+  writeNullableString(out, evidence.optionalNativeToolStatus);
+  out << ",\n" << indent << "  \"toolRequirementEvidenceIds\": ";
+  writeNullableStringArray(out, evidence.toolRequirementEvidenceIds);
+  out << "\n" << indent << "}";
+}
+
+void writeTargetLegalizationEvidence(
+    std::ostream &out, const PackageTargetLegalizationEvidence &evidence,
+    std::string_view indent) {
+  out << "{\n"
+      << indent << "  \"health\": \"" << escapeJson(evidence.health) << "\",\n"
+      << indent << "  \"packageMode\": ";
+  writeNullableString(out, evidence.packageMode);
+  out << ",\n" << indent << "  \"packageModeSource\": ";
+  writeNullableString(out, evidence.packageModeSource);
+  out << ",\n" << indent << "  \"manifestToolRequirements\": ";
+  writeTargetLegalizationManifestToolRequirements(
+      out, evidence.manifestToolRequirements, std::string(indent) + "  ");
+  out << ",\n" << indent << "  \"debugMetadata\": ";
+  writeTargetLegalizationSidecarEvidence(out, evidence.debugMetadata,
+                                         std::string(indent) + "  ");
+  out << ",\n" << indent << "  \"targetExplanation\": ";
+  writeTargetLegalizationSidecarEvidence(out, evidence.targetExplanation,
+                                         std::string(indent) + "  ");
+  out << ",\n" << indent << "  \"packageArtifactRequirementEvidenceIds\": ";
+  writeNullableStringArray(out, evidence.packageArtifactRequirementEvidenceIds);
+  out << ",\n" << indent << "  \"missingEvidence\": ";
+  writeStringArray(out, evidence.missingEvidence);
+  out << ",\n"
+      << indent << "  \"checks\": {\n"
+      << indent << "    \"manifestToolRequirementsTargetMatchesPackage\": ";
+  writeNullableBool(out, evidence.manifestToolRequirementsTargetMatchesPackage);
+  out << ",\n"
+      << indent
+      << "    \"manifestToolRequirementsPackageModeMatchesRequirements\": ";
+  writeNullableBool(
+      out, evidence.manifestToolRequirementsPackageModeMatchesRequirements);
+  out << ",\n"
+      << indent << "    \"manifestToolRequirementEvidenceIdsPresent\": ";
+  writeNullableBool(out, evidence.manifestToolRequirementEvidenceIdsPresent);
+  out << ",\n" << indent << "    \"debugMetadataTargetMatchesPackage\": ";
+  writeNullableBool(out, evidence.debugMetadataTargetMatchesPackage);
+  out << ",\n" << indent << "    \"targetExplanationTargetMatchesPackage\": ";
+  writeNullableBool(out, evidence.targetExplanationTargetMatchesPackage);
+  out << ",\n"
+      << indent << "    \"debugMetadataPackageModeMatchesRequirements\": ";
+  writeNullableBool(out, evidence.debugMetadataPackageModeMatchesRequirements);
+  out << ",\n"
+      << indent << "    \"targetExplanationPackageModeMatchesRequirements\": ";
+  writeNullableBool(out,
+                    evidence.targetExplanationPackageModeMatchesRequirements);
+  out << ",\n"
+      << indent << "    \"debugMetadataToolRequirementsMatchManifest\": ";
+  writeNullableBool(out, evidence.debugMetadataToolRequirementsMatchManifest);
+  out << ",\n"
+      << indent << "    \"targetExplanationToolRequirementsMatchManifest\": ";
+  writeNullableBool(out,
+                    evidence.targetExplanationToolRequirementsMatchManifest);
+  out << ",\n"
+      << indent << "    \"packageArtifactRequirementEvidenceIdsPresent\": ";
+  writeNullableBool(out, evidence.packageArtifactRequirementEvidenceIdsPresent);
+  out << "\n" << indent << "  }\n" << indent << "}";
+}
+
+std::optional<std::string> readSourceFile(const std::filesystem::path &path,
+                                          DiagnosticEngine &diagnostics) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    diagnostics.error(diagnosticCode("source-read-failed"),
+                      "failed to read source file: " + path.string(),
+                      sourcePathLocation(path));
+    return std::nullopt;
+  }
+
+  std::ostringstream buffer;
+  buffer << input.rdbuf();
+  if (input.bad()) {
+    diagnostics.error(diagnosticCode("source-read-failed"),
+                      "failed to read source file: " + path.string(),
+                      sourcePathLocation(path));
+    return std::nullopt;
+  }
+  return buffer.str();
+}
+
+void verifySourceHashValue(const PackageMetadata &metadata,
+                           const std::filesystem::path &sourcePath,
+                           DiagnosticEngine &diagnostics) {
+  const std::optional<std::string> source =
+      readSourceFile(sourcePath, diagnostics);
+  if (!source) {
+    return;
+  }
+
+  const std::string expected = sha256(*source);
+  if (*metadata.sourceHashValue != expected) {
+    diagnostics.error(diagnosticCode("source-hash-mismatch"),
+                      "expected source hash " + expected + ", got '" +
+                          *metadata.sourceHashValue + "'",
+                      sourceHashValueLocation(metadata));
+  }
+}
+
+void verifyPlannedNativeSourceEvidence(
+    const PackageMetadata &metadata,
+    const PackageArtifactRequirementsRecord &requirements,
+    const std::optional<std::filesystem::path> &sourcePath,
+    DiagnosticEngine &diagnostics) {
+  if (sourcePath || !metadata.nativeBinaryStatus ||
+      *metadata.nativeBinaryStatus != "planned") {
+    return;
+  }
+
+  if (!requirements.requiresNativeBinaryStatus ||
+      !requirements.allowsPlannedNativeSourceEvidence) {
+    return;
+  }
+
+  diagnostics.error(
+      diagnosticCode("source-required-for-planned-native"),
+      metadata.target +
+          " packages with nativeBinaryStatus planned require --source to "
+          "verify sourceHash",
+      locationOr(metadata.nativeBinaryStatusLocation,
+                 artifactsLocation(metadata)));
+}
+
+void verifyPackageMetadata(
+    const PackageMetadata &metadata,
+    const std::optional<std::filesystem::path> &sourcePath,
+    DiagnosticEngine &diagnostics) {
+  const PackageArtifactRequirementsRecord requirements =
+      packageArtifactRequirementsForVerification(metadata);
+  noteLegacyArtifactRequirementsFallback(metadata, diagnostics);
+  if (!verifyArtifactRequirementsForVerification(metadata, requirements,
+                                                 diagnostics)) {
+    return;
+  }
+  verifyRequiredArtifacts(metadata, requirements, diagnostics);
+  verifyNativeBinaryStatus(metadata, requirements, diagnostics);
+  verifyDebugArtifacts(metadata, diagnostics);
+  verifyArtifacts(metadata, requirements, diagnostics);
+  verifyDebugArtifactHealth(metadata, diagnostics);
+  verifyVulkanNativeProfileHealth(metadata, diagnostics);
+  verifyNativeArtifactDescriptor(metadata, requirements, diagnostics);
+  verifyTargetLegalizationEvidence(metadata, diagnostics);
+  verifyReflectionNativeBinary(metadata, diagnostics);
+  verifyReflectionTargetResourceBindings(metadata, diagnostics);
+  verifyReflectionTargetFeatureEvidence(metadata, diagnostics);
+  verifyGraphicsAbiReleaseAuthority(metadata, diagnostics);
+  verifyPlannedNativeSourceEvidence(metadata, requirements, sourcePath,
+                                    diagnostics);
+  const bool sourceHashMetadataValid =
+      verifySourceHashMetadata(metadata, diagnostics);
+  if (sourcePath && sourceHashMetadataValid) {
+    verifySourceHashValue(metadata, *sourcePath, diagnostics);
+  }
+}
+
+void writeSummary(std::ostream &out, const PackageMetadata &metadata) {
+  const PackageNativeArtifactDescriptorHealth nativeArtifactDescriptor =
+      collectPackageNativeArtifactDescriptorHealth(metadata);
+  const PackageDebugArtifactHealth debugArtifactHealth =
+      collectPackageDebugArtifactHealth(metadata);
+  const PackageVulkanNativeProfileHealth vulkanNativeProfile =
+      collectPackageVulkanNativeProfileHealth(metadata);
+  const PackageTargetLegalizationEvidence targetLegalizationEvidence =
+      collectPackageTargetLegalizationEvidence(metadata);
+  out << "{\n"
+      << "    \"module\": \"" << escapeJson(metadata.module) << "\",\n"
+      << "    \"target\": \"" << escapeJson(metadata.target) << "\",\n"
+      << "    \"nativeBinaryStatus\": ";
+  if (const std::optional<std::string> nativeBinaryStatus =
+          packageVerifyNativeBinaryStatus(metadata)) {
+    out << "\"" << escapeJson(*nativeBinaryStatus) << "\"";
+  } else {
+    out << "null";
+  }
+  out << ",\n"
+      << "    \"artifactCount\": " << metadata.artifacts.size() << ",\n"
+      << "    \"debugArtifactsPresent\": "
+      << (metadata.debugArtifactsPresent ? "true" : "false") << ",\n"
+      << "    \"sourceRemap\": ";
+  writeSourceRemapProvenanceSummary(out, debugArtifactHealth.sourceRemap, "    ");
+  out << ",\n"
+      << "    \"backendSourceMap\": ";
+  writeBackendSourceMapSummary(out, debugArtifactHealth.backendSourceMap, "    ");
+  out << ",\n"
+      << "    \"nativeArtifactDescriptor\": ";
+  writeNativeArtifactDescriptorSummary(out, nativeArtifactDescriptor);
+  out << ",\n"
+      << "    \"vulkanNativeProfile\": ";
+  writeVulkanNativeProfileSummary(out, vulkanNativeProfile, "    ");
+  out << ",\n"
+      << "    \"reflection\": ";
+  writeReflectionSummary(out, metadata, "    ");
+  if (targetLegalizationEvidence.health != "not-present") {
+    out << ",\n"
+        << "    \"targetLegalizationEvidence\": ";
+    writeTargetLegalizationEvidence(out, targetLegalizationEvidence, "    ");
+  }
+  out << "\n"
+      << "  }";
+}
+
+void writeDiagnosticRecord(std::ostream &out, const Diagnostic &diagnostic,
+                           std::string_view indent) {
+  out << indent << "{\n"
+      << indent << "  \"severity\": \""
+      << escapeJson(toString(diagnostic.severity)) << "\",\n"
+      << indent << "  \"code\": \"" << escapeJson(diagnostic.code) << "\",\n"
+      << indent << "  \"message\": \"" << escapeJson(diagnostic.message)
+      << "\",\n"
+      << indent << "  \"location\": {\n"
+      << indent << "    \"file\": \"" << escapeJson(diagnostic.location.file)
+      << "\",\n"
+      << indent << "    \"line\": " << diagnostic.location.line << ",\n"
+      << indent << "    \"column\": " << diagnostic.location.column << ",\n"
+      << indent << "    \"offset\": " << diagnostic.location.offset << ",\n"
+      << indent << "    \"length\": " << diagnostic.location.length << ",\n"
+      << indent << "    \"endLine\": " << diagnostic.location.endLine << ",\n"
+      << indent << "    \"endColumn\": " << diagnostic.location.endColumn
+      << ",\n"
+      << indent << "    \"endOffset\": " << diagnostic.location.endOffset
+      << "\n"
+      << indent << "  }";
+  if (!diagnostic.target.empty()) {
+    out << ",\n"
+        << indent << "  \"target\": \"" << escapeJson(diagnostic.target)
+        << "\"";
+  }
+  if (!diagnostic.missingCapabilities.empty()) {
+    out << ",\n" << indent << "  \"missingCapabilities\": [";
+    for (std::size_t index = 0; index < diagnostic.missingCapabilities.size();
+         ++index) {
+      if (index != 0) {
+        out << ", ";
+      }
+      out << "\"" << escapeJson(diagnostic.missingCapabilities[index]) << "\"";
+    }
+    out << "]";
+  }
+  out << "\n" << indent << "}";
+}
+
+void writeDiagnostics(std::ostream &out,
+                      const std::vector<Diagnostic> &diagnostics) {
+  out << "[";
+  for (std::size_t index = 0; index < diagnostics.size(); ++index) {
+    out << (index == 0 ? "\n" : ",\n");
+    writeDiagnosticRecord(out, diagnostics[index], "    ");
+  }
+  if (!diagnostics.empty()) {
+    out << "\n  ";
+  }
+  out << "]";
+}
+
+std::size_t countDiagnostics(const std::vector<Diagnostic> &diagnostics,
+                             DiagnosticSeverity severity) {
+  std::size_t count = 0;
+  for (const Diagnostic &diagnostic : diagnostics) {
+    if (diagnostic.severity == severity) {
+      ++count;
+    }
+  }
+  return count;
+}
+
+} // namespace
+
+PackageGraphicsAbiHealth
+collectPackageGraphicsAbiReleaseHealthForInspect(
+    const PackageMetadata &metadata) {
+  return collectPackageGraphicsAbiReleaseHealth(metadata);
+}
+
+PackageIntegrityResult
+verifyPackage(const std::filesystem::path &packagePath,
+              std::optional<std::filesystem::path> sourcePath) {
+  DiagnosticEngine diagnostics;
+  PackageIntegrityResult result;
+
+  PackageMetadataLoadOptions options;
+  options.diagnosticCodePrefix = "package.verify";
+  options.commandName = "package verify";
+
+  std::optional<PackageMetadata> metadata =
+      loadPackageMetadata(packagePath, diagnostics, options);
+  if (!metadata) {
+    result.diagnostics = diagnostics.diagnostics();
+    return result;
+  }
+
+  verifyPackageMetadata(*metadata, sourcePath, diagnostics);
+  result.success = !diagnostics.hasErrors();
+  result.metadata = std::move(*metadata);
+  result.diagnostics = diagnostics.diagnostics();
+  return result;
+}
+
+std::string packageVerifyJson(const PackageIntegrityResult &result,
+                              const std::filesystem::path &packagePath) {
+  std::ostringstream out;
+  out << "{\n"
+      << "  \"schemaVersion\": 1,\n"
+      << "  \"packagePath\": \""
+      << escapeJson(packagePath.lexically_normal().generic_string()) << "\",\n"
+      << "  \"success\": " << (result.success ? "true" : "false") << ",\n"
+      << "  \"summary\": ";
+  if (result.metadata) {
+    writeSummary(out, *result.metadata);
+  } else {
+    out << "null";
+  }
+  if (result.metadata) {
+    const PackageGraphicsAbiHealth graphicsAbi =
+        collectPackageGraphicsAbiReleaseHealth(*result.metadata);
+    if (graphicsAbi.artifactPresent) {
+      out << ",\n"
+          << "  \"graphicsAbi\": ";
+      writeGraphicsAbiHealth(out, graphicsAbi, "  ");
+    }
+  }
+  out << ",\n"
+      << "  \"diagnosticCounts\": {\n"
+      << "    \"note\": "
+      << countDiagnostics(result.diagnostics, DiagnosticSeverity::Note) << ",\n"
+      << "    \"warning\": "
+      << countDiagnostics(result.diagnostics, DiagnosticSeverity::Warning)
+      << ",\n"
+      << "    \"error\": "
+      << countDiagnostics(result.diagnostics, DiagnosticSeverity::Error) << "\n"
+      << "  },\n"
+      << "  \"diagnostics\": ";
+  writeDiagnostics(out, result.diagnostics);
+  out << "\n}\n";
+  return out.str();
+}
+
+} // namespace crossgl

@@ -1,0 +1,1 @@
+$.toolchain.tools[0].version: expected version-unknown version '', got 'fake dxc 1.0'

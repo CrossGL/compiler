@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "tool": "compare_performance_reports",
+  "kind": "advisory-threshold-policy",
+  "mode": "hard-fail",
+  "name": "fixture-hard-fail-policy",
+  "description": "Invalid policy fixture that attempts to make timing thresholds blocking.",
+  "rules": [
+    {
+      "category": "storage-buffers",
+      "profile": "release",
+      "maxRegressionPercent": 10,
+      "label": "invalid hard-fail storage release lane"
+    }
+  ]
+}

@@ -1,0 +1,436 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/cross-repo-language-spec-v1.schema.json",
+  "title": "CrossGL Cross-Repo Language Feature Spec JSON v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "schema",
+    "kind",
+    "description",
+    "document",
+    "source_language_snapshot",
+    "contract_manifest",
+    "feature_groups",
+    "negative_cases"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "schema": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "crossgl-crosstl-shared-feature-spec"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "document": {
+      "$ref": "#/$defs/document"
+    },
+    "source_language_snapshot": {
+      "$ref": "#/$defs/sourceLanguageSnapshot"
+    },
+    "contract_manifest": {
+      "$ref": "#/$defs/contractManifest"
+    },
+    "feature_groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/featureGroup"
+      }
+    },
+    "negative_cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/negativeCase"
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "sourceLanguageSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "path",
+        "schema_version",
+        "sha256",
+        "authority_references",
+        "source_files"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "schema_version": {
+          "type": "integer",
+          "const": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "authority_references": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/authorityReference"
+          }
+        },
+        "source_files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceFile"
+          }
+        }
+      }
+    },
+    "authorityReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "repository",
+        "url",
+        "state",
+        "headCommit",
+        "languageAuthorityImpact"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "kind": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "repository": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "url": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "state": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "headCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "languageAuthorityImpact": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "sourceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "contractManifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "schema",
+        "contract_count",
+        "accepted_feature_group_count",
+        "negative_case_count",
+        "hash_fields"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "schema": {
+          "type": "integer",
+          "const": 1
+        },
+        "contract_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "accepted_feature_group_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "negative_case_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "hash_fields": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "featureGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "description",
+        "snapshot_refs",
+        "snapshot_ref_seals",
+        "fixture_count",
+        "fixtures"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "status": {
+          "type": "string",
+          "const": "accepted-source"
+        },
+        "description": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "snapshot_refs": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        },
+        "snapshot_ref_seals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/snapshotRefSeal"
+          }
+        },
+        "fixture_count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "fixtures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/fixtureHash"
+          }
+        }
+      }
+    },
+    "snapshotRefSeal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "sha256"
+      ],
+      "properties": {
+        "ref": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "fixtureHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "source_sha256",
+        "translator_ast_sha256",
+        "compiler_hir_sha256"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "translator_ast_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "compiler_hir_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "negativeCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "group",
+        "classification",
+        "feature_group",
+        "reason",
+        "root",
+        "path",
+        "source_sha256",
+        "translator",
+        "compiler"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "group": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "classification": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "feature_group": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "reason": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "root": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "native_v0_owner_bucket": {
+          "type": "string",
+          "enum": [
+            "compat.language-unsupported-native-v0",
+            "compat.frontend-unsupported-native-v0",
+            "compat.target-legalization-unsupported"
+          ]
+        },
+        "translator": {
+          "$ref": "#/$defs/translatorExpectation"
+        },
+        "compiler": {
+          "$ref": "#/$defs/compilerExpectation"
+        }
+      }
+    },
+    "translatorExpectation": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/translatorAccepts"
+        },
+        {
+          "$ref": "#/$defs/translatorRejects"
+        }
+      ]
+    },
+    "translatorAccepts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "ast_sha256"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "accepts"
+        },
+        "ast_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "translatorRejects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "error_class",
+        "diagnostic_substrings"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "rejects"
+        },
+        "error_class": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "diagnostic_substrings": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    },
+    "compilerExpectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "diagnostic_substrings"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "accepts",
+            "rejects"
+          ]
+        },
+        "diagnostic_substrings": {
+          "$ref": "#/$defs/nonEmptyStringArray"
+        }
+      }
+    }
+  }
+}

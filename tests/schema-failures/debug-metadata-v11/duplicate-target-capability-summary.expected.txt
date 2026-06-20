@@ -1,0 +1,1 @@
+$.targetCapabilities.summaries: duplicate target summary 'directx'

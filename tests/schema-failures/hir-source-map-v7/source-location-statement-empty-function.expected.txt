@@ -1,0 +1,1 @@
+$.hirSourceLocations.statements[0].function: expected non-empty when statementKind is non-empty

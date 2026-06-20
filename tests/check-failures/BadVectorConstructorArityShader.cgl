@@ -1,0 +1,8 @@
+shader BadVectorConstructorArityShader {
+  compute {
+    void main() {
+      vec3 bad = vec3(1.0, 2.0);
+      return;
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.pagination.typeNextOffset: expected min(typeOffset + typeEmittedCount, typeTotalCount) 0, got 2

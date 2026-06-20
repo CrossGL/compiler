@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "toolchain": {
+    "hostPlatform": "linux",
+    "hostArch": "x86_64",
+    "defaultTarget": "opengl",
+    "llvmVersion": "22.1.5",
+    "hasMLIR": false,
+    "tools": [
+      {
+        "name": "dxc",
+        "available": false,
+        "path": "",
+        "detail": "not found",
+        "source": "not-found",
+        "resolvedPath": "",
+        "probeStatus": "unavailable",
+        "version": "",
+        "versionDetail": ""
+      },
+      {
+        "name": "glslangValidator",
+        "available": true,
+        "path": "/usr/bin/glslangValidator",
+        "detail": "",
+        "source": "PATH",
+        "resolvedPath": "/usr/bin/glslangValidator",
+        "probeStatus": "succeeded",
+        "version": "glslang fixture",
+        "versionDetail": ""
+      },
+      {
+        "name": "spirv-as",
+        "available": false,
+        "path": "",
+        "detail": "not found",
+        "source": "not-found",
+        "resolvedPath": "",
+        "probeStatus": "unavailable",
+        "version": "",
+        "versionDetail": ""
+      },
+      {
+        "name": "spirv-val",
+        "available": false,
+        "path": "",
+        "detail": "not found",
+        "source": "not-found",
+        "resolvedPath": "",
+        "probeStatus": "unavailable",
+        "version": "",
+        "versionDetail": ""
+      },
+      {
+        "name": "spirv-opt",
+        "available": false,
+        "path": "",
+        "detail": "not found",
+        "source": "not-found",
+        "resolvedPath": "",
+        "probeStatus": "unavailable",
+        "version": "",
+        "versionDetail": ""
+      },
+      {
+        "name": "spirv-dis",
+        "available": false,
+        "path": "",
+        "detail": "not found",
+        "source": "not-found",
+        "resolvedPath": "",
+        "probeStatus": "unavailable",
+        "version": "",
+        "versionDetail": ""
+      },
+      {
+        "name": "metal",
+        "available": false,
+        "path": "",
+        "detail": "not found",
+        "source": "not-found",
+        "resolvedPath": "",
+        "probeStatus": "unavailable",
+        "version": "",
+        "versionDetail": ""
+      },
+      {
+        "name": "metallib",
+        "available": false,
+        "path": "",
+        "detail": "not found",
+        "source": "not-found",
+        "resolvedPath": "",
+        "probeStatus": "unavailable",
+        "version": "",
+        "versionDetail": ""
+      }
+    ]
+  },
+  "targetExplanation": {
+    "schemaVersion": 1,
+    "module": "SemanticFixture",
+    "defaultTarget": "opengl",
+    "buildableTargetCount": 1,
+    "recommendedTarget": "opengl",
+    "recommendedPackageMode": "source-package",
+    "targets": [
+      {
+        "target": "opengl",
+        "nativeImplemented": false,
+        "sourcePackageSupported": true,
+        "packageBuildSupported": true,
+        "packageMode": "source-package",
+        "packageDecisionReason": "source-package-available",
+        "packageRankScore": 1,
+        "requiredCapabilityCount": 4,
+        "missingCapabilityCount": 2,
+        "requiredCapabilities": [
+          "opengl.backend.glsl-lowering",
+          "opengl.backend.native-glsl-package",
+          "opengl.toolchain.opengl-driver",
+          "opengl.validation.glsl-program-validation"
+        ],
+        "missingCapabilities": [
+          "opengl.backend.native-glsl-package",
+          "opengl.toolchain.opengl-driver"
+        ],
+        "legalizationCoreEvidenceIds": [
+          "target-legalization.v1.opengl.decision",
+          "target-legalization.v1.opengl.state.legalized",
+          "target-legalization.v1.opengl.support.source-package",
+          "target-legalization.v1.opengl.package-mode.source-package",
+          "target-legalization.v1.opengl.package-provenance.source-package-only",
+          "target-legalization.v1.opengl.optional-native-tool.missing",
+          "target-legalization.v1.opengl.package-reason.source-package-available"
+        ],
+        "targetBackend": "opengl",
+        "decisionReasonCodes": [
+          "package-mode:source-package",
+          "package-reason:source-package-available",
+          "optional-native-tool:missing"
+        ],
+        "artifactLinks": [
+          "ir/target-explanation.json#targets/opengl"
+        ],
+        "reportLinks": [
+          "target-explanation-v1#targets/opengl"
+        ],
+        "remediation": "Source package output is available; native artifact remediation requires satisfying: opengl.backend.native-glsl-package, opengl.toolchain.opengl-driver."
+      }
+    ]
+  }
+}

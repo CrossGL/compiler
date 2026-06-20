@@ -1,0 +1,1 @@
+$.manualTextureCompareKernels[3]: dynamic weights must omit weightSum

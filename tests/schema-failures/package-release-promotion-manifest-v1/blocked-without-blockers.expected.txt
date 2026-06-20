@@ -1,0 +1,1 @@
+$.blockers: blocked manifest requires at least one blocker

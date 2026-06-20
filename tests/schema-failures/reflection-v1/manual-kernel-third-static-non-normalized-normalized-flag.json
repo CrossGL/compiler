@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [],
+  "targetResourceBindings": [],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 3,
+    "staticNormalizedCount": 2,
+    "staticNonNormalizedCount": 1,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [
+    {
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "function": "main",
+      "operation": "textureCompareLodManualKernel",
+      "sourceKind": "tap-list",
+      "canonicalOperation": "textureCompareLodManualKernel",
+      "compatibilityAlias": false,
+      "weightClass": "static-normalized",
+      "tapCount": 1,
+      "weightsStatic": true,
+      "weightSum": 1.0,
+      "weightsZeroSum": false,
+      "weightsNormalized": true
+    },
+    {
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "function": "main",
+      "operation": "textureCompareLodManualKernel",
+      "sourceKind": "tap-list",
+      "canonicalOperation": "textureCompareLodManualKernel",
+      "compatibilityAlias": false,
+      "weightClass": "static-normalized",
+      "tapCount": 1,
+      "weightsStatic": true,
+      "weightSum": 1.0,
+      "weightsZeroSum": false,
+      "weightsNormalized": true
+    },
+    {
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "function": "main",
+      "operation": "textureCompareLodManualKernel",
+      "sourceKind": "tap-list",
+      "canonicalOperation": "textureCompareLodManualKernel",
+      "compatibilityAlias": false,
+      "weightClass": "static-non-normalized",
+      "tapCount": 1,
+      "weightsStatic": true,
+      "weightSum": 2.0,
+      "weightsZeroSum": false,
+      "weightsNormalized": true
+    }
+  ],
+  "targetFeatures": []
+}

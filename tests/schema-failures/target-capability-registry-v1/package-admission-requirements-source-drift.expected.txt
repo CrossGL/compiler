@@ -1,0 +1,1 @@
+$.targets[0].packageAdmission.packageArtifactRequirementsSource: expected one of ['tools/package_target_contracts.json', 'src/Backend/TargetLegalization.cpp'], got 'stale-source'

@@ -1,0 +1,52 @@
+shader OpenGLGraphicsReservedIdentifiersShader {
+    struct VertexInput {
+        vec3 position;
+        vec2 sample;
+        float smooth;
+    }
+
+    struct VertexOutput {
+        vec2 sample;
+        float smooth;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 sample;
+        float smooth;
+    }
+
+    struct FragmentOutput {
+        vec4 sample;
+    }
+
+    vertex {
+        vec2 lift(vec2 sample, float smooth) {
+            vec2 centroid = sample + vec2(smooth, smooth);
+            return centroid;
+        }
+
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            vec2 sample = lift(input.sample, input.smooth);
+            output.sample = sample;
+            output.smooth = input.smooth;
+            output.position = vec4(input.position, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        vec4 shade(vec2 sample, float smooth) {
+            float centroid = sample.x + smooth;
+            return vec4(centroid, sample.y, smooth, 1.0);
+        }
+
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            vec4 sample = shade(input.sample, input.smooth);
+            output.sample = sample;
+            return output;
+        }
+    }
+}

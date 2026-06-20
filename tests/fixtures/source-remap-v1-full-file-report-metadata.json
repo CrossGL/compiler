@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "path": "source-remap-v1-full-file.json",
+  "target": "cgl",
+  "sourceBackend": "cgl",
+  "variant": "debug",
+  "generatedFile": "generated/from-translator.cgl",
+  "mappingGranularity": "file",
+  "mappingCount": 1,
+  "sizeBytes": 592,
+  "hash": {
+    "algorithm": "sha256",
+    "value": "7ebc4d584f4b6f19b8eef3c47c1fe799361dd44e397d969df7899f9e05b6041b"
+  }
+}

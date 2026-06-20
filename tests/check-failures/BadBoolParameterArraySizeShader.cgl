@@ -1,0 +1,8 @@
+shader BadBoolParameterArraySizeShader {
+  const bool COUNT = true;
+  compute {
+    void main(float weights[COUNT]) {
+      return;
+    }
+  }
+}

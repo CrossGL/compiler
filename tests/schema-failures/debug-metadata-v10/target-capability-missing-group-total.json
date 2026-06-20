@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 10,
+  "targetDecision": {
+    "requestedTarget": "directx",
+    "selectedTarget": "directx",
+    "selectionReason": "explicit-target",
+    "selectedTargetNativeImplemented": false,
+    "selectedTargetSourcePackageSupported": true,
+    "selectedTargetPackageBuildSupported": true,
+    "selectedTargetPackageMode": "source-package",
+    "selectedTargetMissingCapabilityCount": 0,
+    "selectedTargetMissingCapabilities": [],
+    "selectedTargetMissingCapabilityGroups": [],
+    "selectedTargetDiagnosticCount": 0,
+    "diagnostics": [],
+    "viableTargets": [
+      "directx"
+    ],
+    "fallbackTargets": [],
+    "fallbackTargetRecordCount": 0,
+    "fallbackTargetRecords": [],
+    "nonViableTargets": []
+  },
+  "targetCapabilities": {
+    "defaultTarget": "directx",
+    "summaries": [
+      {
+        "target": "directx",
+        "nativeImplemented": false,
+        "sourcePackageSupported": true,
+        "packageBuildSupported": true,
+        "packageMode": "source-package",
+        "packageDecisionReason": "source-package-available",
+        "packageRankScore": 0,
+        "requiredCapabilityCount": 0,
+        "missingCapabilityCount": 1,
+        "requiredCapabilities": [],
+        "missingCapabilities": [
+          "native-backend"
+        ],
+        "requiredCapabilityGroups": [],
+        "missingCapabilityGroups": []
+      }
+    ]
+  },
+  "hirSourceLocations": {
+    "expressionCount": 0,
+    "expressionWithLocationCount": 0,
+    "typeCount": 0,
+    "typeWithLocationCount": 0,
+    "expressions": [],
+    "types": []
+  },
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernelBuckets": {
+    "staticNormalized": [],
+    "staticNonNormalized": [],
+    "staticZeroSum": [],
+    "dynamic": []
+  },
+  "manualTextureCompareKernels": []
+}

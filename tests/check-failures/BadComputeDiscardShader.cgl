@@ -1,0 +1,7 @@
+shader BadComputeDiscardShader {
+  compute {
+    void main() {
+      discard;
+    }
+  }
+}

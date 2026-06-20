@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "verifications": [
+    {
+      "rootPath": "packages",
+      "setPath": "maintenance/package-set.json"
+    },
+    {
+      "rootPath": "packages",
+      "setPath": "maintenance/package-set.json"
+    }
+  ]
+}

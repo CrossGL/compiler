@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "project": {
+    "root": ".",
+    "targets": [
+      "cgl"
+    ],
+    "outputDir": "."
+  },
+  "summary": {
+    "artifactCount": 2,
+    "translatedCount": 2,
+    "failedCount": 0,
+    "artifactProvenanceByPipeline": {
+      "single-file-translate": 2
+    },
+    "artifactProvenanceByIntermediate": {
+      "none": 2
+    },
+    "artifactProvenanceIntermediateBySourceBackend": {
+      "cgl": {
+        "none": 2
+      }
+    },
+    "artifactProvenanceIntermediateByTarget": {
+      "cgl": {
+        "none": 2
+      }
+    },
+    "artifactProvenanceIntermediateByVariant": {
+      "debug": {
+        "none": 1
+      },
+      "release": {
+        "none": 1
+      }
+    },
+    "sourceRemapCount": 2,
+    "sourceRemapMappingCount": 3,
+    "sourceRemapsByGranularity": {
+      "line": 2
+    },
+    "sourceRemapsByTarget": {
+      "cgl": 2
+    },
+    "sourceRemapsBySourceBackend": {
+      "cgl": 2
+    },
+    "sourceRemapsByVariant": {
+      "debug": 1,
+      "release": 1
+    }
+  },
+  "artifacts": [
+    {
+      "source": "shaders/original.crossgl",
+      "sourceBackend": "cgl",
+      "variant": "debug",
+      "target": "cgl",
+      "path": "generated/from-translator.cgl",
+      "status": "translated",
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": null
+      },
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "source-remap-v1-basic.json",
+        "target": "cgl",
+        "sourceBackend": "cgl",
+        "variant": "debug",
+        "generatedFile": "generated/from-translator.cgl",
+        "mappingGranularity": "line",
+        "mappingCount": 1,
+        "sizeBytes": 574,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "6df16a058a70104a1726ee752983062f9bf18336342fa29a8522dfc09c0380a9"
+        }
+      }
+    },
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "variant": "release",
+      "target": "cgl",
+      "path": "out/cgl/simple.cgl",
+      "status": "translated",
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": null
+      },
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "out/cgl/simple.source-remap.json",
+        "target": "cgl",
+        "sourceBackend": "cgl",
+        "variant": "release",
+        "generatedFile": "out/cgl/simple.cgl",
+        "mappingGranularity": "line",
+        "mappingCount": 2,
+        "sizeBytes": 982,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92"
+        }
+      }
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

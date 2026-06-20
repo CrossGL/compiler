@@ -1,0 +1,1 @@
+$.resources[3].arrayDimensions[1].elementCount: fixed arrays require elementCount

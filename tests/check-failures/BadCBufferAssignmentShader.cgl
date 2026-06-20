@@ -1,0 +1,11 @@
+shader BadCBufferAssignmentShader {
+  cbuffer Constants {
+    float exposure;
+  };
+  compute {
+    void main() {
+      exposure = 1.0;
+      return;
+    }
+  }
+}

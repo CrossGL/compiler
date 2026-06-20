@@ -1,0 +1,1 @@
+$.records.items[0].cursor: expected $.records.offset + item index 2, got 1

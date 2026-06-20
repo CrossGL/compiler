@@ -1,0 +1,1 @@
+$.targetDecision.selectedTargetLegalizationCoreEvidenceIds: expected selected target summary legalizationCoreEvidenceIds

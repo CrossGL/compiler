@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "inputPath": "tests/graphics-abi/source-map-evidence-count-mismatch.json",
+  "success": true,
+  "summary": {
+    "module": "GraphicsAbiFixture",
+    "target": "vulkan",
+    "entryPointCount": 2,
+    "vertexInputCount": 1,
+    "varyingCount": 1,
+    "fragmentOutputCount": 1,
+    "builtinCount": 2,
+    "resourceCount": 2,
+    "abiRecordCount": 2
+  },
+  "entryPointEvidence": [
+    {
+      "entryPointIndex": 0,
+      "stage": "vertex",
+      "sourceName": "vs_main",
+      "backendName": "vertex_vs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    },
+    {
+      "entryPointIndex": 1,
+      "stage": "fragment",
+      "sourceName": "fs_main",
+      "backendName": "fragment_fs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 2,
+        "column": 1,
+        "offset": 10,
+        "length": 4,
+        "endLine": 2,
+        "endColumn": 5,
+        "endOffset": 14
+      }
+    }
+  ],
+  "resourceBindingEvidence": [
+    {
+      "abiRecordIndex": 0,
+      "sourceResourceIndex": 0,
+      "target": "vulkan",
+      "stage": "vertex",
+      "entryPoint": "vertex_vs_main",
+      "entryPointIndex": 0,
+      "name": "Camera",
+      "kind": "buffer",
+      "sourceType": "CameraUniforms",
+      "addressSpace": "uniform",
+      "abi": "descriptor",
+      "bindingClass": "uniform-buffer",
+      "arrayDimensions": [],
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 3,
+        "column": 1,
+        "offset": 20,
+        "length": 4,
+        "endLine": 3,
+        "endColumn": 5,
+        "endOffset": 24
+      },
+      "abiSourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 5,
+        "column": 1,
+        "offset": 40,
+        "length": 4,
+        "endLine": 5,
+        "endColumn": 5,
+        "endOffset": 44
+      },
+      "set": 0,
+      "binding": 0
+    },
+    {
+      "abiRecordIndex": 1,
+      "sourceResourceIndex": 1,
+      "target": "vulkan",
+      "stage": "fragment",
+      "entryPoint": "fragment_fs_main",
+      "entryPointIndex": 1,
+      "name": "albedo",
+      "kind": "texture",
+      "sourceType": "sampler2D",
+      "addressSpace": "uniform",
+      "abi": "descriptor",
+      "bindingClass": "sampled-texture",
+      "arrayDimensions": [],
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 4,
+        "column": 1,
+        "offset": 30,
+        "length": 4,
+        "endLine": 4,
+        "endColumn": 5,
+        "endOffset": 34
+      },
+      "abiSourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 6,
+        "column": 1,
+        "offset": 50,
+        "length": 4,
+        "endLine": 6,
+        "endColumn": 5,
+        "endOffset": 54
+      },
+      "set": 0,
+      "binding": 1
+    }
+  ],
+  "sourceMapEvidence": [
+    {
+      "owner": "entryPoint",
+      "index": 0,
+      "location": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    },
+    {
+      "owner": "entryPoint",
+      "index": 1,
+      "location": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 2,
+        "column": 1,
+        "offset": 10,
+        "length": 4,
+        "endLine": 2,
+        "endColumn": 5,
+        "endOffset": 14
+      }
+    },
+    {
+      "owner": "resource",
+      "index": 0,
+      "location": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 3,
+        "column": 1,
+        "offset": 20,
+        "length": 4,
+        "endLine": 3,
+        "endColumn": 5,
+        "endOffset": 24
+      }
+    },
+    {
+      "owner": "resource",
+      "index": 1,
+      "location": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 4,
+        "column": 1,
+        "offset": 30,
+        "length": 4,
+        "endLine": 4,
+        "endColumn": 5,
+        "endOffset": 34
+      }
+    },
+    {
+      "owner": "abiRecord",
+      "index": 0,
+      "location": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 5,
+        "column": 1,
+        "offset": 40,
+        "length": 4,
+        "endLine": 5,
+        "endColumn": 5,
+        "endOffset": 44
+      }
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

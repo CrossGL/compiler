@@ -1,0 +1,1 @@
+$.targets[0].requiredCapabilities: duplicate required capability 'opengl.backend.glsl-lowering'

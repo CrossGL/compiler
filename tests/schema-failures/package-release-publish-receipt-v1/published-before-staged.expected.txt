@@ -1,0 +1,1 @@
+$.artifacts[0].published: expected staged artifact before publish

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "scratch",
+      "kind": "shared",
+      "type": "float",
+      "addressSpace": "shared"
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "scratch",
+      "kind": "shared",
+      "sourceType": "float",
+      "hlslType": "float",
+      "descriptorType": "UAV",
+      "addressSpace": "groupshared",
+      "abi": "groupsharedLocal",
+      "bindingClass": "groupshared"
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

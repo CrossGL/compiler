@@ -1,0 +1,1 @@
+$.records.emittedCount: expected $.records.items length 1, got 0

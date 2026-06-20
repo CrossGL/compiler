@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "module": "SourceFreeMetalRuntimeExample",
+  "target": "metal",
+  "nativeBinary": "backend/metal/SourceFreeMetalRuntimeExample.metallib",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "source_free_metal_main"
+    }
+  ],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "OutputBuffer",
+      "kind": "storageBuffer",
+      "type": "float4",
+      "set": 0,
+      "binding": 0
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "metal",
+      "stage": "compute",
+      "entryPoint": "source_free_metal_main",
+      "name": "OutputBuffer",
+      "kind": "storageBuffer",
+      "sourceType": "float4",
+      "abi": {
+        "buffer": 0
+      },
+      "bindingClass": "buffer",
+      "descriptorType": "buffer",
+      "metalType": "device float4*"
+    }
+  ],
+  "targetFeatures": [
+    {
+      "target": "metal",
+      "kind": "package",
+      "name": "native"
+    }
+  ]
+}

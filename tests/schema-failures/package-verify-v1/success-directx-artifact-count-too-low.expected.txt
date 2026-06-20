@@ -1,0 +1,1 @@
+$.summary.artifactCount: expected successful directx artifact count >= 2, got 1

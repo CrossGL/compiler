@@ -1,0 +1,1 @@
+$.artifacts[1].backendSourceMap.targetBackend: expected 'hlsl' for directx target

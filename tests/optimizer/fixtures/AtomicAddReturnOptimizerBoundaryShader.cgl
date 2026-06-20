@@ -1,0 +1,35 @@
+shader AtomicAddReturnOptimizerBoundaryShader {
+  struct CompatCounters {
+    int active_count;
+    uint spawn_count;
+  }
+
+  compute {
+    layout(local_size_x = 4, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer atomic<int>* counters;
+    layout(set = 0, binding = 2) buffer atomic<uint>* unsignedCounters;
+    layout(set = 0, binding = 3) buffer CompatCounters compatCounters;
+
+    void main() {
+      uint index = gl_GlobalInvocationID.x;
+      int slot = 0;
+      uint unsignedDelta = index + 1u;
+      int deadBefore = values[slot] + 11;
+      uint deadUnsigned = unsignedDelta + 3u;
+
+      values[slot] = 1;
+      int old = atomicAdd(counters[index], 1);
+      values[slot + 1] = old + values[slot];
+      old = atomicAdd(counters[index], 1);
+      uint oldU = atomicAdd(unsignedCounters[index], unsignedDelta);
+      int unusedReturned = atomicAdd(counters[index], 1);
+      atomicAdd(counters[index], 1);
+      int oldCompat = atomicAdd(compatCounters.active_count, 1);
+      values[slot + 2] = values[slot + 1] + old + oldCompat;
+
+      int deadAfter = deadBefore + 5;
+      return;
+    }
+  }
+}

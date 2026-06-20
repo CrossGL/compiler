@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "project": {
+    "root": ".",
+    "targets": [
+      "cgl"
+    ]
+  },
+  "summary": {
+    "artifactCount": 2,
+    "sourceRemapCount": 2,
+    "sourceRemapMappingCount": 4,
+    "sourceRemapsBySourceBackend": {
+      "cgl": 2
+    },
+    "sourceRemapsByVariant": {
+      "debug": 2
+    }
+  },
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "variant": "debug",
+      "target": "cgl",
+      "path": "out/cgl/simple.cgl",
+      "status": "translated",
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "out/cgl/simple.source-remap.json",
+        "target": "cgl",
+        "sourceBackend": "cgl",
+        "variant": "debug",
+        "generatedFile": "out/cgl/simple.cgl",
+        "mappingGranularity": "line",
+        "mappingCount": 2,
+        "sizeBytes": 982,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92"
+        }
+      }
+    },
+    {
+      "source": "duplicate.cgl",
+      "sourceBackend": "cgl",
+      "variant": "debug",
+      "target": "cgl",
+      "path": "out/cgl/simple.cgl",
+      "status": "translated",
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "out/cgl/duplicate.source-remap.json",
+        "target": "cgl",
+        "sourceBackend": "cgl",
+        "variant": "debug",
+        "generatedFile": "out/cgl/simple.cgl",
+        "mappingGranularity": "line",
+        "mappingCount": 2,
+        "sizeBytes": 982,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "eb7d2b50594a5705cafaf2cf88eccd18975b597eb9e216caea824c63bea9ec92"
+        }
+      }
+    }
+  ]
+}

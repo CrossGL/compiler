@@ -1,0 +1,1 @@
+$.records.items[1]: expected combined records sorted by location offset, endOffset, record kind, and source index

@@ -1,0 +1,1 @@
+$.targetUri: expected gs:// URI for gcs target

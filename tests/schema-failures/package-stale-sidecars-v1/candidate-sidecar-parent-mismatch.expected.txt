@@ -1,0 +1,1 @@
+$.candidates[0].path: expected sidecar parent directory 'build', got 'other'

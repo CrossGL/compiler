@@ -1,0 +1,7 @@
+shader BadUnsupportedObjectStage {
+  object {
+    void main() {
+      return;
+    }
+  }
+}

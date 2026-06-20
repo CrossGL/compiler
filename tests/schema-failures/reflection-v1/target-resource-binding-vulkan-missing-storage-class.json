@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "vulkan",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "fragment",
+      "sourceName": "main",
+      "backendName": "fragment_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "fragment",
+      "name": "albedo",
+      "kind": "texture",
+      "type": "sampler2D",
+      "set": 0,
+      "binding": 1
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "vulkan",
+      "stage": "fragment",
+      "entryPoint": "fragment_main",
+      "name": "albedo",
+      "kind": "texture",
+      "sourceType": "sampler2D",
+      "descriptorType": "VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE",
+      "spirvType": "OpTypeImage<float, 2D, sampled=1>",
+      "addressSpace": "UniformConstant",
+      "abi": "descriptor",
+      "bindingClass": "sampledImage",
+      "set": 0,
+      "binding": 1
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

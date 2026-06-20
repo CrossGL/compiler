@@ -1,0 +1,51 @@
+shader OpenGLGraphicsDescriptorArrayResourcesShader {
+    const int RESOURCE_COUNT = 2;
+
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        layout(set = 0, binding = 2) uniform sampler2D heightMaps[RESOURCE_COUNT];
+        layout(set = 0, binding = 3) sampler vertexSamplers[RESOURCE_COUNT];
+
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            int heightIndex = 1;
+            vec4 height = textureLod(
+                heightMaps[heightIndex], vertexSamplers[0], input.texCoord, 0.0);
+            output.uv = input.texCoord;
+            output.position = vec4(
+                input.position.x, input.position.y + height.x, input.position.z, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        layout(set = 0, binding = 4) uniform sampler2D colorMaps[RESOURCE_COUNT];
+        layout(set = 0, binding = 5) sampler linearSamplers[RESOURCE_COUNT];
+
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            int mapIndex = 1;
+            vec4 sampled = textureLod(
+                colorMaps[mapIndex], linearSamplers[0], input.uv, 0.0);
+            output.color = sampled;
+            return output;
+        }
+    }
+}

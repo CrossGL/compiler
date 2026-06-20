@@ -1,0 +1,1 @@
+$.manualTextureCompareKernelSummary.staticNormalizedCount: expected manualTextureCompareKernels with weightClass 'static-normalized' 0, got 1

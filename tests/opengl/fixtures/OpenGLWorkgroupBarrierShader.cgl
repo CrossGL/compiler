@@ -1,0 +1,16 @@
+shader OpenGLWorkgroupBarrierShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 1, local_size_z = 1) in;
+
+    shared float tile[4];
+
+    void main() {
+      tile[0] = 1.0;
+      workgroupBarrier();
+      float first = tile[0];
+      barrier();
+      tile[1] = first + 1.0;
+      return;
+    }
+  }
+}

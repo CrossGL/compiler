@@ -1,0 +1,1 @@
+$.artifacts[1].backendSourceMap.sourceRemap.variant: expected to match sourceRemap metadata for 'ir/source-remap.json'

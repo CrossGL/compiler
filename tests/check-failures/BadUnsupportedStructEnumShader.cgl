@@ -1,0 +1,14 @@
+shader BadUnsupportedStructEnum {
+  struct Material {
+    enum BlendMode {
+      Add,
+      Multiply,
+    }
+    float roughness;
+  }
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

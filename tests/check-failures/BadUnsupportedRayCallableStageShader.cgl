@@ -1,0 +1,7 @@
+shader BadUnsupportedRayCallableStage {
+  ray_callable {
+    void main() {
+      return;
+    }
+  }
+}

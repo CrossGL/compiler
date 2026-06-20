@@ -1,0 +1,40 @@
+shader OpenGLStorageImageNonUniformDescriptorArrayShader {
+  const int COUNT = 2;
+
+  compute {
+    layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2D colorImages[COUNT];
+    layout(set = 0, binding = 1) uniform iimage2D labelImages[2];
+    layout(set = 0, binding = 2) uniform uimage2D maskImages[COUNT];
+    layout(set = 0, binding = 3) uniform image2DArray colorAtlases[2];
+    layout(set = 0, binding = 4) uniform iimage2DArray labelAtlases[COUNT];
+    layout(set = 0, binding = 5) uniform uimage2DArray maskAtlases[2];
+
+    void main() {
+      ivec2 pixel = ivec2(int(gl_GlobalInvocationID.x), int(gl_GlobalInvocationID.y));
+      int slot = int(gl_GlobalInvocationID.x);
+      int writeSlot = int(gl_GlobalInvocationID.y);
+      int layer = int(gl_GlobalInvocationID.z);
+      ivec3 atlasPixel = ivec3(pixel, layer);
+
+      vec4 color = imageLoad(colorImages[nonuniform(slot)], pixel);
+      imageStore(colorImages[nonuniform(writeSlot)], pixel, color);
+
+      ivec4 label = imageLoad(labelImages[nonuniform(slot)], pixel);
+      imageStore(labelImages[nonuniform(writeSlot)], pixel, label);
+
+      uvec4 mask = imageLoad(maskImages[nonuniform(slot)], pixel);
+      imageStore(maskImages[nonuniform(writeSlot)], pixel, mask);
+
+      vec4 atlasColor = imageLoad(colorAtlases[nonuniform(slot)], atlasPixel);
+      imageStore(colorAtlases[nonuniform(writeSlot)], atlasPixel, atlasColor);
+
+      ivec4 atlasLabel = imageLoad(labelAtlases[nonuniform(slot)], atlasPixel);
+      imageStore(labelAtlases[nonuniform(writeSlot)], atlasPixel, atlasLabel);
+
+      uvec4 atlasMask = imageLoad(maskAtlases[nonuniform(slot)], atlasPixel);
+      imageStore(maskAtlases[nonuniform(writeSlot)], atlasPixel, atlasMask);
+      return;
+    }
+  }
+}

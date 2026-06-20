@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "opengl",
+  "binaryKind": "opengl.source",
+  "sourcePath": "backend/opengl/SimpleShader.comp.glsl",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "toolchainProvenance": {
+    "producer": "cglc package build",
+    "tools": [
+      {
+        "name": "unidentified GLSL generator",
+        "role": "generator",
+        "version": "fixture",
+        "executable": "cglc"
+      }
+    ],
+    "invocation": {
+      "commandLineSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "environmentSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  },
+  "optimizationLevel": "unknown",
+  "validationStatus": "unavailable",
+  "nativeBinaryStatus": "planned",
+  "validationDiagnostics": []
+}

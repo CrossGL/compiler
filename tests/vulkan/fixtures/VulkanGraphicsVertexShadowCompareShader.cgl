@@ -1,0 +1,42 @@
+shader VulkanGraphicsVertexShadowCompareShader {
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        layout(set = 0, binding = 3) uniform sampler2DShadow shadowMap;
+        layout(set = 0, binding = 4) comparison_sampler shadowSampler;
+
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            float visibility =
+                textureCompareLod(shadowMap, shadowSampler, input.texCoord, 0.5, 0.0);
+            output.uv = input.texCoord;
+            output.position = vec4(
+                input.position.x, input.position.y, input.position.z + visibility, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            output.color = vec4(input.uv.x, input.uv.y, 0.5, 1.0);
+            return output;
+        }
+    }
+}

@@ -1,0 +1,1 @@
+$.summary.nativeArtifactDescriptor.optimizationEvidence: expected null unless native artifact descriptor health is ok

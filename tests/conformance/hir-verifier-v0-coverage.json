@@ -1,0 +1,772 @@
+{
+  "schema_version": "crossgl-hir-verifier-v0-coverage-v2",
+  "description": "Deterministic native-v0 HIR verifier coverage gate. Each required family maps to support-matrix evidence or an explicit planned/diagnostic rejection.",
+  "families": [
+    {
+      "id": "arrays",
+      "title": "Arrays",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "resources"
+      ],
+      "conformance_entries": [
+        "resources.resource-array-access",
+        "resources.struct-array-fields"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "cglc_build_opengl_aliased_function_parameter_array_write_source_package",
+          "coverage_categories": [
+            "HIRExpressionKind::Call",
+            "HIRExpressionKind::IndexAccess",
+            "HIRStatementKind::Assignment"
+          ],
+          "requirement": "Aliased OpenGL local helper array writes lower through one shared copy-in/copy-out temporary so reads observe writes."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_build_opengl_forwarded_function_parameter_array_write_source_package",
+          "coverage_categories": [
+            "HIRExpressionKind::Call",
+            "HIRExpressionKind::IndexAccess",
+            "HIRStatementKind::Assignment",
+            "HIRStatementKind::Return"
+          ],
+          "requirement": "Forwarded OpenGL helper array writes lower through explicit local copy-in/copy-out source package coverage."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_build_opengl_function_parameter_array_write_source_package",
+          "coverage_categories": [
+            "HIRExpressionKind::IndexAccess",
+            "HIRStatementKind::Assignment"
+          ],
+          "requirement": "Direct OpenGL storage-buffer field helper array writes lower through explicit copy-in/write-back source package coverage."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_array_optimizer_boundary_hir",
+          "requirement": "Array-heavy HIR reaches the optimizer boundary in a verifiable shape."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_array_optimizer_boundary_hir_folded_dimensions",
+          "requirement": "Folded array dimensions remain explicit in HIR evidence."
+        }
+      ]
+    },
+    {
+      "id": "atomics",
+      "title": "Atomics",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "atomics",
+        "storage-images"
+      ],
+      "conformance_entries": [
+        "atomics.atomic-add",
+        "atomics.atomic-bitwise",
+        "atomics.atomic-exchange",
+        "atomics.atomic-min-max",
+        "storage-images.atomic-operations"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_storage_image_atomic_hir",
+          "coverage_categories": [
+            "HIRResourceKind::StorageImage"
+          ],
+          "requirement": "Storage-image atomic HIR keeps scalar return and operand structure."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_atomic_add_expression_statements",
+          "coverage_categories": [
+            "HIRExpressionKind::Call",
+            "HIRStatementKind::Expression"
+          ],
+          "requirement": "Storage-buffer atomic add statements remain explicit in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_atomic_bitwise_capture_contexts",
+          "requirement": "Bitwise atomic capture contexts remain represented in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_atomic_exchange_capture_contexts",
+          "requirement": "Atomic exchange capture contexts remain represented in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_atomic_minmax_capture_contexts",
+          "requirement": "Atomic min/max capture contexts remain represented in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_optimizer_storage_image_atomic_boundary_check",
+          "requirement": "Atomic operations preserve ordering and side effects through optimizer boundaries."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testHIRIntrinsicRegistry",
+          "requirement": "Shared intrinsic metadata covers the v0 atomic intrinsic family."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testHIRSideEffectSummaries",
+          "requirement": "HIR side-effect summaries classify atomic calls as side-effecting."
+        }
+      ]
+    },
+    {
+      "id": "compute-basics",
+      "title": "Compute Basics",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "compute-basics"
+      ],
+      "conformance_entries": [
+        "compute-basics.compute-invocation-builtins",
+        "compute-basics.local-load-store",
+        "compute-basics.scalar-constructor-casts",
+        "compute-basics.vector-constructor-arithmetic",
+        "compute-basics.workgroup-barrier",
+        "compute-basics.workgroup-shared-memory"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_load_local_compute_hir_scalar_load_store",
+          "coverage_categories": [
+            "HIRStatementKind::Assignment",
+            "HIRStatementKind::Declaration"
+          ],
+          "requirement": "Local scalar load/store compute forms keep typed HIR storage writes."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_scalar_constructor_compute_hir_casts",
+          "coverage_categories": [
+            "HIRExpressionKind::Constructor"
+          ],
+          "requirement": "Scalar constructor casts preserve typed HIR conversion nodes."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_vector_local_compute_hir_construct_vector_arithmetic",
+          "coverage_categories": [
+            "HIRExpressionKind::Binary",
+            "HIRExpressionKind::Constructor"
+          ],
+          "requirement": "Vector constructor arithmetic remains typed at the HIR boundary."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_compute_invocation_builtin_types",
+          "requirement": "Compute invocation builtins expose stable HIR value types."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_workgroup_barrier_expression_statements",
+          "coverage_categories": [
+            "HIRExpressionKind::Call",
+            "HIRStatementKind::Expression"
+          ],
+          "requirement": "Workgroup barrier calls remain explicit HIR expression statements."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_workgroup_shared_memory_folded_source_values",
+          "coverage_categories": [
+            "HIRResourceKind::Shared"
+          ],
+          "requirement": "Workgroup shared-memory HIR preserves folded source values."
+        }
+      ]
+    },
+    {
+      "id": "constants",
+      "title": "Constants",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "compute-basics",
+        "resources"
+      ],
+      "conformance_entries": [
+        "compute-basics.scalar-constructor-casts",
+        "resources.struct-array-fields"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_for_constant_stride_compute_hir_update_contract",
+          "requirement": "Folded top-level constants remain visible in loop update HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_struct_constant_array_field_compute_hir_symbolic_array_field",
+          "coverage_categories": [
+            "HIRExpressionKind::MemberAccess"
+          ],
+          "requirement": "Symbolic constant array fields remain represented in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_source_map_struct_constant_array_field_type_provenance",
+          "requirement": "Constant array-field type provenance is retained in HIR source maps."
+        }
+      ]
+    },
+    {
+      "id": "control-flow",
+      "title": "Control Flow",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "control-flow",
+        "graphics-stages"
+      ],
+      "conformance_entries": [
+        "control-flow.for-increment-decrement",
+        "control-flow.for-loop",
+        "control-flow.for-stride",
+        "control-flow.if-else",
+        "control-flow.if-return",
+        "control-flow.loop-transfer",
+        "control-flow.switch-case-default",
+        "control-flow.while-loop",
+        "graphics-stages.vulkan-loop-control-native",
+        "graphics-stages.vulkan-loop-native"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_for_compute_hir_loop_contract",
+          "coverage_categories": [
+            "HIRStatementKind::For"
+          ],
+          "requirement": "Structured for loops lower to stable HIR loop shape."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_for_increment_decrement_hir_updates",
+          "requirement": "Increment and decrement loop updates remain explicit in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_for_stride_compute_hir_update_contract",
+          "requirement": "Strided for-loop updates lower to stable HIR update shape."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_hir_control_transfer_explicit_statements",
+          "coverage_categories": [
+            "HIRStatementKind::Break",
+            "HIRStatementKind::Continue",
+            "HIRStatementKind::Discard"
+          ],
+          "requirement": "break, continue, and discard are explicit HIR control-transfer statements."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_if_compute_hir_branch_shape",
+          "coverage_categories": [
+            "HIRStatementKind::If"
+          ],
+          "requirement": "If/else branches preserve typed HIR branch bodies."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_if_return_compute_hir_branch_return_shape",
+          "coverage_categories": [
+            "HIRStatementKind::Return"
+          ],
+          "requirement": "Branch-local returns remain explicit in HIR branch bodies."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_switch_hir_if_chain",
+          "coverage_categories": [
+            "HIRStatementKind::Block",
+            "HIRStatementKind::If"
+          ],
+          "requirement": "Restricted switch/case/default lowers to existing block and if-chain HIR nodes."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_while_control_flow_hir",
+          "requirement": "While-loop control flow remains accepted at the HIR boundary."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_while_control_flow_hir_body_update",
+          "requirement": "While-loop body updates remain explicit in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_while_control_flow_hir_condition",
+          "requirement": "While-loop conditions lower to stable HIR loop shape."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_while_control_flow_hir_outer_scope_restored",
+          "requirement": "Outer declarations remain addressable after while-loop scopes."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_while_control_flow_hir_scoped_block",
+          "coverage_categories": [
+            "HIRStatementKind::Block"
+          ],
+          "requirement": "While-loop scoped block declarations remain explicit in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testHIRControlTransferStatements",
+          "requirement": "Unit coverage pins control-transfer cleanup and statement classification."
+        }
+      ]
+    },
+    {
+      "id": "invalid-shape-diagnostics",
+      "title": "Invalid Shape Diagnostics",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "known-native-v0-unsupported"
+      ],
+      "conformance_entries": [
+        "native-v0-unsupported.var-address-space"
+      ],
+      "coverage": [
+        {
+          "kind": "diagnostic",
+          "name": "cglc_check_storage_image_atomic_failure",
+          "diagnostic_code": "sema.storage-image-atomic",
+          "coverage_categories": [
+            "diagnostic:sema.storage-image-atomic"
+          ],
+          "requirement": "Invalid storage-image atomic shapes fail before backend emission."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineDuplicateResourceBindingValidation",
+          "diagnostic_code": "opt.hir-duplicate-resource-binding",
+          "coverage_categories": [
+            "diagnostic:opt.hir-duplicate-resource-binding"
+          ],
+          "requirement": "Duplicate stage resource binding coordinates fail closed in the HIR validation pipeline."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineDuplicateResourceValidation",
+          "diagnostic_code": "opt.hir-duplicate-resource",
+          "coverage_categories": [
+            "diagnostic:opt.hir-duplicate-resource"
+          ],
+          "requirement": "Duplicate stage resource names fail closed in the HIR validation pipeline."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineExpressionShapeValidation",
+          "diagnostic_code": "opt.hir-expression-shape",
+          "coverage_categories": [
+            "diagnostic:opt.hir-expression-shape"
+          ],
+          "requirement": "Malformed expression payload and arity shapes fail closed in the HIR validation pipeline."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineMatrixConstructorValidation",
+          "diagnostic_code": "opt.hir-matrix-constructor",
+          "coverage_categories": [
+            "diagnostic:opt.hir-matrix-constructor"
+          ],
+          "requirement": "Malformed matrix constructor arity and component domains fail closed in typed HIR validation."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineMissingEntryPointValidation",
+          "diagnostic_code": "opt.hir-missing-entry-point",
+          "coverage_categories": [
+            "diagnostic:opt.hir-missing-entry-point"
+          ],
+          "requirement": "Unresolved stage entry points fail closed in the HIR validation pipeline."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineResourceShapeValidation",
+          "diagnostic_code": "opt.hir-resource-shape",
+          "coverage_categories": [
+            "diagnostic:opt.hir-resource-shape"
+          ],
+          "requirement": "Stage resources with malformed type shape fail closed in the HIR validation pipeline."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineRuntimeResourceArrayShapeValidation",
+          "diagnostic_code": "opt.hir-runtime-resource-array-shape",
+          "coverage_categories": [
+            "diagnostic:opt.hir-runtime-resource-array-shape"
+          ],
+          "requirement": "Mixed runtime/fixed descriptor-resource array shapes fail closed in the HIR validation pipeline."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineScalarConstructorValidation",
+          "diagnostic_code": "opt.hir-scalar-constructor",
+          "coverage_categories": [
+            "diagnostic:opt.hir-scalar-constructor"
+          ],
+          "requirement": "Malformed scalar constructor arity and operand domains fail closed in typed HIR validation."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineStatementShapeValidation",
+          "diagnostic_code": "opt.hir-statement-shape",
+          "coverage_categories": [
+            "diagnostic:opt.hir-statement-shape"
+          ],
+          "requirement": "Malformed statement shapes fail closed in the HIR validation pipeline."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineStorageImageRuntimeArrayValidation",
+          "diagnostic_code": "opt.hir-storage-image-runtime-descriptor-array",
+          "coverage_categories": [
+            "diagnostic:opt.hir-storage-image-runtime-descriptor-array"
+          ],
+          "requirement": "Runtime storage-image descriptor arrays fail closed in the HIR validation pipeline."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIROptimizationPipelineVectorConstructorValidation",
+          "diagnostic_code": "opt.hir-vector-constructor",
+          "coverage_categories": [
+            "diagnostic:opt.hir-vector-constructor"
+          ],
+          "requirement": "Malformed vector constructor arity and component domains fail closed in typed HIR validation."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testHIRVerifierPublicEntryPoint",
+          "diagnostic_code": "opt.hir-raw-statement-backend-input",
+          "coverage_categories": [
+            "diagnostic:opt.hir-raw-statement-backend-input"
+          ],
+          "requirement": "The public backend-input HIR verifier entry point rejects raw statements without running optimizer passes."
+        },
+        {
+          "kind": "diagnostic",
+          "name": "testOpenGLFunctionParameterArrayGLSL",
+          "diagnostic_code": "opengl.unsupported-function-parameter-array-write",
+          "coverage_categories": [
+            "diagnostic:opengl.unsupported-function-parameter-array-write"
+          ],
+          "requirement": "Unsupported OpenGL nested-expression helper array writeback shapes with unsafe call-like operands retain diagnostics while the RHS literal/source-package form is supported."
+        }
+      ]
+    },
+    {
+      "id": "resources",
+      "title": "Resources",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "graphics-stages",
+        "resources"
+      ],
+      "conformance_entries": [
+        "graphics-stages.directx-storage-buffer-resources-source-package",
+        "graphics-stages.graphics-provenance",
+        "graphics-stages.metal-descriptor-array-native",
+        "graphics-stages.opengl-descriptor-array-resources-source-package",
+        "graphics-stages.vulkan-nonuniform-descriptor-array-native",
+        "graphics-stages.vulkan-shadow-array-lod-native",
+        "graphics-stages.vulkan-shadow-array-native",
+        "graphics-stages.vulkan-shadow-compare-lod-native",
+        "graphics-stages.vulkan-shadow-compare-native",
+        "graphics-stages.vulkan-shadow-descriptor-array-native",
+        "graphics-stages.vulkan-texture-sampler-descriptor-array-native",
+        "graphics-stages.vulkan-texture-sampler-native",
+        "graphics-stages.vulkan-uniform-buffer-native",
+        "graphics-stages.vulkan-vertex-shadow-compare-native",
+        "graphics-stages.vulkan-vertex-texture-sampler-native",
+        "resources.basic-declarations",
+        "resources.descriptor-array-storage-image",
+        "resources.runtime-struct-array"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "testRuntimeDescriptorArrayPolicyHelper",
+          "requirement": "Runtime descriptor-array policy records target-specific resource support boundaries."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testStageResourceHIR",
+          "coverage_categories": [
+            "HIRResourceKind::Uniform"
+          ],
+          "requirement": "Stage resources have shared HIR metadata evidence."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testTextureAndSamplerDescriptorArraySplitABI",
+          "requirement": "Texture and sampler descriptor arrays preserve split resource ABI evidence."
+        }
+      ]
+    },
+    {
+      "id": "stage-coverage",
+      "title": "Stage Coverage",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "compute-basics",
+        "graphics-stages"
+      ],
+      "conformance_entries": [
+        "compute-basics.compute-invocation-builtins",
+        "graphics-stages.directx-basic-source-package",
+        "graphics-stages.directx-storage-buffer-resources-source-package",
+        "graphics-stages.graphics-provenance",
+        "graphics-stages.metal-descriptor-array-native",
+        "graphics-stages.opengl-basic-source-package",
+        "graphics-stages.opengl-descriptor-array-resources-source-package",
+        "graphics-stages.vulkan-helper-function-native",
+        "graphics-stages.vulkan-loop-control-native",
+        "graphics-stages.vulkan-loop-native",
+        "graphics-stages.vulkan-math-intrinsic-native",
+        "graphics-stages.vulkan-nonuniform-descriptor-array-native",
+        "graphics-stages.vulkan-shadow-array-lod-native",
+        "graphics-stages.vulkan-shadow-array-native",
+        "graphics-stages.vulkan-shadow-compare-lod-native",
+        "graphics-stages.vulkan-shadow-compare-native",
+        "graphics-stages.vulkan-shadow-descriptor-array-native",
+        "graphics-stages.vulkan-texture-sampler-descriptor-array-native",
+        "graphics-stages.vulkan-texture-sampler-native",
+        "graphics-stages.vulkan-uniform-buffer-native",
+        "graphics-stages.vulkan-vertex-shadow-compare-native",
+        "graphics-stages.vulkan-vertex-texture-sampler-native"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "testStageResourceHIR",
+          "requirement": "Vertex, fragment, and compute stage-resource HIR metadata remains covered."
+        }
+      ]
+    },
+    {
+      "id": "storage-buffers",
+      "title": "Storage Buffers",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "graphics-stages",
+        "resources"
+      ],
+      "conformance_entries": [
+        "graphics-stages.directx-storage-buffer-resources-source-package",
+        "resources.storage-buffer-struct-field",
+        "resources.struct-array-fields"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_storage_buffer_struct_array_field_descriptor_array_hir_field_paths",
+          "coverage_categories": [
+            "HIRExpressionKind::IndexAccess",
+            "HIRExpressionKind::MemberAccess",
+            "HIRResourceKind::Buffer"
+          ],
+          "requirement": "Storage-buffer descriptor-array member paths remain present in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_struct_buffer_compute_hir_struct_field_access",
+          "coverage_categories": [
+            "HIRExpressionKind::MemberAccess",
+            "HIRResourceKind::Buffer"
+          ],
+          "requirement": "Struct storage-buffer field access is pinned before backend lowering."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testStructStorageBufferDescriptorArraySourceAndReflection",
+          "requirement": "Storage-buffer descriptor-array reflection and source ABI stay aligned."
+        }
+      ]
+    },
+    {
+      "id": "storage-images",
+      "title": "Storage Images",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "resources",
+        "storage-images"
+      ],
+      "conformance_entries": [
+        "resources.descriptor-array-storage-image",
+        "storage-images.access-qualifiers",
+        "storage-images.atomic-operations",
+        "storage-images.load-store"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "cglc_check_storage_image_atomic_hir",
+          "coverage_categories": [
+            "HIRExpressionKind::Call",
+            "HIRResourceKind::StorageImage"
+          ],
+          "requirement": "Storage-image HIR covers atomic-capable scalar image operations."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testStorageImageDiagnostics",
+          "requirement": "Storage-image operand and shape diagnostics remain covered."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testStorageImageHIRABI",
+          "coverage_categories": [
+            "HIRResourceKind::StorageImage"
+          ],
+          "requirement": "Storage-image HIR ABI covers direct and descriptor-array forms."
+        }
+      ]
+    },
+    {
+      "id": "textures-samplers",
+      "title": "Textures and Samplers",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "graphics-stages",
+        "texture-sampling"
+      ],
+      "conformance_entries": [
+        "graphics-stages.metal-descriptor-array-native",
+        "graphics-stages.opengl-descriptor-array-resources-source-package",
+        "graphics-stages.vulkan-nonuniform-descriptor-array-native",
+        "graphics-stages.vulkan-shadow-array-lod-native",
+        "graphics-stages.vulkan-shadow-array-native",
+        "graphics-stages.vulkan-shadow-compare-lod-native",
+        "graphics-stages.vulkan-shadow-compare-native",
+        "graphics-stages.vulkan-shadow-descriptor-array-native",
+        "graphics-stages.vulkan-texture-sampler-descriptor-array-native",
+        "graphics-stages.vulkan-texture-sampler-native",
+        "graphics-stages.vulkan-vertex-shadow-compare-native",
+        "graphics-stages.vulkan-vertex-texture-sampler-native",
+        "texture-sampling.manual-compare-lod-nonuniform",
+        "texture-sampling.nonuniform-descriptor-sample",
+        "texture-sampling.optimizer-boundary"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_sampler_only_nonuniform_descriptor_array_sample_path",
+          "coverage_categories": [
+            "HIRExpressionKind::NonUniform",
+            "HIRResourceKind::Sampler"
+          ],
+          "requirement": "Sampler-only nonuniform descriptor-array HIR paths are preserved."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_source_map_texture_sample_explicit_lod_operand_provenance",
+          "coverage_categories": [
+            "HIRExpressionKind::TextureSample"
+          ],
+          "requirement": "Explicit LOD operands keep source-map provenance."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_texture_compare_lod_manual_nonuniform_descriptor_array_operands",
+          "coverage_categories": [
+            "HIRExpressionKind::NonUniform",
+            "HIRExpressionKind::TextureCompareLodManual",
+            "HIRResourceKind::Sampler",
+            "HIRResourceKind::Texture"
+          ],
+          "requirement": "Manual LOD texture-compare nonuniform descriptor-array operands stay explicit in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_texture_compare_nonuniform_descriptor_array_paths",
+          "coverage_categories": [
+            "HIRExpressionKind::NonUniform",
+            "HIRExpressionKind::TextureCompare",
+            "HIRResourceKind::Sampler",
+            "HIRResourceKind::Texture"
+          ],
+          "requirement": "Texture-compare nonuniform descriptor-array paths stay explicit in HIR."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "cglc_dump_hir_texture_only_nonuniform_descriptor_array_sample_path",
+          "coverage_categories": [
+            "HIRExpressionKind::NonUniform",
+            "HIRExpressionKind::TextureSample",
+            "HIRResourceKind::Texture"
+          ],
+          "requirement": "Texture-only nonuniform descriptor-array HIR paths are preserved."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testHIRTextureExpressionTypedValidation",
+          "coverage_categories": [
+            "HIRExpressionKind::TextureCompare",
+            "HIRExpressionKind::TextureSample"
+          ],
+          "requirement": "Texture sample, textureCompare, and textureCompareLod HIR nodes fail closed on typed operand and result mismatches."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testTextureAndSamplerDescriptorArraySplitABI",
+          "coverage_categories": [
+            "HIRResourceKind::Sampler",
+            "HIRResourceKind::Texture"
+          ],
+          "requirement": "Texture/sampler split ABI is covered across descriptor-array metadata."
+        }
+      ]
+    },
+    {
+      "id": "type-semantics",
+      "title": "Type Semantics",
+      "status": "supported",
+      "conformance_feature_groups": [
+        "compute-basics",
+        "graphics-stages",
+        "resources",
+        "storage-images",
+        "texture-sampling"
+      ],
+      "conformance_entries": [
+        "compute-basics.scalar-constructor-casts",
+        "compute-basics.vector-constructor-arithmetic",
+        "graphics-stages.vulkan-helper-function-native",
+        "graphics-stages.vulkan-math-intrinsic-native",
+        "resources.basic-declarations",
+        "storage-images.load-store",
+        "texture-sampling.nonuniform-descriptor-sample"
+      ],
+      "coverage": [
+        {
+          "kind": "support-matrix",
+          "name": "testHIRTypeSemanticsHelpers",
+          "requirement": "HIR type helpers keep expression, resource, array, atomic, and mismatch semantics explicit before backend dispatch."
+        },
+        {
+          "kind": "support-matrix",
+          "name": "testVulkanGraphicsHelperFunctionPrototypeAssembly",
+          "coverage_categories": [
+            "HIRExpressionKind::Call",
+            "HIRStatementKind::Return"
+          ],
+          "requirement": "Same-stage Vulkan graphics helpers keep typed call and return paths valid through native assembly evidence."
+        }
+      ]
+    }
+  ]
+}

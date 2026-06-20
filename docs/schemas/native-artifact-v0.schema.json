@@ -1,0 +1,580 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/native-artifact-v0.schema.json",
+  "title": "CrossGL Native Artifact Descriptor v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "contractVersion",
+    "target",
+    "binaryKind",
+    "sourcePath",
+    "sourceHash",
+    "toolchainProvenance",
+    "optimizationLevel",
+    "validationStatus",
+    "validationDiagnostics"
+  ],
+  "oneOf": [
+    {
+      "required": [
+        "artifactPath",
+        "artifactHash",
+        "sizeBytes"
+      ]
+    },
+    {
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "artifactPath"
+            ]
+          },
+          {
+            "required": [
+              "artifactHash"
+            ]
+          },
+          {
+            "required": [
+              "sizeBytes"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "crossgl.nativeArtifact"
+    },
+    "contractVersion": {
+      "type": "string",
+      "const": "native-artifact-v0"
+    },
+    "target": {
+      "$ref": "#/$defs/targetName"
+    },
+    "binaryKind": {
+      "$ref": "#/$defs/binaryKind"
+    },
+    "artifactPath": {
+      "$ref": "#/$defs/normalizedPath"
+    },
+    "artifactHash": {
+      "$ref": "#/$defs/artifactHash"
+    },
+    "sizeBytes": {
+      "$ref": "#/$defs/sizeBytes"
+    },
+    "spirvDependencies": {
+      "$ref": "#/$defs/spirvDependencies"
+    },
+    "sourcePath": {
+      "$ref": "#/$defs/normalizedPath"
+    },
+    "sourceHash": {
+      "$ref": "#/$defs/sourceHash"
+    },
+    "toolchainProvenance": {
+      "$ref": "#/$defs/toolchainProvenance"
+    },
+    "optimizationLevel": {
+      "$ref": "#/$defs/optimizationLevel"
+    },
+    "optimizationEvidence": {
+      "$ref": "#/$defs/optimizationEvidence"
+    },
+    "validationStatus": {
+      "$ref": "#/$defs/validationStatus"
+    },
+    "nativeBinaryStatus": {
+      "$ref": "#/$defs/nativeBinaryStatus"
+    },
+    "validationDiagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl"
+      ]
+    },
+    "binaryKind": {
+      "type": "string",
+      "enum": [
+        "metal.metallib",
+        "vulkan.spirv-module",
+        "directx.dxil",
+        "directx.dxbc",
+        "opengl.source",
+        "opengl.package"
+      ]
+    },
+    "normalizedPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+    },
+    "hostToolPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sourceHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "sha256"
+        },
+        "value": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "artifactHash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "sha256"
+        },
+        "value": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "optimizationLevel": {
+      "type": "string",
+      "enum": [
+        "none",
+        "debug",
+        "O0",
+        "O1",
+        "O2",
+        "O3",
+        "Os",
+        "Oz",
+        "unknown"
+      ]
+    },
+    "optimizerStatus": {
+      "type": "string",
+      "enum": [
+        "applied",
+        "metadata-only",
+        "skipped-disabled",
+        "skipped-tool-missing",
+        "not-run",
+        "unavailable"
+      ]
+    },
+    "optimizerPolicy": {
+      "type": "string",
+      "enum": [
+        "use-when-available",
+        "disabled-by-opt-level",
+        "crossgl-to-dxc-optimization-map",
+        "metal-conservative-native-package-v1",
+        "source-package-planned",
+        "metadata-only",
+        "unavailable"
+      ]
+    },
+    "optimizerEvidenceSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "native-profile",
+            "toolchain-provenance",
+            "compiler-policy",
+            "descriptor"
+          ]
+        },
+        "path": {
+          "$ref": "#/$defs/normalizedPath"
+        }
+      }
+    },
+    "optimizationEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestedLevel",
+        "effectiveLevel",
+        "policy",
+        "status"
+      ],
+      "properties": {
+        "requestedLevel": {
+          "$ref": "#/$defs/optimizationLevel"
+        },
+        "effectiveLevel": {
+          "$ref": "#/$defs/optimizationLevel"
+        },
+        "policy": {
+          "$ref": "#/$defs/optimizerPolicy"
+        },
+        "status": {
+          "$ref": "#/$defs/optimizerStatus"
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "toolFlag": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceSource": {
+          "$ref": "#/$defs/optimizerEvidenceSource"
+        },
+        "debugInfo": {
+          "type": "boolean"
+        },
+        "profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "spirvResultId": {
+      "type": "string",
+      "minLength": 2,
+      "pattern": "^%\\S+$"
+    },
+    "spirvInstructionSet": {
+      "type": "string",
+      "minLength": 1
+    },
+    "spirvExtendedInstructionSetImport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resultId",
+        "instructionSet"
+      ],
+      "properties": {
+        "resultId": {
+          "$ref": "#/$defs/spirvResultId"
+        },
+        "instructionSet": {
+          "$ref": "#/$defs/spirvInstructionSet"
+        }
+      }
+    },
+    "spirvDependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "extendedInstructionSets"
+      ],
+      "properties": {
+        "extendedInstructionSets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/spirvExtendedInstructionSetImport"
+          }
+        }
+      }
+    },
+    "validationStatus": {
+      "type": "string",
+      "enum": [
+        "not-run",
+        "validated",
+        "failed",
+        "unavailable"
+      ]
+    },
+    "nativeBinaryStatus": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "emitted",
+        "validated"
+      ]
+    },
+    "toolRole": {
+      "type": "string",
+      "enum": [
+        "generator",
+        "compiler",
+        "assembler",
+        "linker",
+        "validator",
+        "packager"
+      ]
+    },
+    "toolRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "role",
+        "version",
+        "executable"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "$ref": "#/$defs/toolRole"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executable": {
+          "$ref": "#/$defs/normalizedPath"
+        },
+        "resolvedExecutable": {
+          "$ref": "#/$defs/hostToolPath"
+        },
+        "executableSource": {
+          "type": "string",
+          "enum": [
+            "PATH",
+            "direct",
+            "fallback",
+            "xcrun",
+            "not-found"
+          ]
+        },
+        "versionProbeStatus": {
+          "type": "string",
+          "enum": [
+            "succeeded",
+            "failed",
+            "not-started",
+            "version-unknown",
+            "unavailable"
+          ]
+        },
+        "versionDetail": {
+          "type": "string",
+          "minLength": 1
+        },
+        "argumentsSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "commandShape": {
+          "type": "string",
+          "minLength": 1
+        },
+        "responseFilePath": {
+          "$ref": "#/$defs/normalizedPath"
+        },
+        "outputPath": {
+          "$ref": "#/$defs/normalizedPath"
+        },
+        "outputSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "outputSizeBytes": {
+          "$ref": "#/$defs/sizeBytes"
+        },
+        "provenanceStatus": {
+          "type": "string",
+          "enum": [
+            "captured",
+            "succeeded",
+            "failed",
+            "missing-tool",
+            "not-started",
+            "incomplete"
+          ]
+        },
+        "provenanceDetail": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "toolchainProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "producer",
+        "tools",
+        "invocation"
+      ],
+      "properties": {
+        "producer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tools": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/toolRecord"
+          }
+        },
+        "invocation": {
+          "$ref": "#/$defs/invocationProvenance"
+        }
+      }
+    },
+    "invocationProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commandLineSha256",
+        "environmentSha256"
+      ],
+      "properties": {
+        "commandLineSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "environmentSha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endOffset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)+$"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "missingCapabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

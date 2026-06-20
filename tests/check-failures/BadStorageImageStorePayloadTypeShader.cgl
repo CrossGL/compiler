@@ -1,0 +1,16 @@
+shader BadStorageImageStorePayloadTypeShader {
+  compute {
+    layout(set = 0, binding = 0) uniform image2D colorImage;
+    layout(set = 0, binding = 1) uniform iimage2D labelImage;
+    layout(set = 0, binding = 2) uniform uimage2DArray maskAtlas;
+
+    void main() {
+      ivec2 pixel = ivec2(0, 1);
+      ivec3 arrayPixel = ivec3(pixel, 2);
+      imageStore(colorImage, pixel, ivec4(1, 2, 3, 4));
+      imageStore(labelImage, pixel, uvec4(1, 2, 3, 4));
+      imageStore(maskAtlas, arrayPixel, vec4(0.0, 0.5, 1.0, 1.0));
+      return;
+    }
+  }
+}

@@ -1,0 +1,17 @@
+shader NumericFloatLiteralShader {
+    compute {
+        layout(set = 0, binding = 0) buffer float* values;
+
+        void main() {
+            float decimalExponent = 1e-3;
+            float signedExponent = 2.0E+4;
+            float leadingDotExponent = .5e+2f;
+            float hexFraction = 0x1.8p+2;
+            float hexExponent = 0x1p-2f;
+            float total = decimalExponent + signedExponent + leadingDotExponent;
+            total = total + hexFraction + hexExponent;
+            values[0] = total;
+            return;
+        }
+    }
+}

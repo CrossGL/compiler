@@ -1,0 +1,21 @@
+shader Texture2DArrayShadowCompareLodManualKernel4Shader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 2) uniform sampler2DArrayShadow shadowAtlas;
+    layout(set = 0, binding = 5) sampler rawShadowSampler;
+
+    void main() {
+      float visibility =
+          textureCompareLodManualKernel4(shadowAtlas, rawShadowSampler,
+                                         vec3(0.25, 0.5, 1.0), 0.33, 2.0,
+                                         less_equal,
+                                         ivec2(-1, -1), 0.20,
+                                         ivec2(0, -1), 0.30,
+                                         ivec2(-1, 0), 0.30,
+                                         ivec2(0, 0), 0.20);
+      values[0] = visibility;
+      return;
+    }
+  }
+}

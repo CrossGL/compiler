@@ -1,0 +1,1 @@
+$.publishedArtifactCount: expected published artifact length 1, got 0

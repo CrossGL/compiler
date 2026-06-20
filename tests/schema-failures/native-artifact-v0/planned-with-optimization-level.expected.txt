@@ -1,0 +1,1 @@
+$.optimizationLevel: planned source-package descriptors must use 'unknown', got 'O3'

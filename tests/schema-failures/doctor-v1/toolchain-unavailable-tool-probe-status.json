@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "toolchain": {
+    "hostPlatform": "linux",
+    "hostArch": "x86_64",
+    "defaultTarget": "vulkan",
+    "llvmVersion": "22.1.5",
+    "hasLLVM": true,
+    "llvmConfigured": true,
+    "hasMLIR": false,
+    "mlirConfigured": false,
+    "mlirNativePipelineAvailable": false,
+    "tools": [
+      {
+        "name": "dxc",
+        "available": false,
+        "path": "",
+        "detail": "",
+        "source": "not-found",
+        "resolvedPath": "",
+        "probeStatus": "failed",
+        "version": "",
+        "versionDetail": "exit 1"
+      }
+    ]
+  },
+  "targetExplanation": null
+}

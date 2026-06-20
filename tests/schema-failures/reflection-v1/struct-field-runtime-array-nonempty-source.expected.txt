@@ -1,0 +1,1 @@
+$.structs[0].fields[0].arrayDimensions[0].source: runtime arrays use empty source

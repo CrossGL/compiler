@@ -1,0 +1,9 @@
+from lighting.common import evaluateLighting;
+
+shader BadUnsupportedFromImport {
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

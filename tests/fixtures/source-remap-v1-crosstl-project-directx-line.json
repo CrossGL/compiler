@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "generatedFile": "out/directx/simple.hlsl",
+  "mappings": [
+    {
+      "generated": {
+        "file": "out/directx/simple.hlsl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 31,
+        "endLine": 1,
+        "endColumn": 32,
+        "endOffset": 31
+      },
+      "original": {
+        "file": "simple.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 31,
+        "endLine": 1,
+        "endColumn": 32,
+        "endOffset": 31
+      }
+    }
+  ]
+}

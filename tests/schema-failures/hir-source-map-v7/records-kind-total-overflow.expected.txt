@@ -1,0 +1,1 @@
+$.records.items: expected emitted type record count <= $.categoryCounts.typeTotalCount 0, got 1

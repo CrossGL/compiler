@@ -1,0 +1,13 @@
+shader BadTextureCompareLodManualOffsetShapeShader {
+  compute {
+    uniform samplerCubeShadow shadowCube;
+    sampler rawShadowSampler;
+    void main() {
+      float visibility =
+          textureCompareLodManualOffset(shadowCube, rawShadowSampler,
+                                        vec3(0.0, 1.0, 0.0), 0.5, 1.0,
+                                        greater_equal, ivec2(1, -1));
+      return;
+    }
+  }
+}

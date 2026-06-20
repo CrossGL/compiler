@@ -1,0 +1,1 @@
+$.records.items: disabled records must not emit items

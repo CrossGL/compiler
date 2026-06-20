@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-runtime-adapter-descriptor",
+  "sourcePackage": "fixtures/package.crosstl",
+  "sourcePackageHash": {
+    "algorithm": "sha256",
+    "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "packageRoot": "/tmp/package",
+  "adapterPlan": {
+    "kind": "crosstl-runtime-adapter-plan",
+    "success": true,
+    "scope": "runtime-adapter-integration-planning"
+  },
+  "id": "metal-main",
+  "target": "metal",
+  "adapterKind": "host-loader",
+  "artifactFormat": "backend-source",
+  "binding": {},
+  "artifact": {},
+  "packagePath": "adapters/metal/main.metal",
+  "sourcePath": "src/main.cgl",
+  "sourceBackend": "msl",
+  "stage": "fragment",
+  "variant": "default",
+  "defines": {},
+  "sourceRemap": null,
+  "hostInterface": {
+    "status": "ready"
+  },
+  "requiredTools": [
+    "metal"
+  ],
+  "hostResponsibilities": [],
+  "validation": {
+    "loadReady": false
+  }
+}

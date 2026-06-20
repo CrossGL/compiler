@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/vulkan-native-profile-v1.schema.json",
+  "title": "CrossGL Vulkan Native Profile JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "module",
+    "target",
+    "api",
+    "profile",
+    "generator",
+    "artifacts",
+    "debug"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "module": {
+      "type": "string",
+      "description": "Package module name. Semantic validation requires Vulkan artifact paths to use this module stem under backend/vulkan/."
+    },
+    "target": {
+      "type": "string",
+      "const": "vulkan"
+    },
+    "api": {
+      "type": "string",
+      "const": "vulkan"
+    },
+    "profile": {
+      "$ref": "#/$defs/profile"
+    },
+    "generator": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifacts": {
+      "$ref": "#/$defs/artifacts"
+    },
+    "debug": {
+      "$ref": "#/$defs/debug"
+    }
+  },
+  "$defs": {
+    "packageRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "not": {
+        "anyOf": [
+          {
+            "pattern": "^/"
+          },
+          {
+            "pattern": "^[A-Za-z]:"
+          },
+          {
+            "pattern": "\\\\"
+          },
+          {
+            "pattern": "(^|/)\\.\\.($|/)"
+          }
+        ]
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "vulkanVersion",
+        "spirvVersion"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "const": "vulkan-prototype"
+        },
+        "vulkanVersion": {
+          "type": "string",
+          "const": "1.2"
+        },
+        "spirvVersion": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backendAssembly",
+        "nativeBinary"
+      ],
+      "properties": {
+        "backendAssembly": {
+          "$ref": "#/$defs/packageRelativePath",
+          "description": "Semantic validation requires backend/vulkan/<module>.spvasm."
+        },
+        "nativeBinary": {
+          "$ref": "#/$defs/packageRelativePath",
+          "description": "Semantic validation requires backend/vulkan/<module>.spv."
+        }
+      }
+    },
+    "debug": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binaryFormat",
+        "assemblyFormat",
+        "validationTargetEnv"
+      ],
+      "properties": {
+        "binaryFormat": {
+          "type": "string",
+          "const": "SPIR-V"
+        },
+        "assemblyFormat": {
+          "type": "string",
+          "const": "SPIR-V assembly"
+        },
+        "validationTargetEnv": {
+          "type": "string",
+          "const": "vulkan1.2"
+        },
+        "optimization": {
+          "$ref": "#/$defs/optimization"
+        },
+        "disassembly": {
+          "$ref": "#/$defs/disassembly"
+        }
+      }
+    },
+    "optimization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "policy",
+        "level",
+        "status"
+      ],
+      "properties": {
+        "tool": {
+          "type": "string",
+          "const": "spirv-opt"
+        },
+        "policy": {
+          "type": "string",
+          "enum": [
+            "use-when-available",
+            "disabled-by-opt-level"
+          ]
+        },
+        "requestedLevel": {
+          "type": "string",
+          "enum": [
+            "O0",
+            "O1",
+            "O2"
+          ]
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "-O",
+            "none"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "applied",
+            "skipped-disabled",
+            "skipped-tool-missing"
+          ]
+        },
+        "targetEnv": {
+          "type": "string",
+          "const": "vulkan1.2"
+        },
+        "toolStatus": {
+          "type": "string",
+          "enum": [
+            "available",
+            "missing",
+            "not-run"
+          ]
+        }
+      }
+    },
+    "disassembly": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "policy",
+        "status",
+        "path"
+      ],
+      "properties": {
+        "tool": {
+          "type": "string",
+          "const": "spirv-dis"
+        },
+        "policy": {
+          "type": "string",
+          "const": "use-when-available"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "emitted",
+            "failed",
+            "skipped-tool-missing"
+          ]
+        },
+        "path": {
+          "description": "When status is emitted, semantic validation requires backend/vulkan/<module>.disassembly.spvasm. Otherwise this value must be null.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/packageRelativePath"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

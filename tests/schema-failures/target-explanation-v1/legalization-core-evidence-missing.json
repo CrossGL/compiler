@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "defaultTarget": "metal",
+  "buildableTargetCount": 1,
+  "recommendedTarget": "metal",
+  "recommendedPackageMode": "native",
+  "targets": [
+    {
+      "target": "metal",
+      "nativeImplemented": true,
+      "sourcePackageSupported": false,
+      "packageBuildSupported": true,
+      "packageMode": "native",
+      "packageDecisionReason": "native-package-available",
+      "packageRankScore": 0,
+      "requiredCapabilityCount": 1,
+      "missingCapabilityCount": 0,
+      "requiredCapabilities": [
+        "metal.backend.native-metal-package"
+      ],
+      "missingCapabilities": [],
+      "targetBackend": "metal",
+      "decisionReasonCodes": [
+        "package-mode:native",
+        "package-reason:native-package-available"
+      ],
+      "artifactLinks": [
+        "ir/target-explanation.json#targets/metal"
+      ],
+      "reportLinks": [
+        "target-explanation-v1#targets/metal"
+      ],
+      "remediation": "No remediation required; native package output is available."
+    }
+  ]
+}

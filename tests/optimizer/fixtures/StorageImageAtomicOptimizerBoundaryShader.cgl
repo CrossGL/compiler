@@ -1,0 +1,42 @@
+shader StorageImageAtomicOptimizerBoundaryShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 4, local_size_z = 2) in;
+    layout(set = 0, binding = 0, format = r32i) readwrite uniform iimage2D signedCounters;
+    layout(set = 0, binding = 1, format = r32ui) readwrite uniform uimage2DArray unsignedAtlas;
+    layout(set = 0, binding = 2) buffer int* signedResults;
+    layout(set = 0, binding = 3) buffer uint* unsignedResults;
+
+    void main() {
+      ivec2 pixel = ivec2(0, 0);
+      int layer = 0;
+      ivec3 atlasPixel = ivec3(pixel, layer);
+      int deadBefore = pixel.x + 9;
+      uint deadUnsigned = uint(7.0);
+
+      signedResults[0] = 1;
+      int signedOld = imageAtomicAdd(signedCounters, pixel, 1);
+      signedResults[1] = signedResults[0] + signedOld;
+      int minOld = imageAtomicMin(signedCounters, pixel, signedOld);
+      int maxOld = imageAtomicMax(signedCounters, pixel + ivec2(1, 0),
+                                  minOld + 1);
+      int andOld = imageAtomicAnd(signedCounters, pixel, maxOld);
+      int orOld = imageAtomicOr(signedCounters, pixel + ivec2(1, 0), andOld);
+      int exchanged = imageAtomicExchange(signedCounters, pixel + ivec2(1, 0),
+                                          orOld + 2);
+      uint unsignedOld = imageAtomicAdd(unsignedAtlas, atlasPixel, uint(1.0));
+      uint unsignedMin = imageAtomicMin(unsignedAtlas, atlasPixel,
+                                        unsignedOld);
+      uint unsignedMax = imageAtomicMax(unsignedAtlas, atlasPixel,
+                                        unsignedMin);
+      imageAtomicExchange(unsignedAtlas, ivec3(pixel, layer + 1),
+                          unsignedMax);
+      imageAtomicXor(signedCounters, pixel, exchanged);
+      imageAtomicXor(unsignedAtlas, atlasPixel, unsignedMax);
+
+      signedResults[2] = exchanged + deadBefore;
+      unsignedResults[0] = unsignedOld;
+      uint deadTail = deadUnsigned + unsignedOld;
+      return;
+    }
+  }
+}

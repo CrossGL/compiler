@@ -1,0 +1,1 @@
+$.artifacts.nativeProfile: nativeProfile is only valid for vulkan packages

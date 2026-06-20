@@ -1,0 +1,1 @@
+$.summary.abiRecordCount: successful reports require at least one ABI record per source resource

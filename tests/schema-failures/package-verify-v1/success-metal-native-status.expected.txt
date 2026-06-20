@@ -1,0 +1,1 @@
+$.summary.nativeBinaryStatus: metal successful verification may only report nativeBinaryStatus 'emitted'

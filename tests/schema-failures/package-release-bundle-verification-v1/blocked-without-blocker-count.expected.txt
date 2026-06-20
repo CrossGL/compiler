@@ -1,0 +1,1 @@
+$.blockerCount: blocked verification requires at least one blocker

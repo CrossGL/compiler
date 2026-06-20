@@ -1,0 +1,9 @@
+shader BadMutableArraySizeShader {
+  compute {
+    void main() {
+      int count = 2;
+      float weights[count];
+      return;
+    }
+  }
+}

@@ -1,0 +1,9 @@
+shader BadScalarConstructorShader {
+  compute {
+    void main() {
+      vec4 color = vec4(1.0, 2.0, 3.0, 4.0);
+      float bad = float(color);
+      return;
+    }
+  }
+}

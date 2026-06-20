@@ -1,0 +1,15 @@
+shader BadUnsupportedCrossTLMatch {
+  compute {
+    void main() {
+      int value = 0;
+      match value {
+        0 => {
+          return;
+        },
+        _ => {
+          return;
+        }
+      }
+    }
+  }
+}

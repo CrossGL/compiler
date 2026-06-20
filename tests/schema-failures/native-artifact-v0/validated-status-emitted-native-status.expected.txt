@@ -1,0 +1,1 @@
+$.nativeBinaryStatus: validationStatus 'validated' requires nativeBinaryStatus 'validated'

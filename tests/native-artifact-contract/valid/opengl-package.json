@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "opengl",
+  "binaryKind": "opengl.package",
+  "artifactPath": "packages/SimpleShader.cglb",
+  "artifactHash": {
+    "algorithm": "sha256",
+    "value": "1212121212121212121212121212121212121212121212121212121212121212"
+  },
+  "sizeBytes": 2048,
+  "sourcePath": "backend/opengl/SimpleShader.glsl",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+  },
+  "toolchainProvenance": {
+    "producer": "cglc package build",
+    "tools": [
+      {
+        "name": "CrossGL package writer",
+        "role": "packager",
+        "version": "fixture",
+        "executable": "cglc"
+      }
+    ],
+    "invocation": {
+      "commandLineSha256": "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+      "environmentSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    }
+  },
+  "optimizationLevel": "none",
+  "validationStatus": "not-run",
+  "nativeBinaryStatus": "emitted",
+  "validationDiagnostics": []
+}

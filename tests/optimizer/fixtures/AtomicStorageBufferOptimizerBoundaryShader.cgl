@@ -1,0 +1,25 @@
+shader AtomicStorageBufferOptimizerBoundaryShader {
+  compute {
+    layout(local_size_x = 4, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer atomic<int>* counters;
+    layout(set = 0, binding = 2) buffer atomic<uint>* unsignedCounters;
+
+    void main() {
+      uint index = gl_GlobalInvocationID.x;
+      int slot = 0;
+      int deadBefore = values[slot] + 12;
+      uint deadUnsigned = index + 8u;
+
+      values[slot] = slot + 1;
+      atomicAdd(counters[index], 1);
+      values[slot + 1] = values[slot] + 2;
+      atomicAdd(unsignedCounters[index], index);
+
+      int liveAfter = values[slot + 1] + 3;
+      values[slot + 2] = liveAfter;
+      int deadAfter = liveAfter + deadBefore;
+      return;
+    }
+  }
+}

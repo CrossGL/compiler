@@ -1,0 +1,1 @@
+$.scannedPackages[0]: expected normalized package path

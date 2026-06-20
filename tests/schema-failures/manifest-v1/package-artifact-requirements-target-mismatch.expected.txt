@@ -1,0 +1,1 @@
+$.packageArtifactRequirements.target: must match manifest target

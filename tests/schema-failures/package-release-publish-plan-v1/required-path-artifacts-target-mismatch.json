@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "planPath": "release/package-release-publish-plan.json",
+  "releaseEligible": true,
+  "packageCount": 1,
+  "artifactCount": 1,
+  "totalArtifactBytes": 4,
+  "packages": [
+    {
+      "packagePath": "packages/basic-directx",
+      "module": "BasicDirectX",
+      "target": "directx",
+      "sourceHash": {
+        "algorithm": "sha256",
+        "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "nativeBinaryStatus": "planned",
+      "packageArtifactRequirements": {
+        "target": "directx",
+        "packageMode": "source-package",
+        "requiredPathArtifacts": [
+          "backendSource"
+        ],
+        "requiresNativeBinaryStatus": true,
+        "allowsPlannedNativeBinary": true,
+        "allowsPlannedNativeSourceEvidence": true
+      },
+      "artifactCount": 1,
+      "totalArtifactBytes": 4,
+      "artifacts": [
+        {
+          "name": "backendSource",
+          "packagePath": "packages/basic-directx",
+          "module": "BasicDirectX",
+          "target": "directx",
+          "sourcePath": "packages/basic-directx/artifacts/basic.hlsl",
+          "packageArtifactPath": "artifacts/basic.hlsl",
+          "destinationPath": "packages/basic-directx/artifacts/basic.hlsl",
+          "sizeBytes": 4,
+          "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "reflection": {
+        "targetFeatureCount": 1,
+        "targetFeatureEvidenceIds": [
+          "target-legalization.v1.directx.abi.required.package-release-fixture"
+        ]
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "backendSource",
+      "packagePath": "packages/basic-directx",
+      "module": "BasicDirectX",
+      "target": "directx",
+      "sourcePath": "packages/basic-directx/artifacts/basic.hlsl",
+      "packageArtifactPath": "artifacts/basic.hlsl",
+      "destinationPath": "packages/basic-directx/artifacts/basic.hlsl",
+      "sizeBytes": 4,
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ]
+}

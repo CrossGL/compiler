@@ -1,0 +1,2558 @@
+#!/usr/bin/env python3
+"""Target-neutral runtime loader facade for CrossGL .cglb packages.
+
+The facade is intentionally a planner, not a graphics API loader. It consumes
+the package reader's compatibility report and selects the artifact records that
+the package contract makes available to a target-specific loader.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+import json
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+try:
+    from . import package_target_contracts as _generated_package_target_contracts
+except ImportError:  # pragma: no cover.
+    import package_target_contracts as _generated_package_target_contracts
+
+from .crosstl_adapters import (
+    CrossTLRuntimeAdapterLoadUnit,
+    discover_crosstl_runtime_adapter_load_units,
+)
+from .package_reader import (
+    Artifact,
+    CompatibilityDiagnostic,
+    PackageCompatibilityReport,
+    PackageReadError,
+    RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+    RuntimeArtifactSelection,
+    SUPPORTED_COMPILER_NAME,
+    SUPPORTED_DEBUG_METADATA_SCHEMA_VERSION,
+    SUPPORTED_PACKAGE_SCHEMA_VERSION,
+    read_compatibility_report,
+    select_runtime_artifact,
+    _DEFAULT_ARTIFACT_BYTE_LIMIT,
+)
+
+
+_CROSSGL_SOURCE_INPUT_SUFFIXES = frozenset((".cgl",))
+_ARTIFACT_SELECTION_MODES = ("auto", "native", "source-package")
+_RUNTIME_LOADER_PLAN_KIND = "crossgl-runtime-loader-plan"
+_RUNTIME_LOADER_PLAN_REQUIRED_METADATA_INPUTS = [
+    "manifest.json",
+    "reflection.json",
+    "diagnostics.json",
+]
+_RUNTIME_LOADER_PLAN_KNOWN_TARGETS = frozenset(
+    entry["target"]
+    for entry in _generated_package_target_contracts.PACKAGE_TARGET_CONTRACTS
+    if isinstance(entry, dict)
+    and isinstance(entry.get("target"), str)
+    and entry["target"]
+)
+_RUNTIME_HOST_LOADER_INTEGRATION_KIND = "crossgl-runtime-host-loader-integration"
+_RUNTIME_HOST_LOADER_INTEGRATION_SCOPE = "host-loader-scaffold-generation"
+_RUNTIME_HOST_LOADER_INTEGRATION_NON_GOALS = [
+    "host-code-rewriting",
+    "device-execution",
+    "runtime-framework-generation",
+    "target-sdk-installation",
+]
+_RUNTIME_LOADER_PLAN_SCHEMA_REQUIREMENT_SOURCES = {
+    "manifest.packageArtifactRequirements": "manifest.packageArtifactRequirements",
+    "generated-package-target-contract": "generated-package-target-contract",
+    "legacy-v0-target-contract": "generated-package-target-contract",
+}
+_VERSION_COMPATIBILITY_DIAGNOSTIC_CODES = frozenset(
+    (
+        "package.compiler.missing",
+        "package.compiler.name_incompatible",
+        "package.compiler.version_missing",
+        "package.compiler.version_invalid",
+        "package.schema.incompatible",
+        "package.schema.version_missing",
+        "package.schema.version_invalid",
+        "package.debug_metadata.schema_incompatible",
+        "package.debug_metadata.schema_version_missing",
+        "package.debug_metadata.schema_version_invalid",
+        "package.native_artifact_descriptor.schema_incompatible",
+        "package.native_artifact_descriptor.schema_version_missing",
+        "package.native_artifact_descriptor.schema_version_invalid",
+        "package.native_profile.schema_incompatible",
+        "package.native_profile.schema_version_missing",
+        "package.native_profile.schema_version_invalid",
+        "package.artifact_requirements.schema_incompatible",
+        "package.target_contract.schema_incompatible",
+    )
+)
+_UNSUPPORTED_VERSION_COMPATIBILITY_DIAGNOSTIC_CODES = frozenset(
+    (
+        "package.schema.incompatible",
+        "package.schema.version_missing",
+        "package.schema.version_invalid",
+        "package.debug_metadata.schema_incompatible",
+        "package.debug_metadata.schema_version_missing",
+        "package.debug_metadata.schema_version_invalid",
+        "package.native_artifact_descriptor.schema_incompatible",
+        "package.native_artifact_descriptor.schema_version_missing",
+        "package.native_artifact_descriptor.schema_version_invalid",
+        "package.native_profile.schema_incompatible",
+        "package.native_profile.schema_version_missing",
+        "package.native_profile.schema_version_invalid",
+        "package.artifact_requirements.schema_incompatible",
+        "package.target_contract.schema_incompatible",
+    )
+)
+
+
+@dataclass(frozen=True)
+class LoaderArtifactPlan:
+    """A required package artifact selected for a runtime loader target."""
+
+    name: str
+    package_path: str
+    path: Path
+    exists: bool
+    size: int | None
+    archive_path: Path | None = None
+    archive_member: str | None = None
+    absolute_path: str | None = None
+
+    @classmethod
+    def from_artifact(cls, artifact: Artifact) -> "LoaderArtifactPlan":
+        return cls(
+            name=artifact.name,
+            package_path=artifact.package_path,
+            path=artifact.path,
+            exists=artifact.exists,
+            size=artifact.size,
+            archive_path=artifact.archive_path,
+            archive_member=artifact.archive_member,
+            absolute_path=artifact.absolute_path,
+        )
+
+    def require_exists(self) -> "LoaderArtifactPlan":
+        if self.archive_path is not None:
+            if not self.exists:
+                raise PackageReadError(
+                    f"loader artifact is missing in archive: {self.name} "
+                    f"({self.package_path})"
+                )
+            return self
+        if not self.path.is_file():
+            raise PackageReadError(
+                f"loader artifact is missing on disk: {self.name} ({self.package_path})"
+            )
+        return self
+
+    def _as_manifest_artifact(self) -> Artifact:
+        return Artifact(
+            name=self.name,
+            package_path=self.package_path,
+            path=self.path,
+            exists=self.exists,
+            size=self.size,
+            archive_path=self.archive_path,
+            archive_member=self.archive_member,
+        )
+
+    def iter_bytes(
+        self,
+        *,
+        chunk_size: int = RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+        byte_limit: Any = _DEFAULT_ARTIFACT_BYTE_LIMIT,
+    ):
+        self.require_exists()
+        yield from self._as_manifest_artifact().iter_bytes(
+            chunk_size=chunk_size,
+            byte_limit=byte_limit,
+        )
+
+    def read_bytes(self, *, byte_limit: int | None = None) -> bytes:
+        return b"".join(self.iter_bytes(byte_limit=byte_limit))
+
+    def read_text(
+        self,
+        *,
+        encoding: str = "utf-8",
+        byte_limit: int | None = None,
+    ) -> str:
+        if self.archive_path is not None or byte_limit is not None:
+            return self.read_bytes(byte_limit=byte_limit).decode(encoding)
+        return self.require_exists().path.read_text(encoding=encoding)
+
+    def sha256(
+        self,
+        *,
+        chunk_size: int = RUNTIME_ARTIFACT_STREAM_CHUNK_SIZE,
+        byte_limit: Any = _DEFAULT_ARTIFACT_BYTE_LIMIT,
+    ) -> str:
+        self.require_exists()
+        digest = self._as_manifest_artifact().sha256(
+            chunk_size=chunk_size,
+            byte_limit=byte_limit,
+        )
+        return digest
+
+    def to_summary(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "path": self.package_path,
+            "absolutePath": self.absolute_path or str(self.path),
+            "exists": self.exists,
+            "size": self.size,
+        }
+
+
+@dataclass(frozen=True)
+class SourceFreeRuntimeArtifactHandoff:
+    """Bytes and identity metadata for a selected source-free runtime artifact."""
+
+    plan: "RuntimeLoaderPlan"
+    artifact: LoaderArtifactPlan
+    metadata: dict[str, Any]
+    package_format: str
+    artifact_name: str
+    package_path: str
+    absolute_path: str
+    selected_package_mode: str | None
+    size: int | None
+    bytes: bytes
+    archive_path: Path | None = None
+    archive_member: str | None = None
+
+    @property
+    def byte_length(self) -> int:
+        return len(self.bytes)
+
+    def to_summary(self) -> dict[str, Any]:
+        return {
+            "schemaVersion": 1,
+            "packageFormat": self.package_format,
+            "selectedPackageMode": self.selected_package_mode,
+            "sourceParsingRequired": False,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "byteLength": self.byte_length,
+            "metadata": self.metadata,
+            "artifact": {
+                "name": self.artifact_name,
+                "path": self.package_path,
+                "absolutePath": self.absolute_path,
+                "size": self.size,
+                "archivePath": (
+                    str(self.archive_path) if self.archive_path is not None else None
+                ),
+                "archiveMember": self.archive_member,
+            },
+        }
+
+
+@dataclass(frozen=True)
+class RuntimeLoaderPlan:
+    """Structured runtime handoff for a target-specific loader implementation."""
+
+    root: Path
+    loader_target: str
+    module: str | None
+    package_target: str | None
+    compatibility_report: PackageCompatibilityReport
+    runtime_artifact_selection: RuntimeArtifactSelection
+    selected_artifacts: tuple[LoaderArtifactPlan, ...]
+    crosstl_adapter_load_units: tuple[CrossTLRuntimeAdapterLoadUnit, ...] = ()
+
+    @property
+    def loadable(self) -> bool:
+        return self.runtime_artifact_selection.selected
+
+    @property
+    def selected_target(self) -> str | None:
+        if not self.loadable:
+            return None
+        return self.loader_target
+
+    @property
+    def source_parsing_required(self) -> bool:
+        return False
+
+    @property
+    def loader_diagnostic_summary(self) -> dict[str, Any]:
+        compatibility_diagnostics = self.compatibility_report.diagnostics
+        selection_diagnostics = tuple(
+            diagnostic
+            for diagnostic in self.runtime_artifact_selection.diagnostics
+            if diagnostic not in compatibility_diagnostics
+        )
+        return {
+            "schemaVersion": 1,
+            "loadable": self.loadable,
+            "status": self.compatibility_report.status,
+            "sourceParsingRequired": self.source_parsing_required,
+            "versionCompatibility": self.version_compatibility_summary,
+            "targetCompatibility": self.target_compatibility_summary,
+            "artifactSelection": self.artifact_selection_summary,
+            "compatibility": _diagnostic_phase_summary(compatibility_diagnostics),
+            "selection": _diagnostic_phase_summary(selection_diagnostics),
+            "runtimeArtifactAdmission": self.runtime_artifact_admission_summary,
+        }
+
+    @property
+    def metadata_contract_summary(self) -> dict[str, Any]:
+        """Return the bounded metadata-only contract exposed to loaders."""
+        runtime_artifact = self.runtime_artifact
+        contract_source = self.package_artifact_requirements_source
+
+        return {
+            "schemaVersion": 1,
+            "metadataOnly": True,
+            "sourceParsingRequired": self.source_parsing_required,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "packageTarget": self.package_target,
+            "loaderTarget": self.loader_target,
+            "loadable": self.loadable,
+            "status": self.compatibility_report.status,
+            "contractSource": contract_source,
+            "packageArtifactRequirementsSource": contract_source,
+            "requiredMetadataInputs": self.required_metadata_inputs,
+            "requirements": self.package_artifact_requirements,
+            "packageArtifactRequirements": self.package_artifact_requirements,
+            "targetLegalizationEvidence": (
+                self.compatibility_report.target_legalization_evidence
+            ),
+            "targetLegalizationToolRequirements": (
+                self.compatibility_report.target_legalization_tool_requirements
+            ),
+            "versionCompatibility": self.version_compatibility_summary,
+            "targetCompatibility": self.target_compatibility_summary,
+            "artifactSelection": self.artifact_selection_summary,
+            "runtimeArtifactAdmission": self.runtime_artifact_admission_summary,
+            "metadataDocuments": _loader_metadata_documents(self.compatibility_report),
+            "requiredArtifactInputs": [
+                {
+                    "name": name,
+                    "path": self.required_artifact_paths[name],
+                    "declaredBy": (
+                        f"manifest.artifacts.{name}"
+                        if self.required_artifact_paths[name] is not None
+                        else None
+                    ),
+                }
+                for name in self.required_artifacts
+            ],
+            "selectedArtifactInputs": [
+                {
+                    "name": artifact.name,
+                    "path": artifact.package_path,
+                    "declaredBy": f"manifest.artifacts.{artifact.name}",
+                    "selectedForLoad": (
+                        runtime_artifact is not None
+                        and artifact.name == runtime_artifact.name
+                    ),
+                    "exists": artifact.exists,
+                }
+                for artifact in self.selected_artifacts
+            ],
+            "runtimeArtifact": (
+                {
+                    "name": runtime_artifact.name,
+                    "path": runtime_artifact.package_path,
+                    "declaredBy": f"manifest.artifacts.{runtime_artifact.name}",
+                }
+                if runtime_artifact is not None
+                else None
+            ),
+            "reflectionInputs": self.reflection_resource_summary,
+            "targetResourceBindingMetadata": (
+                self.target_resource_binding_metadata_summary
+            ),
+            "sourceInputs": [],
+        }
+
+    def to_runtime_loader_plan_contract(self) -> dict[str, Any]:
+        """Return the published metadata-only runtime loader plan contract."""
+        diagnostics = _runtime_loader_plan_contract_diagnostics(self)
+        selected_artifact = _runtime_loader_plan_contract_selected_artifact(self)
+        diagnostic_counts = _runtime_loader_plan_contract_diagnostic_counts(diagnostics)
+        package_target = _runtime_loader_plan_target_or_null(self.package_target)
+        requested_target = _runtime_loader_plan_target_or_null(self.loader_target)
+        target_matches_package = (
+            package_target is not None
+            and requested_target is not None
+            and package_target == requested_target
+        )
+        success = (
+            selected_artifact is not None
+            and diagnostic_counts["error"] == 0
+            and target_matches_package
+        )
+
+        return {
+            "schemaVersion": 1,
+            "kind": _RUNTIME_LOADER_PLAN_KIND,
+            "success": success,
+            "metadataOnly": True,
+            "sourceParsingRequired": self.source_parsing_required,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "packageFormat": _runtime_loader_plan_package_format(
+                self.compatibility_report.package_format
+            ),
+            "packageVersion": self.compatibility_report.manifest_schema_version,
+            "packageTarget": package_target,
+            "requestedLoaderTarget": requested_target,
+            "selectedTarget": self.selected_target,
+            "targetMatchesPackage": target_matches_package,
+            "loadable": self.loadable,
+            "requestedPackageMode": (
+                self.runtime_artifact_selection.requested_package_mode
+            ),
+            "selectedPackageMode": (
+                selected_artifact["packageMode"] if selected_artifact else None
+            ),
+            "selectedArtifact": selected_artifact,
+            "requiredArtifacts": list(self.required_artifacts),
+            "requiredArtifactPaths": self.required_artifact_paths,
+            "runtimeArtifactPath": self.runtime_artifact_path,
+            "runtimeArtifactSelection": (
+                _runtime_loader_plan_contract_runtime_artifact_selection(
+                    self,
+                    selected_artifact=selected_artifact,
+                    success=success,
+                )
+            ),
+            "requiredMetadataInputs": list(
+                _RUNTIME_LOADER_PLAN_REQUIRED_METADATA_INPUTS
+            ),
+            "packageArtifactRequirementsSource": (
+                _runtime_loader_plan_requirements_source(
+                    self.package_artifact_requirements_source
+                )
+            ),
+            "packageArtifactRequirements": (
+                _runtime_loader_plan_package_artifact_requirements(
+                    self.compatibility_report
+                )
+            ),
+            "targetLegalizationEvidenceSummary": (
+                _runtime_loader_plan_target_legalization_summary(
+                    self.compatibility_report
+                )
+            ),
+            "reflectionSummary": _runtime_loader_plan_reflection_summary(self),
+            "reflectionInputs": self.reflection_resource_summary,
+            "targetResourceBindingMetadata": (
+                self.target_resource_binding_metadata_summary
+            ),
+            "hostLoaderIntegration": (
+                _runtime_loader_plan_host_loader_integration(
+                    self,
+                    selected_artifact=selected_artifact,
+                    success=success,
+                )
+            ),
+            "crosstlRuntimeAdapters": self.crosstl_runtime_adapter_summary,
+            "diagnosticCounts": diagnostic_counts,
+            "diagnostics": diagnostics,
+        }
+
+    @property
+    def required_metadata_inputs(self) -> list[dict[str, Any]]:
+        """Return package metadata documents required before loader dispatch."""
+        return _loader_required_metadata_inputs(self.compatibility_report)
+
+    @property
+    def version_compatibility_summary(self) -> dict[str, Any]:
+        """Return loader-facing compiler/runtime version compatibility facts."""
+        report = self.compatibility_report
+        diagnostics = tuple(
+            diagnostic
+            for diagnostic in report.diagnostics
+            if _is_version_compatibility_diagnostic(diagnostic)
+        )
+        return {
+            "schemaVersion": 1,
+            "metadataOnly": True,
+            "sourceParsingRequired": self.source_parsing_required,
+            "planStatus": report.status,
+            "status": _version_compatibility_status(diagnostics),
+            "compatible": not diagnostics,
+            "compiler": {
+                "name": report.compiler_name,
+                "version": report.compiler_version,
+                "expectedName": SUPPORTED_COMPILER_NAME,
+                "compatible": _compiler_metadata_compatible(report),
+            },
+            "runtime": {
+                "loader": "runtime.loader",
+                "packageReader": "runtime.package_reader",
+                "supportedPackageSchemaVersion": SUPPORTED_PACKAGE_SCHEMA_VERSION,
+                "supportedDebugMetadataSchemaVersion": (
+                    SUPPORTED_DEBUG_METADATA_SCHEMA_VERSION
+                ),
+            },
+            "schemas": {
+                "manifest": _schema_version_compatibility(
+                    report.manifest_schema_version,
+                    supported_version=SUPPORTED_PACKAGE_SCHEMA_VERSION,
+                    required=True,
+                ),
+                "reflection": _schema_version_compatibility(
+                    report.reflection_schema_version,
+                    supported_version=SUPPORTED_PACKAGE_SCHEMA_VERSION,
+                    required=True,
+                ),
+                "diagnostics": _schema_version_compatibility(
+                    report.diagnostics_schema_version,
+                    supported_version=SUPPORTED_PACKAGE_SCHEMA_VERSION,
+                    required=True,
+                ),
+                "debugMetadata": _debug_metadata_version_compatibility(report),
+            },
+            "diagnosticCount": len(diagnostics),
+            "diagnosticCodes": [diagnostic.code for diagnostic in diagnostics],
+            "diagnostics": [diagnostic.to_summary() for diagnostic in diagnostics],
+        }
+
+    @property
+    def target_compatibility_summary(self) -> dict[str, Any]:
+        """Return loader-facing target compatibility facts and diagnostics."""
+        target_admission = _admission_section(
+            self.runtime_artifact_admission_summary.get("targetCompatibility")
+        )
+        diagnostics = [
+            diagnostic
+            for diagnostic in target_admission.get("diagnostics", [])
+            if isinstance(diagnostic, dict)
+        ]
+        return {
+            "schemaVersion": 1,
+            "metadataOnly": True,
+            "sourceParsingRequired": self.source_parsing_required,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "loaderTarget": self.loader_target,
+            "packageTarget": self.package_target,
+            "decision": target_admission.get("decision"),
+            "category": target_admission.get("category"),
+            "requestedTarget": target_admission.get(
+                "requestedTarget",
+                self.loader_target,
+            ),
+            "matched": target_admission.get(
+                "matched",
+                self.package_target == self.loader_target,
+            ),
+            "diagnosticCount": len(diagnostics),
+            "diagnosticCodes": [
+                diagnostic["code"]
+                for diagnostic in diagnostics
+                if isinstance(diagnostic.get("code"), str)
+            ],
+            "diagnostics": diagnostics,
+        }
+
+    @property
+    def artifact_selection_summary(self) -> dict[str, Any]:
+        """Return the normalized runtime artifact selection contract."""
+        selection = self.runtime_artifact_selection
+        admission = _admission_section(selection.admission)
+        diagnostics = [diagnostic.to_summary() for diagnostic in selection.diagnostics]
+        runtime_admission = self.runtime_artifact_admission_summary
+        return {
+            "schemaVersion": 1,
+            "metadataOnly": True,
+            "sourceParsingRequired": self.source_parsing_required,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "sourceInputs": [],
+            "supportedModes": list(_ARTIFACT_SELECTION_MODES),
+            "requestedMode": selection.requested_package_mode,
+            "requestedPackageMode": selection.requested_package_mode,
+            "selectedMode": selection.selected_package_mode,
+            "selectedPackageMode": selection.selected_package_mode,
+            "selected": selection.selected,
+            "decision": admission.get(
+                "decision",
+                "accepted" if selection.selected else "unavailable",
+            ),
+            "reason": runtime_admission["reason"],
+            "runtimeArtifact": _artifact_identity(self.runtime_artifact),
+            "selectedArtifacts": [
+                artifact.to_summary() for artifact in self.selected_artifacts
+            ],
+            "diagnosticCount": len(diagnostics),
+            "diagnosticCodes": [
+                diagnostic["code"]
+                for diagnostic in diagnostics
+                if isinstance(diagnostic.get("code"), str)
+            ],
+            "diagnostics": diagnostics,
+            "nativeArtifact": runtime_admission["nativeArtifact"],
+            "sourcePackageFallback": runtime_admission["sourcePackageFallback"],
+        }
+
+    @property
+    def diagnostics(self) -> tuple[CompatibilityDiagnostic, ...]:
+        return self.runtime_artifact_selection.diagnostics
+
+    @property
+    def reject_reasons(self) -> tuple[CompatibilityDiagnostic, ...]:
+        return self.runtime_artifact_selection.reject_reasons
+
+    @property
+    def skip_reasons(self) -> tuple[CompatibilityDiagnostic, ...]:
+        return self.runtime_artifact_selection.skip_reasons
+
+    @property
+    def required_artifacts(self) -> tuple[str, ...]:
+        return self.compatibility_report.required_artifacts
+
+    @property
+    def required_artifact_paths(self) -> dict[str, str | None]:
+        artifacts_by_name = {
+            artifact.name: artifact
+            for artifact in self.compatibility_report.available_artifacts
+        }
+        return {
+            name: (
+                artifacts_by_name[name].package_path
+                if name in artifacts_by_name
+                else None
+            )
+            for name in self.required_artifacts
+        }
+
+    @property
+    def runtime_artifact_path(self) -> str | None:
+        artifact = self.runtime_artifact
+        if artifact is None:
+            return None
+        return artifact.package_path
+
+    @property
+    def availability_summary(self) -> dict[str, Any]:
+        return self.compatibility_report.availability_summary
+
+    @property
+    def artifact_compatibility_summary(self) -> dict[str, Any]:
+        selected_artifact = self.runtime_artifact_selection.artifact
+        return self.compatibility_report.artifact_compatibility_summary(
+            selected_artifact_name=(
+                selected_artifact.name if selected_artifact is not None else None
+            ),
+            infer_runtime_selection=False,
+        )
+
+    @property
+    def runtime_artifact_admission_summary(self) -> dict[str, Any]:
+        """Return loader-facing runtime artifact admission facts."""
+        selection_summary = self.runtime_artifact_selection.to_summary()
+        admission = selection_summary.get("admission")
+        if not isinstance(admission, dict):
+            admission = {}
+
+        target_admission = _admission_section(admission.get("target"))
+        native_admission = _admission_section(admission.get("native"))
+        source_package_fallback = _admission_section(
+            admission.get("sourcePackageFallback")
+        )
+        artifacts_by_name = {
+            artifact.name: artifact
+            for artifact in self.compatibility_report.available_artifacts
+        }
+
+        native_admission["artifact"] = _artifact_identity(
+            artifacts_by_name.get("nativeBinary")
+        )
+        source_package_fallback["artifact"] = _artifact_identity(
+            artifacts_by_name.get("backendSource")
+        )
+
+        return {
+            "schemaVersion": 1,
+            "metadataOnly": True,
+            "sourceParsingRequired": self.source_parsing_required,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "loaderTarget": self.loader_target,
+            "packageTarget": self.package_target,
+            "requestedPackageMode": self.runtime_artifact_selection.requested_package_mode,
+            "selectedPackageMode": self.runtime_artifact_selection.selected_package_mode,
+            "loadable": self.loadable,
+            "status": self.compatibility_report.status,
+            "decision": admission.get(
+                "decision",
+                "accepted" if self.loadable else "rejected",
+            ),
+            "reason": _runtime_artifact_admission_reason(
+                selection=self.runtime_artifact_selection,
+                native_admission=native_admission,
+                source_package_fallback=source_package_fallback,
+            ),
+            "runtimeArtifact": _artifact_identity(self.runtime_artifact),
+            "packageArtifactRequirementsSource": (
+                self.package_artifact_requirements_source
+            ),
+            "packageArtifactRequirements": self.package_artifact_requirements,
+            "targetCompatibility": target_admission,
+            "nativeArtifact": native_admission,
+            "sourcePackageFallback": source_package_fallback,
+        }
+
+    @property
+    def package_artifact_requirements_source(self) -> str | None:
+        """Return the loader-facing source for package artifact requirements."""
+        contract = self.compatibility_report.target_contract
+        if contract is None:
+            return None
+        if contract.requirements_source == "manifest":
+            return "manifest.packageArtifactRequirements"
+        return "legacy-v0-target-contract"
+
+    @property
+    def package_artifact_requirements(self) -> dict[str, Any]:
+        """Return normalized package artifact requirement admission facts."""
+        return self.compatibility_report.requirements_summary
+
+    @property
+    def artifact_role_compatibility(self) -> dict[str, Any]:
+        """Return loader-facing compatibility for each required artifact role."""
+        roles = [
+            self._artifact_role_compatibility(name) for name in self.required_artifacts
+        ]
+        return {
+            "schemaVersion": 1,
+            "loaderTarget": self.loader_target,
+            "packageTarget": self.package_target,
+            "loadable": self.loadable,
+            "selectedRuntimeArtifact": (
+                self.runtime_artifact.name
+                if self.runtime_artifact is not None
+                else None
+            ),
+            "roleCount": len(roles),
+            "compatibleRoleCount": sum(1 for role in roles if role["compatible"]),
+            "blockedByDiagnostics": [
+                diagnostic.to_summary()
+                for diagnostic in self.diagnostics
+                if diagnostic.severity in {"error", "skip"}
+            ],
+            "roles": roles,
+        }
+
+    @property
+    def reflection_resource_summary(self) -> dict[str, Any]:
+        target_features = self._reflection_records("targetFeatures")
+        workgroup_sizes = self.workgroup_sizes
+        function_constants = self.function_constants
+        selected_target = self.selected_target
+        if selected_target is None:
+            selected_target = self.loader_target
+
+        selected_bindings = self.target_resource_binding_records(target=selected_target)
+        target_bindings = self.reflection_records("targetResourceBindings")
+        selected_features = tuple(
+            record
+            for record in target_features
+            if record.get("target") == selected_target
+        )
+
+        return {
+            "schemaVersion": 1,
+            "selectedTarget": self.selected_target,
+            "entryPointCount": len(self.entry_point_records()),
+            "resourceCount": len(self.resource_records()),
+            "targetResourceBindingCount": len(selected_bindings),
+            "targetFeatureCount": len(selected_features),
+            "workgroupSizeCount": len(workgroup_sizes),
+            "functionConstantCount": len(function_constants),
+            "specializationConstantCount": sum(
+                1 for record in function_constants if "specializationId" in record
+            ),
+            "workgroupSizesAvailable": bool(workgroup_sizes),
+            "functionConstantsAvailable": bool(function_constants),
+            "skippedTargetResourceBindingCount": (
+                len(target_bindings) - len(selected_bindings)
+            ),
+            "skippedTargetFeatureCount": len(target_features) - len(selected_features),
+            "entryPoints": [
+                _summarize_reflection_record(
+                    record,
+                    ("stage", "sourceName", "backendName"),
+                )
+                for record in self.entry_point_records()
+            ],
+            "resources": [
+                _summarize_reflection_record(
+                    record,
+                    (
+                        "stage",
+                        "name",
+                        "kind",
+                        "type",
+                        "storageImageFormat",
+                        "storageImageAccess",
+                        "arrayDimensions",
+                        "arrayElementCount",
+                        "set",
+                        "binding",
+                    ),
+                )
+                for record in self.resource_records()
+            ],
+            "targetResourceBindings": [
+                _summarize_reflection_record(
+                    record,
+                    (
+                        "target",
+                        "stage",
+                        "entryPoint",
+                        "name",
+                        "kind",
+                        "bindingClass",
+                        "descriptorType",
+                        "set",
+                        "binding",
+                        "argumentIndex",
+                        "storageImageFormat",
+                        "storageImageAccess",
+                        "arrayDimensions",
+                        "arrayElementCount",
+                        "abi",
+                        "evidenceId",
+                    ),
+                )
+                for record in selected_bindings
+            ],
+            "targetFeatures": [
+                _summarize_reflection_record(
+                    record,
+                    ("target", "kind", "name", "evidenceIds"),
+                )
+                for record in selected_features
+            ],
+            "workgroupSizes": list(workgroup_sizes),
+            "functionConstants": list(function_constants),
+        }
+
+    @property
+    def target_resource_binding_metadata_summary(self) -> dict[str, Any]:
+        selected_target = self.selected_target
+        if selected_target is None:
+            selected_target = self.loader_target
+        selected_bindings = self.target_resource_binding_records(target=selected_target)
+        target_bindings = self.reflection_records("targetResourceBindings")
+        return {
+            "schemaVersion": 1,
+            "selectedTarget": self.selected_target,
+            "loaderTarget": self.loader_target,
+            "packageTarget": self.package_target,
+            "bindingCount": len(selected_bindings),
+            "skippedBindingCount": len(target_bindings) - len(selected_bindings),
+            "bindings": [
+                _target_resource_binding_metadata_record(record)
+                for record in selected_bindings
+            ],
+        }
+
+    @property
+    def runtime_artifact(self) -> LoaderArtifactPlan | None:
+        artifact = self.runtime_artifact_selection.artifact
+        if artifact is None:
+            return None
+        return self.artifact(artifact.name)
+
+    def require_runtime_artifact(self) -> LoaderArtifactPlan:
+        artifact = self.runtime_artifact
+        if artifact is None:
+            self.runtime_artifact_selection.require_selected()
+            raise PackageReadError("loader plan did not select a runtime artifact")
+        return artifact
+
+    def runtime_artifact_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff | None:
+        if not self.loadable:
+            return None
+        artifact = self.runtime_artifact
+        if artifact is None:
+            return None
+        return self._runtime_artifact_handoff(artifact, byte_limit=byte_limit)
+
+    def require_runtime_artifact_handoff(
+        self,
+        *,
+        byte_limit: int | None = None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        self.require_loadable()
+        return self._runtime_artifact_handoff(
+            self.require_runtime_artifact(),
+            byte_limit=byte_limit,
+        )
+
+    def _runtime_artifact_handoff(
+        self,
+        artifact: LoaderArtifactPlan,
+        *,
+        byte_limit: int | None,
+    ) -> SourceFreeRuntimeArtifactHandoff:
+        payload = artifact.read_bytes(byte_limit=byte_limit)
+        return SourceFreeRuntimeArtifactHandoff(
+            plan=self,
+            artifact=artifact,
+            metadata=self.metadata_contract_summary,
+            package_format=self.compatibility_report.package_format,
+            artifact_name=artifact.name,
+            package_path=artifact.package_path,
+            absolute_path=artifact.absolute_path or str(artifact.path),
+            selected_package_mode=(
+                self.runtime_artifact_selection.selected_package_mode
+            ),
+            size=artifact.size if artifact.size is not None else len(payload),
+            bytes=payload,
+            archive_path=artifact.archive_path,
+            archive_member=artifact.archive_member,
+        )
+
+    def artifact(self, name: str) -> LoaderArtifactPlan | None:
+        for artifact in self.selected_artifacts:
+            if artifact.name == name:
+                return artifact
+        return None
+
+    def reflection_records(self, key: str) -> tuple[dict[str, Any], ...]:
+        """Return raw package reflection records by metadata key."""
+        return self._reflection_records(key)
+
+    def entry_point_records(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected entry point records visible to runtime loaders."""
+        return self.reflection_records("entryPoints")
+
+    def resource_records(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected resource records visible to runtime loaders."""
+        return self.reflection_records("resources")
+
+    def target_resource_binding_records(
+        self,
+        *,
+        target: str | None = None,
+    ) -> tuple[dict[str, Any], ...]:
+        """Return reflected target binding records for a selected target."""
+        expected_target = self.loader_target if target is None else target
+        return tuple(
+            record
+            for record in self.reflection_records("targetResourceBindings")
+            if record.get("target") == expected_target
+        )
+
+    def require_artifact(self, name: str) -> LoaderArtifactPlan:
+        artifact = self.artifact(name)
+        if artifact is None:
+            raise PackageReadError(f"loader plan did not select artifact: {name}")
+        return artifact
+
+    def entry_point(self, stage: str, name: str) -> dict[str, Any] | None:
+        """Find a reflected entry point by stage and source/backend name."""
+        for entry_point in self.entry_point_records():
+            if entry_point.get("stage") != stage:
+                continue
+            if name in (entry_point.get("sourceName"), entry_point.get("backendName")):
+                return entry_point
+        return None
+
+    def require_entry_point(self, stage: str, name: str) -> dict[str, Any]:
+        entry_point = self.entry_point(stage, name)
+        if entry_point is None:
+            raise PackageReadError(
+                f"missing reflection entry point: stage={stage} name={name}"
+            )
+        return entry_point
+
+    def resource_binding(self, stage: str, name: str) -> dict[str, Any] | None:
+        """Find a reflected resource binding by stage and resource name."""
+        for resource in self.resource_records():
+            if resource.get("stage") == stage and resource.get("name") == name:
+                return resource
+        return None
+
+    def require_resource_binding(self, stage: str, name: str) -> dict[str, Any]:
+        resource = self.resource_binding(stage, name)
+        if resource is None:
+            raise PackageReadError(
+                f"missing reflection resource binding: stage={stage} name={name}"
+            )
+        return resource
+
+    def target_resource_binding(
+        self,
+        stage: str,
+        name: str,
+        *,
+        target: str | None = None,
+        entry_point: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Find a target-specific reflected resource binding by stage and name."""
+        expected_target = self.loader_target if target is None else target
+        for resource in self.target_resource_binding_records(target=expected_target):
+            if resource.get("stage") != stage or resource.get("name") != name:
+                continue
+            if entry_point is not None and resource.get("entryPoint") != entry_point:
+                continue
+            return resource
+        return None
+
+    def require_target_resource_binding(
+        self,
+        stage: str,
+        name: str,
+        *,
+        target: str | None = None,
+        entry_point: str | None = None,
+    ) -> dict[str, Any]:
+        resource = self.target_resource_binding(
+            stage,
+            name,
+            target=target,
+            entry_point=entry_point,
+        )
+        if resource is None:
+            expected_target = self.loader_target if target is None else target
+            raise PackageReadError(
+                "missing reflection target resource binding: "
+                f"target={expected_target} stage={stage} name={name}"
+            )
+        return resource
+
+    def target_resource_binding_metadata_records(
+        self,
+        *,
+        target: str | None = None,
+    ) -> tuple[dict[str, Any], ...]:
+        """Return loader-facing binding metadata records for a selected target."""
+        expected_target = self.loader_target if target is None else target
+        bindings = self.target_resource_binding_metadata_summary.get("bindings")
+        if not isinstance(bindings, list):
+            return ()
+        return tuple(
+            record
+            for record in bindings
+            if isinstance(record, dict) and record.get("target") == expected_target
+        )
+
+    def target_resource_binding_metadata(
+        self,
+        stage: str,
+        name: str,
+        *,
+        target: str | None = None,
+        entry_point: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Find loader-facing target binding metadata by stage and resource name."""
+        for record in self.target_resource_binding_metadata_records(target=target):
+            if record.get("stage") != stage or record.get("name") != name:
+                continue
+            if entry_point is not None and record.get("entryPoint") != entry_point:
+                continue
+            return record
+        return None
+
+    def require_target_resource_binding_metadata(
+        self,
+        stage: str,
+        name: str,
+        *,
+        target: str | None = None,
+        entry_point: str | None = None,
+    ) -> dict[str, Any]:
+        record = self.target_resource_binding_metadata(
+            stage,
+            name,
+            target=target,
+            entry_point=entry_point,
+        )
+        if record is None:
+            expected_target = self.loader_target if target is None else target
+            raise PackageReadError(
+                "missing reflection target resource binding metadata: "
+                f"target={expected_target} stage={stage} name={name}"
+            )
+        return record
+
+    def crosstl_adapter_load_unit_records(
+        self,
+        *,
+        target: str | None = None,
+    ) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+        """Return selected CrossTL adapter load units visible to runtime loaders."""
+        expected_target = self.loader_target if target is None else target
+        return tuple(
+            unit
+            for unit in self.crosstl_adapter_load_units
+            if unit.target == expected_target
+        )
+
+    def crosstl_adapter_load_unit(
+        self,
+        package_path: str,
+        *,
+        target: str | None = None,
+    ) -> CrossTLRuntimeAdapterLoadUnit | None:
+        """Find a selected CrossTL adapter load unit by package artifact path."""
+        for unit in self.crosstl_adapter_load_unit_records(target=target):
+            if unit.package_path == package_path:
+                return unit
+        return None
+
+    def require_crosstl_adapter_load_unit(
+        self,
+        package_path: str,
+        *,
+        target: str | None = None,
+    ) -> CrossTLRuntimeAdapterLoadUnit:
+        unit = self.crosstl_adapter_load_unit(package_path, target=target)
+        if unit is None:
+            expected_target = self.loader_target if target is None else target
+            raise PackageReadError(
+                "missing CrossTL runtime adapter load unit: "
+                f"target={expected_target} packagePath={package_path}"
+            )
+        return unit
+
+    @property
+    def crosstl_runtime_adapter_summary(self) -> dict[str, Any]:
+        load_units = self.crosstl_adapter_load_unit_records()
+        ready_count = sum(
+            1 for unit in load_units if unit.validation.get("loadReady") is True
+        )
+        return {
+            "target": self.selected_target,
+            "runtimeArtifactPath": self.runtime_artifact_path,
+            "loadUnitCount": len(load_units),
+            "readyLoadUnitCount": ready_count,
+            "blockedLoadUnitCount": len(load_units) - ready_count,
+            "targets": sorted({unit.target for unit in load_units}),
+            "loadUnits": [unit.to_summary() for unit in load_units],
+        }
+
+    @property
+    def workgroup_sizes(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected compute workgroup sizes from package metadata."""
+        return self.compatibility_report.workgroup_sizes
+
+    @property
+    def function_constants(self) -> tuple[dict[str, Any], ...]:
+        """Return reflected function constants from package metadata."""
+        return self.compatibility_report.function_constants
+
+    def function_constant(self, name: str) -> dict[str, Any] | None:
+        """Find reflected function constant metadata by name."""
+        return self.compatibility_report.function_constant(name)
+
+    def require_function_constant(self, name: str) -> dict[str, Any]:
+        function_constant = self.function_constant(name)
+        if function_constant is None:
+            raise PackageReadError(f"missing reflection function constant: name={name}")
+        return function_constant
+
+    def workgroup_size(self, stage: str, entry_point: str) -> dict[str, Any] | None:
+        """Find reflected workgroup size by stage and source/backend entry name."""
+        return self.compatibility_report.workgroup_size(stage, entry_point)
+
+    def require_workgroup_size(self, stage: str, entry_point: str) -> dict[str, Any]:
+        workgroup_size = self.workgroup_size(stage, entry_point)
+        if workgroup_size is None:
+            raise PackageReadError(
+                "missing reflection workgroup size: "
+                f"stage={stage} entryPoint={entry_point}"
+            )
+        return workgroup_size
+
+    def require_loadable(self) -> "RuntimeLoaderPlan":
+        if not self.loadable:
+            messages = "; ".join(
+                diagnostic.message
+                for diagnostic in self.diagnostics
+                if diagnostic.severity in {"error", "skip"}
+            )
+            raise PackageReadError(f"runtime loader cannot load package: {messages}")
+        return self
+
+    def to_summary(self) -> dict[str, Any]:
+        return {
+            "schemaVersion": 1,
+            "packageFormat": self.compatibility_report.package_format,
+            "packageVersion": self.compatibility_report.manifest_schema_version,
+            "root": str(self.root),
+            "module": self.module,
+            "packageTarget": self.package_target,
+            "loaderTarget": self.loader_target,
+            "selectedTarget": self.selected_target,
+            "availableTargets": list(self.compatibility_report.available_targets),
+            "targetAvailability": self.compatibility_report.target_availability,
+            "loadable": self.loadable,
+            "status": self.compatibility_report.status,
+            "versionCompatibility": self.version_compatibility_summary,
+            "sourceParsingRequired": self.source_parsing_required,
+            "sourceInputs": [],
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+            "requiredMetadataInputs": self.required_metadata_inputs,
+            "requiredArtifacts": list(self.required_artifacts),
+            "requiredArtifactPaths": self.required_artifact_paths,
+            "runtimeArtifactPath": self.runtime_artifact_path,
+            "packageArtifactRequirementsSource": (
+                self.package_artifact_requirements_source
+            ),
+            "packageArtifactRequirements": self.package_artifact_requirements,
+            "targetCompatibility": self.target_compatibility_summary,
+            "artifactSelection": self.artifact_selection_summary,
+            "runtimeArtifactAdmission": self.runtime_artifact_admission_summary,
+            "runtimeArtifactSelection": self.runtime_artifact_selection.to_summary(),
+            "crosstlRuntimeAdapters": self.crosstl_runtime_adapter_summary,
+            "targetLegalizationEvidence": (
+                self.compatibility_report.target_legalization_evidence
+            ),
+            "targetLegalizationToolRequirements": (
+                self.compatibility_report.target_legalization_tool_requirements
+            ),
+            "selectedArtifacts": [
+                artifact.to_summary() for artifact in self.selected_artifacts
+            ],
+            "artifactRoleCompatibility": self.artifact_role_compatibility,
+            "artifactCompatibility": self.artifact_compatibility_summary,
+            "reflectionResources": self.reflection_resource_summary,
+            "targetResourceBindingMetadata": (
+                self.target_resource_binding_metadata_summary
+            ),
+            "artifactAvailability": self.compatibility_report.artifact_availability,
+            "availability": self.availability_summary,
+            "metadataContract": self.metadata_contract_summary,
+            "missingArtifacts": [
+                diagnostic.to_summary()
+                for diagnostic in self.compatibility_report.missing_artifacts
+            ],
+            "rejectReasons": [
+                diagnostic.to_summary() for diagnostic in self.reject_reasons
+            ],
+            "skipReasons": [
+                diagnostic.to_summary() for diagnostic in self.skip_reasons
+            ],
+            "diagnosticSummary": self.compatibility_report.diagnostic_summary,
+            "loaderDiagnostics": self.loader_diagnostic_summary,
+            "diagnostics": [diagnostic.to_summary() for diagnostic in self.diagnostics],
+            "compatibilityReport": self.compatibility_report.to_summary(),
+        }
+
+    def _reflection_records(self, key: str) -> tuple[dict[str, Any], ...]:
+        records = self.compatibility_report.reflection.get(key, [])
+        if not isinstance(records, list):
+            return ()
+        return tuple(record for record in records if isinstance(record, dict))
+
+    def _artifact_role_compatibility(self, name: str) -> dict[str, Any]:
+        artifacts_by_name = {
+            artifact.name: artifact
+            for artifact in self.compatibility_report.available_artifacts
+        }
+        artifact = artifacts_by_name.get(name)
+        selected_for_runtime = (
+            self.runtime_artifact_selection.artifact is not None
+            and self.runtime_artifact_selection.artifact.name == name
+        )
+        planned_native_evidence = (
+            self.loadable
+            and name == "nativeBinary"
+            and self.runtime_artifact_selection.selected_package_mode
+            == "source-package"
+            and self.compatibility_report.native_binary_status == "planned"
+            and artifact is not None
+        )
+
+        if not self.loadable:
+            status = "blocked"
+        elif artifact is None:
+            status = "missing-metadata"
+        elif selected_for_runtime:
+            status = "selected-runtime-artifact"
+        elif planned_native_evidence:
+            status = "planned-evidence"
+        elif artifact.exists:
+            status = "required-sidecar-artifact"
+        else:
+            status = "missing-file"
+
+        compatible = (
+            self.loadable
+            and artifact is not None
+            and (artifact.exists or planned_native_evidence)
+        )
+        return {
+            "role": name,
+            "required": True,
+            "declared": artifact is not None,
+            "declaredBy": (
+                f"manifest.artifacts.{name}" if artifact is not None else None
+            ),
+            "path": artifact.package_path if artifact is not None else None,
+            "exists": artifact.exists if artifact is not None else False,
+            "size": artifact.size if artifact is not None else None,
+            "selectedForRuntime": selected_for_runtime,
+            "bytesRequired": selected_for_runtime,
+            "status": status,
+            "compatible": compatible,
+            "diagnostics": [
+                diagnostic.to_summary()
+                for diagnostic in self.diagnostics
+                if _diagnostic_matches_artifact_role(diagnostic, name)
+            ],
+        }
+
+
+def read_loader_plan(
+    package_path: Path | str,
+    loader_target: str,
+    *,
+    package_mode: str = "auto",
+) -> RuntimeLoaderPlan:
+    """Build a target-neutral runtime loader plan for a `.cglb` package.
+
+    The package is read through :func:`read_compatibility_report`; this function
+    does not parse CrossGL source, infer target support, or inspect compiler
+    private IR. Required artifact selection follows the target contract reported
+    by the package reader; primary runtime artifact selection follows package
+    metadata and the requested package mode.
+    """
+    if not isinstance(loader_target, str) or not loader_target:
+        raise PackageReadError("loader_target must be a non-empty string")
+
+    report = _loader_compatibility_report(
+        read_compatibility_report(package_path, loader_target=loader_target)
+    )
+    runtime_artifact_selection = select_runtime_artifact(
+        report,
+        target=loader_target,
+        package_mode=package_mode,
+    )
+    selected_artifacts = _select_loader_artifacts(report)
+    if not runtime_artifact_selection.selected:
+        selected_artifacts = ()
+    crosstl_adapter_load_units = _select_crosstl_adapter_load_units(
+        report,
+        loader_target=loader_target,
+        runtime_artifact_selection=runtime_artifact_selection,
+    )
+
+    return RuntimeLoaderPlan(
+        root=report.root,
+        loader_target=loader_target,
+        module=report.module,
+        package_target=report.target,
+        compatibility_report=report,
+        runtime_artifact_selection=runtime_artifact_selection,
+        selected_artifacts=selected_artifacts,
+        crosstl_adapter_load_units=crosstl_adapter_load_units,
+    )
+
+
+def _select_crosstl_adapter_load_units(
+    report: PackageCompatibilityReport,
+    *,
+    loader_target: str,
+    runtime_artifact_selection: RuntimeArtifactSelection,
+) -> tuple[CrossTLRuntimeAdapterLoadUnit, ...]:
+    artifact = runtime_artifact_selection.artifact
+    if artifact is None or not runtime_artifact_selection.selected:
+        return ()
+    if report.package_format not in {"directory", "zip"}:
+        return ()
+
+    selected_artifact_format = _runtime_loader_plan_artifact_format_for_name(
+        artifact.name
+    )
+    if selected_artifact_format is None:
+        return ()
+
+    return tuple(
+        unit
+        for unit in discover_crosstl_runtime_adapter_load_units(report.root)
+        if unit.target == loader_target
+        and unit.package_path == artifact.package_path
+        and unit.artifact_format == selected_artifact_format
+    )
+
+
+def read_runtime_loader_plan_contract(
+    package_path: Path | str,
+    loader_target: str,
+    *,
+    package_mode: str = "auto",
+) -> dict[str, Any]:
+    """Read a `.cglb` package and return the published loader-plan contract."""
+    return read_loader_plan(
+        package_path,
+        loader_target,
+        package_mode=package_mode,
+    ).to_runtime_loader_plan_contract()
+
+
+def _runtime_loader_plan_target_or_null(target: str | None) -> str | None:
+    if target in _RUNTIME_LOADER_PLAN_KNOWN_TARGETS:
+        return target
+    return None
+
+
+def _runtime_loader_plan_package_format(package_format: str) -> str | None:
+    if package_format in {"directory", "zip"}:
+        return package_format
+    return None
+
+
+def _runtime_loader_plan_requirements_source(source: str | None) -> str | None:
+    if source is None:
+        return None
+    return _RUNTIME_LOADER_PLAN_SCHEMA_REQUIREMENT_SOURCES.get(source)
+
+
+def _runtime_loader_plan_package_artifact_requirements(
+    report: PackageCompatibilityReport,
+) -> dict[str, Any] | None:
+    contract = report.target_contract
+    if contract is None:
+        return None
+
+    evidence_ids = report.target_legalization_evidence.get(
+        "packageArtifactRequirementEvidenceIds"
+    )
+    if not isinstance(evidence_ids, list):
+        evidence_ids = []
+
+    return {
+        "target": contract.target,
+        "packageMode": contract.package_mode,
+        "requiredPathArtifacts": list(contract.required_artifacts),
+        "requiresNativeBinaryStatus": contract.native_binary_status_required,
+        "allowsPlannedNativeBinary": contract.planned_native_binary_may_be_absent,
+        "allowsPlannedNativeSourceEvidence": (
+            contract.allows_planned_native_source_evidence
+        ),
+        "evidenceIds": [item for item in evidence_ids if isinstance(item, str)],
+    }
+
+
+def _runtime_loader_plan_target_legalization_summary(
+    report: PackageCompatibilityReport,
+) -> dict[str, Any]:
+    requirements = report.target_legalization_tool_requirements
+    present = bool(requirements.get("present"))
+    required_tool_ids = _runtime_loader_plan_string_list(
+        requirements.get("requiredToolIds")
+    )
+    missing_tool_ids = _runtime_loader_plan_string_list(
+        requirements.get("missingToolIds")
+    )
+    evidence_ids = _runtime_loader_plan_string_list(
+        requirements.get("toolRequirementEvidenceIds")
+    )
+    package_mode = requirements.get("packageMode")
+
+    return {
+        "toolRequirementsPresent": present,
+        "target": (
+            _runtime_loader_plan_target_or_null(requirements.get("target"))
+            if present
+            else None
+        ),
+        "packageMode": (
+            package_mode if package_mode in {"native", "source-package"} else None
+        ),
+        "requiredToolCount": len(required_tool_ids),
+        "missingToolCount": len(missing_tool_ids),
+        "requiredToolIds": required_tool_ids,
+        "missingToolIds": missing_tool_ids,
+        "toolRequirementEvidenceIds": evidence_ids,
+    }
+
+
+def _runtime_loader_plan_reflection_summary(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any]:
+    reflection = plan.reflection_resource_summary
+    return {
+        "resourceCount": reflection["resourceCount"],
+        "targetResourceBindingCount": reflection["targetResourceBindingCount"],
+        "targetFeatureCount": reflection["targetFeatureCount"],
+        "entryPointCount": reflection["entryPointCount"],
+        "workgroupSizeCount": reflection["workgroupSizeCount"],
+        "functionConstantCount": reflection["functionConstantCount"],
+        "specializationConstantCount": reflection["specializationConstantCount"],
+        "threadgroupShapeSource": "reflection.workgroupSizes",
+    }
+
+
+def _runtime_loader_plan_contract_selected_artifact(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any] | None:
+    artifact = plan.runtime_artifact
+    package_mode = plan.runtime_artifact_selection.selected_package_mode
+    if artifact is None or package_mode is None:
+        return None
+    package_path = artifact.package_path
+    return {
+        "name": artifact.name,
+        "path": package_path,
+        "packageMode": package_mode,
+        "packageRelative": (
+            not PurePosixPath(package_path).is_absolute() and "\\" not in package_path
+        ),
+        "exists": artifact.exists,
+    }
+
+
+def _runtime_loader_plan_contract_runtime_artifact_selection(
+    plan: RuntimeLoaderPlan,
+    *,
+    selected_artifact: dict[str, Any] | None,
+    success: bool,
+) -> dict[str, Any]:
+    return {
+        "schemaVersion": 1,
+        "requestedTarget": _runtime_loader_plan_target_or_null(plan.loader_target),
+        "requestedPackageMode": (
+            plan.runtime_artifact_selection.requested_package_mode
+        ),
+        "packageTarget": _runtime_loader_plan_target_or_null(plan.package_target),
+        "selectedTarget": plan.selected_target if success else None,
+        "selected": success,
+        "selectedPackageMode": (
+            selected_artifact["packageMode"] if selected_artifact else None
+        ),
+        "sourceParsingRequired": plan.source_parsing_required,
+        "compilerInvocationRequired": False,
+        "deviceExecutionRequired": False,
+        "sourceInputs": [],
+        "artifact": selected_artifact,
+    }
+
+
+def _runtime_loader_plan_host_loader_integration(
+    plan: RuntimeLoaderPlan,
+    *,
+    selected_artifact: dict[str, Any] | None,
+    success: bool,
+) -> dict[str, Any]:
+    reflection = plan.reflection_resource_summary
+    entry_point_count = int(reflection.get("entryPointCount") or 0)
+    resource_binding_count = int(reflection.get("targetResourceBindingCount") or 0)
+    workgroup_size_count = int(reflection.get("workgroupSizeCount") or 0)
+    function_constant_count = int(reflection.get("functionConstantCount") or 0)
+    specialization_constant_count = int(
+        reflection.get("specializationConstantCount") or 0
+    )
+    has_load_unit = selected_artifact is not None
+    host_interface_ready = bool(success and has_load_unit and entry_point_count > 0)
+    blocked_load_unit_count = 1 if has_load_unit and not host_interface_ready else 0
+    ready_load_unit_count = 1 if host_interface_ready else 0
+
+    load_units = []
+    if selected_artifact is not None:
+        load_units.append(
+            _runtime_loader_plan_host_loader_load_unit(
+                plan,
+                selected_artifact=selected_artifact,
+                host_interface_ready=host_interface_ready,
+                entry_point_count=entry_point_count,
+                resource_binding_count=resource_binding_count,
+                workgroup_size_count=workgroup_size_count,
+                function_constant_count=function_constant_count,
+                specialization_constant_count=specialization_constant_count,
+            )
+        )
+
+    if host_interface_ready:
+        status = "ready"
+    elif has_load_unit:
+        status = "blocked"
+    else:
+        status = "unavailable"
+
+    return {
+        "schemaVersion": 1,
+        "kind": _RUNTIME_HOST_LOADER_INTEGRATION_KIND,
+        "status": status,
+        "scope": _RUNTIME_HOST_LOADER_INTEGRATION_SCOPE,
+        "nonGoals": list(_RUNTIME_HOST_LOADER_INTEGRATION_NON_GOALS),
+        "summary": {
+            "targetCount": 1 if has_load_unit else 0,
+            "loadUnitCount": len(load_units),
+            "readyLoadUnitCount": ready_load_unit_count,
+            "blockedLoadUnitCount": blocked_load_unit_count,
+            "entryPointCount": entry_point_count,
+            "resourceBindingCount": resource_binding_count,
+            "workgroupSizeCount": workgroup_size_count,
+            "functionConstantCount": function_constant_count,
+            "specializationConstantCount": specialization_constant_count,
+        },
+        "loadUnits": load_units,
+    }
+
+
+def _runtime_loader_plan_host_loader_load_unit(
+    plan: RuntimeLoaderPlan,
+    *,
+    selected_artifact: dict[str, Any],
+    host_interface_ready: bool,
+    entry_point_count: int,
+    resource_binding_count: int,
+    workgroup_size_count: int,
+    function_constant_count: int,
+    specialization_constant_count: int,
+) -> dict[str, Any]:
+    selected_target = _runtime_loader_plan_target_or_null(plan.selected_target)
+    source_remap = _runtime_loader_plan_source_remap(plan)
+    backend_source_map = _runtime_loader_plan_backend_source_map(plan)
+    required_tools = _runtime_loader_plan_required_tools(plan)
+    host_responsibilities = _runtime_loader_plan_host_responsibilities(
+        source_remap=source_remap,
+        backend_source_map=backend_source_map,
+        required_tools=required_tools,
+        workgroup_size_count=workgroup_size_count,
+    )
+    host_interface_status = "ready" if host_interface_ready else "unavailable"
+    selected_artifact_format = (
+        _runtime_loader_plan_artifact_format_for_name(selected_artifact["name"])
+        or "unknown"
+    )
+    load_steps = [
+        {
+            "kind": "load-package-artifact",
+            "message": "Load the selected runtime package artifact.",
+            "target": selected_target,
+            "packagePath": selected_artifact["path"],
+            "hostInterfaceStatus": host_interface_status,
+            "command": None,
+            "tools": [],
+            "metadata": {
+                "source": {
+                    "field": "selectedArtifact.path",
+                    "path": selected_artifact["path"],
+                },
+                "artifact": {
+                    "name": selected_artifact["name"],
+                    "packageMode": selected_artifact["packageMode"],
+                    "artifactFormat": selected_artifact_format,
+                },
+            },
+        }
+    ]
+    if source_remap is not None:
+        load_steps.append(
+            {
+                "kind": "load-source-remap",
+                "message": "Load source remap provenance for diagnostics.",
+                "target": selected_target,
+                "packagePath": source_remap["packagePath"],
+                "hostInterfaceStatus": host_interface_status,
+                "command": None,
+                "tools": [],
+                "metadata": {
+                    "source": {
+                        "field": "manifest.artifacts.sourceRemap",
+                        "path": source_remap["packagePath"],
+                    },
+                    "provenance": {
+                        "source": "loadUnit.sourceRemap.provenance",
+                        "available": source_remap["provenance"]["available"],
+                        "health": source_remap["provenance"]["health"],
+                    },
+                },
+            }
+        )
+    if backend_source_map is not None:
+        load_steps.append(
+            {
+                "kind": "load-backend-source-map",
+                "message": "Load backend source map metadata for diagnostics.",
+                "target": selected_target,
+                "packagePath": backend_source_map["packagePath"],
+                "hostInterfaceStatus": host_interface_status,
+                "command": None,
+                "tools": [],
+                "metadata": {
+                    "source": {
+                        "field": "manifest.artifacts.backendSourceMap",
+                        "path": backend_source_map["packagePath"],
+                    },
+                    "provenance": {
+                        "source": "loadUnit.backendSourceMap.provenance",
+                        "available": backend_source_map["provenance"]["available"],
+                        "health": backend_source_map["provenance"]["health"],
+                    },
+                },
+            }
+        )
+    blockers = []
+    if host_interface_ready:
+        load_steps.append(
+            {
+                "kind": "bind-host-interface",
+                "message": "Bind reflected host interface metadata.",
+                "target": selected_target,
+                "packagePath": selected_artifact["path"],
+                "hostInterfaceStatus": host_interface_status,
+                "command": None,
+                "tools": [],
+                "metadata": {
+                    "source": {"field": "reflectionInputs"},
+                    "entryPointCount": entry_point_count,
+                    "resourceBindingCount": resource_binding_count,
+                    "workgroupSizeCount": workgroup_size_count,
+                    "functionConstantCount": function_constant_count,
+                    "specializationConstantCount": specialization_constant_count,
+                },
+            }
+        )
+    else:
+        blockers.append(
+            {
+                "kind": "resolve-host-interface-metadata",
+                "severity": "warning",
+                "source": "reflectionInputs.entryPoints",
+                "message": (
+                    "runtime loader plan requires reflection entry point metadata "
+                    "before host loader scaffolding"
+                ),
+            }
+        )
+
+    status = "ready" if host_interface_ready else "blocked"
+    return {
+        "id": _runtime_loader_plan_load_unit_id(selected_target, selected_artifact),
+        "target": selected_target,
+        "packageMode": selected_artifact["packageMode"],
+        "artifact": selected_artifact,
+        "packagePath": selected_artifact["path"],
+        "artifactFormat": selected_artifact_format,
+        "adapterKind": (
+            "native-binary-loader"
+            if selected_artifact_format == "native-binary"
+            else "backend-source-loader"
+        ),
+        "status": status,
+        "sourceRemap": source_remap,
+        "backendSourceMap": backend_source_map,
+        "requiredTools": required_tools,
+        "hostResponsibilities": host_responsibilities,
+        "hostInterface": {
+            "status": host_interface_status,
+            "source": "reflectionInputs",
+            "entryPointCount": entry_point_count,
+            "resourceBindingCount": resource_binding_count,
+            "workgroupSizeCount": workgroup_size_count,
+            "functionConstantCount": function_constant_count,
+            "specializationConstantCount": specialization_constant_count,
+        },
+        "validation": {
+            "loadReady": host_interface_ready,
+            "metadataOnly": True,
+            "sourceParsingRequired": False,
+            "compilerInvocationRequired": False,
+            "deviceExecutionRequired": False,
+        },
+        "loadSteps": load_steps,
+        "blockers": blockers,
+    }
+
+
+def _runtime_loader_plan_load_unit_id(
+    selected_target: str | None, selected_artifact: dict[str, Any]
+) -> str:
+    target = selected_target if selected_target is not None else "unselected"
+    return f"runtime-loader.{target}.{selected_artifact['name']}"
+
+
+def _runtime_loader_plan_artifact_format_for_name(name: str) -> str | None:
+    if name == "backendSource":
+        return "backend-source"
+    if name == "nativeBinary":
+        return "native-binary"
+    return None
+
+
+def _runtime_loader_plan_source_remap(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any] | None:
+    artifact = next(
+        (
+            artifact
+            for artifact in plan.compatibility_report.available_artifacts
+            if artifact.name == "sourceRemap"
+        ),
+        None,
+    )
+    if artifact is None or not artifact.exists:
+        return None
+    return {
+        "source": "manifest.artifacts.sourceRemap",
+        "packagePath": artifact.package_path,
+        "exists": artifact.exists,
+        "provenance": _runtime_loader_plan_source_remap_provenance(artifact),
+    }
+
+
+def _runtime_loader_plan_backend_source_map(
+    plan: RuntimeLoaderPlan,
+) -> dict[str, Any] | None:
+    artifact = next(
+        (
+            artifact
+            for artifact in plan.compatibility_report.available_artifacts
+            if artifact.name == "backendSourceMap"
+        ),
+        None,
+    )
+    if artifact is None or not artifact.exists:
+        return None
+    return {
+        "source": "manifest.artifacts.backendSourceMap",
+        "packagePath": artifact.package_path,
+        "exists": artifact.exists,
+        "provenance": _runtime_loader_plan_backend_source_map_provenance(artifact),
+    }
+
+
+def _runtime_loader_plan_artifact_json_document(
+    artifact: Artifact,
+) -> dict[str, Any] | None:
+    try:
+        document = json.loads(artifact.read_text())
+    except (OSError, UnicodeDecodeError, PackageReadError, json.JSONDecodeError):
+        return None
+    return document if isinstance(document, dict) else None
+
+
+def _runtime_loader_plan_sha256_value(value: Any) -> str | None:
+    if not isinstance(value, dict):
+        return None
+    if value.get("algorithm") != "sha256":
+        return None
+    sha256 = value.get("value")
+    return sha256 if isinstance(sha256, str) else None
+
+
+def _runtime_loader_plan_optional_int(value: Any) -> int | None:
+    return value if isinstance(value, int) and value >= 0 else None
+
+
+def _runtime_loader_plan_optional_str(value: Any) -> str | None:
+    return value if isinstance(value, str) else None
+
+
+def _runtime_loader_plan_source_remap_provenance(
+    artifact: Artifact,
+) -> dict[str, Any]:
+    document = _runtime_loader_plan_artifact_json_document(artifact)
+    if document is None:
+        return _runtime_loader_plan_empty_source_remap_provenance("incomplete")
+
+    source_remap = document.get("sourceRemap")
+    if not isinstance(source_remap, dict):
+        source_remap = {}
+
+    provenance = {
+        "available": True,
+        "health": "ok",
+        "schemaVersion": _runtime_loader_plan_optional_int(
+            document.get("schemaVersion")
+        ),
+        "kind": _runtime_loader_plan_optional_str(document.get("kind")),
+        "contractVersion": _runtime_loader_plan_optional_str(
+            document.get("contractVersion")
+        ),
+        "target": _runtime_loader_plan_optional_str(document.get("target")),
+        "generatedFile": _runtime_loader_plan_optional_str(
+            document.get("generatedFile")
+        ),
+        "mappingGranularity": _runtime_loader_plan_optional_str(
+            document.get("mappingGranularity")
+        ),
+        "mappingCount": _runtime_loader_plan_optional_int(document.get("mappingCount")),
+        "sourcePath": _runtime_loader_plan_optional_str(source_remap.get("path")),
+        "sourceSha256": _runtime_loader_plan_sha256_value(source_remap.get("sha256")),
+        "sourceSizeBytes": _runtime_loader_plan_optional_int(
+            source_remap.get("sizeBytes")
+        ),
+        "sourceRemapTarget": _runtime_loader_plan_optional_str(
+            source_remap.get("target")
+        ),
+        "sourceRemapMappingGranularity": _runtime_loader_plan_optional_str(
+            source_remap.get("mappingGranularity")
+        ),
+        "sourceRemapSourceBackend": _runtime_loader_plan_optional_str(
+            source_remap.get("sourceBackend")
+        ),
+        "sourceRemapVariant": _runtime_loader_plan_optional_str(
+            source_remap.get("variant")
+        ),
+    }
+    if (
+        provenance["schemaVersion"] != 1
+        or provenance["kind"] != "crossgl.sourceRemapProvenance"
+        or provenance["contractVersion"] != "source-remap-provenance-v1"
+        or not provenance["target"]
+        or not provenance["generatedFile"]
+        or provenance["mappingGranularity"] != "source-span"
+        or not provenance["mappingCount"]
+        or not provenance["sourcePath"]
+        or not provenance["sourceSha256"]
+        or provenance["sourceSizeBytes"] is None
+    ):
+        provenance["health"] = "drift"
+    return provenance
+
+
+def _runtime_loader_plan_empty_source_remap_provenance(
+    health: str,
+) -> dict[str, Any]:
+    return {
+        "available": False,
+        "health": health,
+        "schemaVersion": None,
+        "kind": None,
+        "contractVersion": None,
+        "target": None,
+        "generatedFile": None,
+        "mappingGranularity": None,
+        "mappingCount": None,
+        "sourcePath": None,
+        "sourceSha256": None,
+        "sourceSizeBytes": None,
+        "sourceRemapTarget": None,
+        "sourceRemapMappingGranularity": None,
+        "sourceRemapSourceBackend": None,
+        "sourceRemapVariant": None,
+    }
+
+
+def _runtime_loader_plan_backend_source_map_provenance(
+    artifact: Artifact,
+) -> dict[str, Any]:
+    document = _runtime_loader_plan_artifact_json_document(artifact)
+    if document is None:
+        return _runtime_loader_plan_empty_backend_source_map_provenance("incomplete")
+
+    backend = document.get("backend")
+    if not isinstance(backend, dict):
+        backend = {}
+    source_remap = document.get("sourceRemap")
+    source_remap_present = isinstance(source_remap, dict)
+    if not source_remap_present:
+        source_remap = {}
+    mappings = document.get("mappings")
+    mapping_record_count = len(mappings) if isinstance(mappings, list) else None
+
+    provenance = {
+        "available": True,
+        "health": "ok",
+        "schemaVersion": _runtime_loader_plan_optional_int(
+            document.get("schemaVersion")
+        ),
+        "kind": _runtime_loader_plan_optional_str(document.get("kind")),
+        "target": _runtime_loader_plan_optional_str(document.get("target")),
+        "module": _runtime_loader_plan_optional_str(document.get("module")),
+        "mappingGranularity": _runtime_loader_plan_optional_str(
+            document.get("mappingGranularity")
+        ),
+        "sourceBackend": _runtime_loader_plan_optional_str(
+            document.get("sourceBackend")
+        ),
+        "targetBackend": _runtime_loader_plan_optional_str(
+            document.get("targetBackend")
+        ),
+        "backendLanguage": _runtime_loader_plan_optional_str(backend.get("language")),
+        "backendLineCount": _runtime_loader_plan_optional_int(backend.get("lineCount")),
+        "mappingCount": _runtime_loader_plan_optional_int(document.get("mappingCount")),
+        "mappingRecordCount": mapping_record_count,
+        "sourceRemapPresent": source_remap_present,
+        "sourceRemapPath": _runtime_loader_plan_optional_str(source_remap.get("path")),
+        "sourceRemapGeneratedFile": _runtime_loader_plan_optional_str(
+            source_remap.get("generatedFile")
+        ),
+        "sourceRemapTarget": _runtime_loader_plan_optional_str(
+            source_remap.get("target")
+        ),
+        "sourceRemapMappingGranularity": _runtime_loader_plan_optional_str(
+            source_remap.get("mappingGranularity")
+        ),
+        "sourceRemapMappingCount": _runtime_loader_plan_optional_int(
+            source_remap.get("mappingCount")
+        ),
+        "sourceRemapSourceBackend": _runtime_loader_plan_optional_str(
+            source_remap.get("sourceBackend")
+        ),
+        "sourceRemapVariant": _runtime_loader_plan_optional_str(
+            source_remap.get("variant")
+        ),
+        "sourceRemapSha256": _runtime_loader_plan_sha256_value(
+            source_remap.get("sha256")
+        ),
+        "sourceRemapSizeBytes": _runtime_loader_plan_optional_int(
+            source_remap.get("sizeBytes")
+        ),
+    }
+    if (
+        provenance["schemaVersion"] != 1
+        or provenance["kind"] != "crossgl.backendSourceMap"
+        or not provenance["target"]
+        or not provenance["module"]
+        or provenance["mappingGranularity"] != "statement"
+        or not provenance["sourceBackend"]
+        or provenance["targetBackend"] != provenance["backendLanguage"]
+        or provenance["backendLineCount"] is None
+        or provenance["mappingCount"] != provenance["mappingRecordCount"]
+    ):
+        provenance["health"] = "drift"
+    return provenance
+
+
+def _runtime_loader_plan_empty_backend_source_map_provenance(
+    health: str,
+) -> dict[str, Any]:
+    return {
+        "available": False,
+        "health": health,
+        "schemaVersion": None,
+        "kind": None,
+        "target": None,
+        "module": None,
+        "mappingGranularity": None,
+        "sourceBackend": None,
+        "targetBackend": None,
+        "backendLanguage": None,
+        "backendLineCount": None,
+        "mappingCount": None,
+        "mappingRecordCount": None,
+        "sourceRemapPresent": False,
+        "sourceRemapPath": None,
+        "sourceRemapGeneratedFile": None,
+        "sourceRemapTarget": None,
+        "sourceRemapMappingGranularity": None,
+        "sourceRemapMappingCount": None,
+        "sourceRemapSourceBackend": None,
+        "sourceRemapVariant": None,
+        "sourceRemapSha256": None,
+        "sourceRemapSizeBytes": None,
+    }
+
+
+def _runtime_loader_plan_required_tools(plan: RuntimeLoaderPlan) -> list[str]:
+    summary = _runtime_loader_plan_target_legalization_summary(
+        plan.compatibility_report
+    )
+    return list(summary["requiredToolIds"])
+
+
+def _runtime_loader_plan_host_responsibilities(
+    *,
+    source_remap: dict[str, Any] | None,
+    backend_source_map: dict[str, Any] | None,
+    required_tools: list[str],
+    workgroup_size_count: int,
+) -> list[str]:
+    responsibilities = [
+        "load-package-artifact",
+        "bind-reflected-entry-points",
+        "bind-reflected-resources",
+    ]
+    if source_remap is not None:
+        responsibilities.insert(1, "load-source-remap")
+    if backend_source_map is not None:
+        insert_index = 2 if source_remap is not None else 1
+        responsibilities.insert(insert_index, "load-backend-source-map")
+    if workgroup_size_count > 0:
+        responsibilities.append("bind-workgroup-shape")
+    if required_tools:
+        responsibilities.append("review-target-tool-requirements")
+    return responsibilities
+
+
+def _runtime_loader_plan_contract_diagnostics(
+    plan: RuntimeLoaderPlan,
+) -> list[dict[str, Any]]:
+    return [
+        _runtime_loader_plan_contract_diagnostic(
+            diagnostic,
+            requested_package_mode=plan.runtime_artifact_selection.requested_package_mode,
+        )
+        for diagnostic in plan.runtime_artifact_selection.diagnostics
+    ]
+
+
+def _runtime_loader_plan_contract_diagnostic(
+    diagnostic: CompatibilityDiagnostic,
+    *,
+    requested_package_mode: str,
+) -> dict[str, Any]:
+    severity = diagnostic.severity
+    if severity == "skip":
+        severity = "error"
+    if severity not in {"note", "warning", "error"}:
+        severity = "error"
+
+    summary: dict[str, Any] = {
+        "severity": severity,
+        "code": _runtime_loader_plan_contract_diagnostic_code(
+            diagnostic,
+            requested_package_mode=requested_package_mode,
+        ),
+        "message": diagnostic.message,
+        "location": _runtime_loader_plan_diagnostic_location(diagnostic),
+    }
+    target = _runtime_loader_plan_diagnostic_target(diagnostic)
+    if target is not None:
+        summary["target"] = target
+    return summary
+
+
+def _runtime_loader_plan_contract_diagnostic_code(
+    diagnostic: CompatibilityDiagnostic,
+    *,
+    requested_package_mode: str,
+) -> str:
+    if diagnostic.code == "package.target.loader_mismatch":
+        return "package.runtime-plan.target-mismatch"
+    if diagnostic.code == "package.target.unsupported":
+        return "package.runtime-plan.unsupported-target"
+    native_artifact_failure = (
+        diagnostic.artifact
+        in {
+            "nativeArtifactDescriptor",
+            "nativeBinary",
+            "nativeBinaryStatus",
+            "nativeProfile",
+        }
+        or diagnostic.code == "package.mode.unsupported"
+    )
+    source_artifact_failure = (
+        diagnostic.artifact == "backendSource"
+        or diagnostic.code == "package.mode.unsupported"
+    )
+    if requested_package_mode == "native" and (
+        diagnostic.code
+        in {
+            "package.artifact.required_file_missing",
+            "package.artifact.required_missing",
+            "package.artifact.selection_missing",
+            "package.artifact.selection_file_missing",
+            "package.native_artifact_descriptor.required_missing",
+            "package.native_binary_status.not_ready",
+            "package.native_profile.required_missing",
+        }
+        and native_artifact_failure
+    ):
+        return "package.runtime-plan.native-artifact-unavailable"
+    if requested_package_mode == "source-package" and (
+        diagnostic.code
+        in {
+            "package.artifact.required_file_missing",
+            "package.artifact.required_missing",
+            "package.artifact.selection_missing",
+            "package.artifact.selection_file_missing",
+            "package.mode.unsupported",
+        }
+        and source_artifact_failure
+    ):
+        return "package.runtime-plan.source-artifact-unavailable"
+    if requested_package_mode == "auto" and (
+        diagnostic.code
+        in {
+            "package.artifact.required_file_missing",
+            "package.artifact.required_missing",
+            "package.artifact.selection_missing",
+            "package.artifact.selection_file_missing",
+            "package.mode.unsupported",
+            "package.native_artifact_descriptor.required_missing",
+            "package.native_binary_status.not_ready",
+            "package.native_profile.required_missing",
+        }
+        and (native_artifact_failure or source_artifact_failure)
+    ):
+        return "package.runtime-plan.artifact-unavailable"
+    return diagnostic.code
+
+
+def _runtime_loader_plan_diagnostic_location(
+    diagnostic: CompatibilityDiagnostic,
+) -> dict[str, int | str]:
+    return {
+        "file": diagnostic.document or "package",
+        "line": 0,
+        "column": 0,
+        "offset": 0,
+        "length": 0,
+        "endLine": 0,
+        "endColumn": 0,
+        "endOffset": 0,
+    }
+
+
+def _runtime_loader_plan_diagnostic_target(
+    diagnostic: CompatibilityDiagnostic,
+) -> str | None:
+    for value in (diagnostic.actual, diagnostic.expected):
+        if isinstance(value, str) and value in _RUNTIME_LOADER_PLAN_KNOWN_TARGETS:
+            return value
+    return None
+
+
+def _runtime_loader_plan_contract_diagnostic_counts(
+    diagnostics: list[dict[str, Any]],
+) -> dict[str, int]:
+    counts = {"note": 0, "warning": 0, "error": 0}
+    for diagnostic in diagnostics:
+        severity = diagnostic["severity"]
+        if severity in counts:
+            counts[severity] += 1
+    return counts
+
+
+def _runtime_loader_plan_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, str)]
+
+
+def _select_loader_artifacts(
+    report: PackageCompatibilityReport,
+) -> tuple[LoaderArtifactPlan, ...]:
+    artifacts_by_name = {
+        artifact.name: artifact for artifact in report.available_artifacts
+    }
+    selected: list[LoaderArtifactPlan] = []
+    for artifact_name in report.required_artifacts:
+        artifact = artifacts_by_name.get(artifact_name)
+        if artifact is not None:
+            selected.append(LoaderArtifactPlan.from_artifact(artifact))
+    return tuple(selected)
+
+
+def _loader_compatibility_report(
+    report: PackageCompatibilityReport,
+) -> PackageCompatibilityReport:
+    """Return the package report with loader-boundary admission diagnostics."""
+    diagnostics = _loader_boundary_diagnostics(report)
+    if not diagnostics:
+        return report
+
+    existing = {
+        (diagnostic.code, diagnostic.artifact, diagnostic.path)
+        for diagnostic in report.diagnostics
+    }
+    new_diagnostics = tuple(
+        diagnostic
+        for diagnostic in diagnostics
+        if (diagnostic.code, diagnostic.artifact, diagnostic.path) not in existing
+    )
+    if not new_diagnostics:
+        return report
+
+    return replace(report, diagnostics=(*report.diagnostics, *new_diagnostics))
+
+
+def _loader_boundary_diagnostics(
+    report: PackageCompatibilityReport,
+) -> tuple[CompatibilityDiagnostic, ...]:
+    if report.target_contract is None:
+        return ()
+
+    required_artifact_names = set(report.required_artifacts)
+    diagnostics: list[CompatibilityDiagnostic] = []
+    for artifact in report.available_artifacts:
+        if artifact.name not in required_artifact_names:
+            continue
+        if not _is_crossgl_source_input_path(artifact.package_path):
+            continue
+        diagnostics.append(
+            CompatibilityDiagnostic(
+                code="package.artifact.source_input_leakage",
+                message=(
+                    f"manifest.artifacts.{artifact.name} points at a CrossGL "
+                    "source input; runtime loader plans only consume generated "
+                    "package artifacts"
+                ),
+                document="manifest",
+                artifact=artifact.name,
+                path=artifact.package_path,
+                expected="generated package artifact",
+                actual=artifact.package_path,
+            )
+        )
+    return tuple(diagnostics)
+
+
+def _is_crossgl_source_input_path(package_path: str) -> bool:
+    return PurePosixPath(package_path).suffix.lower() in _CROSSGL_SOURCE_INPUT_SUFFIXES
+
+
+def _diagnostic_phase_summary(
+    diagnostics: tuple[CompatibilityDiagnostic, ...],
+) -> dict[str, Any]:
+    by_severity: dict[str, int] = {}
+    for diagnostic in diagnostics:
+        by_severity[diagnostic.severity] = by_severity.get(diagnostic.severity, 0) + 1
+    return {
+        "count": len(diagnostics),
+        "bySeverity": dict(sorted(by_severity.items())),
+        "codes": [diagnostic.code for diagnostic in diagnostics],
+        "diagnostics": [diagnostic.to_summary() for diagnostic in diagnostics],
+    }
+
+
+def _compiler_metadata_compatible(report: PackageCompatibilityReport) -> bool:
+    return (
+        report.compiler_name == SUPPORTED_COMPILER_NAME
+        and isinstance(report.compiler_version, str)
+        and bool(report.compiler_version)
+    )
+
+
+def _schema_version_compatibility(
+    version: Any,
+    *,
+    supported_version: int,
+    required: bool,
+) -> dict[str, Any]:
+    return {
+        "version": version,
+        "supportedVersion": supported_version,
+        "required": required,
+        "compatible": version == supported_version,
+    }
+
+
+def _debug_metadata_version_compatibility(
+    report: PackageCompatibilityReport,
+) -> dict[str, Any]:
+    availability = report.debug_metadata_availability
+    declared = bool(availability.get("declared"))
+    schema_summary = _schema_version_compatibility(
+        availability.get("schemaVersion"),
+        supported_version=SUPPORTED_DEBUG_METADATA_SCHEMA_VERSION,
+        required=False,
+    )
+    if not declared:
+        schema_summary["compatible"] = True
+    return {
+        "declared": declared,
+        "path": availability.get("path"),
+        **schema_summary,
+        "compatible": availability.get("compatible") if declared else True,
+    }
+
+
+def _is_version_compatibility_diagnostic(
+    diagnostic: CompatibilityDiagnostic,
+) -> bool:
+    return diagnostic.code in _VERSION_COMPATIBILITY_DIAGNOSTIC_CODES
+
+
+def _version_compatibility_status(
+    diagnostics: tuple[CompatibilityDiagnostic, ...],
+) -> str:
+    if any(
+        diagnostic.code in _UNSUPPORTED_VERSION_COMPATIBILITY_DIAGNOSTIC_CODES
+        for diagnostic in diagnostics
+    ):
+        return "unsupported-version"
+    if diagnostics:
+        return "incompatible"
+    return "compatible"
+
+
+def _diagnostic_matches_artifact_role(
+    diagnostic: CompatibilityDiagnostic,
+    role: str,
+) -> bool:
+    if diagnostic.artifact == role:
+        return True
+    return role == "nativeBinary" and diagnostic.artifact == "nativeBinaryStatus"
+
+
+def _admission_section(section: Any) -> dict[str, Any]:
+    if isinstance(section, dict):
+        return dict(section)
+    return {}
+
+
+def _artifact_identity(
+    artifact: Artifact | LoaderArtifactPlan | None,
+) -> dict[str, Any] | None:
+    if artifact is None:
+        return None
+    summary = artifact.to_summary()
+    summary["declaredBy"] = f"manifest.artifacts.{artifact.name}"
+    return summary
+
+
+def _runtime_artifact_admission_reason(
+    *,
+    selection: RuntimeArtifactSelection,
+    native_admission: dict[str, Any],
+    source_package_fallback: dict[str, Any],
+) -> str:
+    blocking_reason = next(
+        (
+            diagnostic.code
+            for diagnostic in (*selection.reject_reasons, *selection.skip_reasons)
+        ),
+        None,
+    )
+    if blocking_reason is not None:
+        return blocking_reason
+    if selection.selected_package_mode == "native":
+        reason = native_admission.get("reason")
+        if isinstance(reason, str):
+            return reason
+    if selection.selected_package_mode == "source-package":
+        reason = source_package_fallback.get("reason")
+        if isinstance(reason, str):
+            return reason
+    native_reason = native_admission.get("reason")
+    if isinstance(native_reason, str):
+        return native_reason
+    fallback_reason = source_package_fallback.get("reason")
+    if isinstance(fallback_reason, str):
+        return fallback_reason
+    return "runtime.artifact_admission.unavailable"
+
+
+def _loader_metadata_documents(
+    report: PackageCompatibilityReport,
+) -> list[dict[str, Any]]:
+    documents = [
+        {
+            "name": "manifest",
+            "path": "manifest.json",
+            "schemaVersion": report.manifest_schema_version,
+            "compatible": (
+                report.manifest_schema_version == SUPPORTED_PACKAGE_SCHEMA_VERSION
+            ),
+        },
+        {
+            "name": "reflection",
+            "path": "reflection.json",
+            "schemaVersion": report.reflection_schema_version,
+            "compatible": (
+                report.reflection_schema_version == SUPPORTED_PACKAGE_SCHEMA_VERSION
+            ),
+        },
+        {
+            "name": "diagnostics",
+            "path": "diagnostics.json",
+            "schemaVersion": report.diagnostics_schema_version,
+            "compatible": (
+                report.diagnostics_schema_version == SUPPORTED_PACKAGE_SCHEMA_VERSION
+            ),
+        },
+    ]
+    debug_metadata = report.debug_metadata_availability
+    if debug_metadata.get("declared"):
+        documents.append(
+            {
+                "name": "debugMetadata",
+                "path": debug_metadata.get("path"),
+                "schemaVersion": debug_metadata.get("schemaVersion"),
+                "compatible": debug_metadata.get("compatible"),
+            }
+        )
+    return documents
+
+
+def _loader_required_metadata_inputs(
+    report: PackageCompatibilityReport,
+) -> list[dict[str, Any]]:
+    return [
+        _loader_required_metadata_input(
+            name="manifest",
+            path="manifest.json",
+            schema_version=report.manifest_schema_version,
+        ),
+        _loader_required_metadata_input(
+            name="reflection",
+            path="reflection.json",
+            schema_version=report.reflection_schema_version,
+        ),
+        _loader_required_metadata_input(
+            name="diagnostics",
+            path="diagnostics.json",
+            schema_version=report.diagnostics_schema_version,
+        ),
+    ]
+
+
+def _loader_required_metadata_input(
+    *,
+    name: str,
+    path: str,
+    schema_version: Any,
+) -> dict[str, Any]:
+    return {
+        "name": name,
+        "path": path,
+        "required": True,
+        "declaredBy": "package-root",
+        "schemaVersion": schema_version,
+        "supportedSchemaVersion": SUPPORTED_PACKAGE_SCHEMA_VERSION,
+        "compatible": schema_version == SUPPORTED_PACKAGE_SCHEMA_VERSION,
+    }
+
+
+def _summarize_reflection_record(
+    record: dict[str, Any],
+    keys: tuple[str, ...],
+) -> dict[str, Any]:
+    return {key: record[key] for key in keys if key in record}
+
+
+def _target_resource_binding_metadata_record(
+    record: dict[str, Any],
+) -> dict[str, Any]:
+    abi = record.get("abi")
+    abi_summary = dict(abi) if isinstance(abi, dict) else abi
+    summary = {
+        "target": record.get("target"),
+        "stage": record.get("stage"),
+        "entryPoint": record.get("entryPoint"),
+        "name": record.get("name"),
+        "kind": record.get("kind"),
+        "bindingClass": record.get("bindingClass"),
+        "descriptorType": record.get("descriptorType"),
+        "set": record.get("set"),
+        "binding": record.get("binding"),
+        "argumentIndex": record.get("argumentIndex"),
+        "abi": abi_summary,
+        "identity": {
+            "target": record.get("target"),
+            "stage": record.get("stage"),
+            "entryPoint": record.get("entryPoint"),
+            "name": record.get("name"),
+            "kind": record.get("kind"),
+        },
+    }
+    evidence_id = record.get("evidenceId")
+    if isinstance(evidence_id, str) and evidence_id:
+        summary["evidenceId"] = evidence_id
+    for field_name in (
+        "arrayDimensions",
+        "arrayElementCount",
+        "storageImageFormat",
+        "storageImageAccess",
+    ):
+        if field_name in record:
+            summary[field_name] = record.get(field_name)
+    return summary

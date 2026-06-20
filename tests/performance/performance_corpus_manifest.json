@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "defaultCorpus": "milestone6-smoke",
+  "requiredCategories": [
+    "storage-buffers",
+    "texture-sampling",
+    "descriptor-arrays",
+    "storage-images",
+    "atomics",
+    "control-flow"
+  ],
+  "requiredCoverage": [
+    {
+      "name": "source-package-artifacts",
+      "description": "Report-only source-package artifact coverage for DirectX and OpenGL package evidence.",
+      "reportPolicy": "report-only",
+      "packageMode": "source-package",
+      "coverage": "matrix",
+      "targets": [
+        "directx",
+        "opengl"
+      ],
+      "categories": [
+        "storage-buffers",
+        "texture-sampling",
+        "descriptor-arrays",
+        "storage-images",
+        "atomics",
+        "control-flow"
+      ],
+      "artifactKinds": [
+        "nativeArtifactDescriptor",
+        "nativeBinaryStatus"
+      ],
+      "summaryFields": [
+        "manifestArtifactKinds"
+      ]
+    },
+    {
+      "name": "native-optimization-evidence",
+      "description": "Report-only native package optimization evidence coverage for Metal and Vulkan lanes.",
+      "reportPolicy": "report-only",
+      "packageMode": "native",
+      "coverage": "aggregate",
+      "targets": [
+        "metal",
+        "vulkan"
+      ],
+      "categories": [
+        "storage-buffers",
+        "descriptor-arrays",
+        "storage-images",
+        "atomics",
+        "control-flow"
+      ],
+      "artifactKinds": [
+        "nativeArtifactDescriptor",
+        "nativeProfile"
+      ],
+      "summaryFields": [
+        "nativeArtifactDescriptorOptimizationEvidence",
+        "nativeOptimizationEvidence"
+      ]
+    }
+  ],
+  "corpora": [
+    {
+      "name": "milestone6-smoke",
+      "fixtures": [
+        {
+          "name": "storage-buffer-compute",
+          "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+          "sourceSha256": "7b573de26282b494e21f3ed2f3485fbc67c9a72fba01ce08ff9267c27a81045d",
+          "category": "storage-buffers",
+          "description": "Compute shader covering storage-buffer package paths.",
+          "targets": [
+            "directx",
+            "opengl",
+            "vulkan"
+          ]
+        },
+        {
+          "name": "texture-sampling-descriptor-array",
+          "path": "tests/fixtures/TextureOnlyDescriptorArraySampleShader.cgl",
+          "sourceSha256": "fd26cbff6f73ae4b514af21d7f018af97ace97a742a8772292b1f04835a19a1d",
+          "category": "texture-sampling",
+          "description": "Texture sampling fixture with a descriptor-array texture and separate sampler.",
+          "targets": [
+            "directx",
+            "opengl"
+          ]
+        },
+        {
+          "name": "texture-descriptor-array",
+          "path": "tests/fixtures/TextureDescriptorArrayShader.cgl",
+          "sourceSha256": "464e890dc3481a05f7aa5babda28990873e43f25ab4dc929f87b44465b7c60f5",
+          "category": "descriptor-arrays",
+          "description": "Descriptor-array texture fixture for backend package paths.",
+          "targets": [
+            "directx",
+            "opengl"
+          ]
+        },
+        {
+          "name": "mixed-resource-descriptor-array",
+          "path": "tests/fixtures/MixedResourceDescriptorArrayShader.cgl",
+          "sourceSha256": "90ee6800463f84cc582817a13380d4357fa19042f34b0ddd84f2f242636e3780",
+          "category": "descriptor-arrays",
+          "description": "Mixed storage-buffer, texture, and sampler descriptor-array fixture for backend package paths.",
+          "targets": [
+            "directx",
+            "metal",
+            "opengl",
+            "vulkan"
+          ]
+        },
+        {
+          "name": "storage-image-explicit-format",
+          "path": "tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "sourceSha256": "45f88a12264cec4a3bf6eb6ffe7e63f6d9ceeb3964fad7703c64a0ea35a69703",
+          "category": "storage-images",
+          "description": "Storage image fixture covering explicit image formats and load/store paths.",
+          "targets": [
+            "directx",
+            "opengl"
+          ]
+        },
+        {
+          "name": "storage-image-descriptor-array",
+          "path": "tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+          "sourceSha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+          "category": "storage-images",
+          "description": "Storage image descriptor-array fixture covering explicit formats, non-uniform indices, and load/store paths.",
+          "targets": [
+            "directx",
+            "metal",
+            "opengl",
+            "vulkan"
+          ]
+        },
+        {
+          "name": "storage-image-atomics",
+          "path": "tests/fixtures/StorageImageAtomicShader.cgl",
+          "sourceSha256": "a5a0191fffb927d04b796b4cade9d374945dc40b8eecd3b89738b3845adbbf36",
+          "category": "atomics",
+          "description": "Storage image atomic fixture covering read-modify-write image operations.",
+          "targets": [
+            "directx",
+            "opengl"
+          ]
+        },
+        {
+          "name": "storage-image-atomic-descriptor-array",
+          "path": "tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl",
+          "sourceSha256": "ca6e726be280eba7e5c649475fb3cb9ac089b9acba259448b63a82257c3e61d4",
+          "category": "atomics",
+          "description": "Storage image atomic descriptor-array fixture covering non-uniform indexed image atomics.",
+          "targets": [
+            "directx",
+            "opengl",
+            "vulkan"
+          ]
+        },
+        {
+          "name": "nested-control-flow",
+          "path": "tests/fixtures/NestedForComputeShader.cgl",
+          "sourceSha256": "62e53827041a9e925e916eade2016047788d43659638bc27fd99ddd6ecb5649d",
+          "category": "control-flow",
+          "description": "Nested loop compute fixture for control-flow lowering and packaging paths.",
+          "targets": [
+            "directx",
+            "opengl"
+          ]
+        },
+        {
+          "name": "while-control-flow",
+          "path": "tests/fixtures/WhileComputeShader.cgl",
+          "sourceSha256": "dd61bafecf825fa88ee0dddcd6670f39af62b1425d00909c3f4d971724badcb3",
+          "category": "control-flow",
+          "description": "While-loop compute fixture for control-flow lowering and packaging paths.",
+          "targets": [
+            "directx",
+            "metal",
+            "opengl",
+            "vulkan"
+          ]
+        },
+        {
+          "name": "metal-storage-buffer-folded-descriptor-array",
+          "path": "tests/fixtures/MetalStorageBufferFoldedDescriptorArrayShader.cgl",
+          "sourceSha256": "82a12d7a4322e52e528aed08fe3be37ac40a33ab24dd415fa6a2cd729c2d16c4",
+          "category": "storage-buffers",
+          "description": "Metal storage-buffer descriptor-array fixture covering folded descriptor indices on the optional Metal lane.",
+          "targets": [
+            "metal"
+          ]
+        }
+      ]
+    }
+  ]
+}

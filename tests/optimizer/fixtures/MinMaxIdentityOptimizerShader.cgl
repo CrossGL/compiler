@@ -1,0 +1,32 @@
+shader MinMaxIdentityOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+    layout(set = 0, binding = 1) buffer uint* unsignedValues;
+    layout(set = 0, binding = 2) buffer float* floatValues;
+
+    int unknownInt(int value) {
+      return value + 1;
+    }
+
+    void main() {
+      int dynamicIndex = values[0];
+      uint unsignedIndex = unsignedValues[0];
+      float floatBase = floatValues[0];
+
+      int minSameInt = min(dynamicIndex, dynamicIndex);
+      int maxSameInt = max(dynamicIndex + 1, dynamicIndex + 1);
+      uint minSameUint = min(unsignedIndex, unsignedIndex);
+      uint maxSameUint = max(unsignedIndex + 1u, unsignedIndex + 1u);
+      int minSameUnknown = min(unknownInt(dynamicIndex), unknownInt(dynamicIndex));
+      float minSameFloat = min(floatBase, floatBase);
+      float maxSameFloat = max(floatBase, floatBase);
+
+      values[1] = minSameInt + maxSameInt;
+      unsignedValues[1] = minSameUint + maxSameUint;
+      values[2] = minSameUnknown;
+      floatValues[1] = minSameFloat + maxSameFloat;
+      return;
+    }
+  }
+}

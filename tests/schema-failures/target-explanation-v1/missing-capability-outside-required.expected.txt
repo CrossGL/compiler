@@ -1,0 +1,1 @@
+$.targets[0].missingCapabilities: expected missing capability 'opengl.feature.descriptor-array' to appear in requiredCapabilities

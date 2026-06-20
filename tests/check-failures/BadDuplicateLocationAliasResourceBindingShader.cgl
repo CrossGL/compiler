@@ -1,0 +1,12 @@
+shader BadDuplicateLocationAliasResourceBinding {
+  struct Params {
+    float value;
+  }
+  compute {
+    layout(location = 0, binding = 0) uniform Params params;
+    layout(set = 0, binding = 0) buffer float* values;
+    void main() {
+      return;
+    }
+  }
+}

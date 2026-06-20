@@ -1,0 +1,43 @@
+shader VulkanGraphicsNonUniformDescriptorArrayShader {
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            output.uv = input.texCoord;
+            output.position = vec4(input.position, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        layout(set = 0, binding = 2) uniform sampler2D colorMaps[2];
+        layout(set = 0, binding = 5) sampler linearSamplers[2];
+
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            int material = input.uv.x > 0.5 ? 1 : 0;
+            output.color = texture(
+                colorMaps[nonuniform(material)],
+                linearSamplers[nonuniform(material)],
+                input.uv);
+            return output;
+        }
+    }
+}

@@ -1,0 +1,51 @@
+shader StructOptimizerBoundaryHIRShader {
+  struct Transform {
+    vec3 position;
+    float weights[3];
+  }
+
+  struct Particle {
+    Transform transform;
+    float mass;
+  }
+
+  struct TailParticle {
+    vec3 position;
+    float mass;
+  }
+
+  struct RuntimePayload {
+    float count;
+    TailParticle particles[];
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    layout(set = 0, binding = 1) buffer RuntimePayload* payloads;
+    layout(set = 0, binding = 2) buffer int* indices;
+
+    void main() {
+      int dynamicSlot = indices[0];
+      int dynamicWeight = indices[1];
+      int dynamicRuntime = indices[2];
+
+      float deadFieldRead = particles[0].mass + 100.0;
+      float foldedWeight = particles[0].transform.weights[1 + 1];
+      float selectedWeight =
+          particles[dynamicSlot].transform.weights[dynamicWeight];
+      vec3 nestedPosition = particles[0].transform.position;
+      vec3 runtimePosition = payloads.particles[0].position;
+
+      particles[1].transform.weights[0] = foldedWeight + selectedWeight;
+      particles[1].transform.position = nestedPosition + runtimePosition;
+
+      float runtimeMass = payloads.particles[dynamicRuntime].mass;
+      payloads.count = runtimeMass;
+      payloads.particles[dynamicSlot].position = particles[1].transform.position;
+      payloads.particles[dynamicSlot].mass =
+          payloads.count + particles[1].transform.weights[0];
+      return;
+    }
+  }
+}

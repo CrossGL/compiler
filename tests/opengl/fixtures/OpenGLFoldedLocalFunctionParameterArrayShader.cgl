@@ -1,0 +1,19 @@
+shader OpenGLFoldedLocalFunctionParameterArrayShader {
+  const int COUNT = 4;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+    float sampleWeight(float weights[COUNT], int index) {
+      return weights[index];
+    }
+
+    void main() {
+      float weights[COUNT];
+      weights[0] = 0.5;
+      weights[2] = weights[0] + 1.5;
+      float sampled = sampleWeight(weights, 2);
+      return;
+    }
+  }
+}

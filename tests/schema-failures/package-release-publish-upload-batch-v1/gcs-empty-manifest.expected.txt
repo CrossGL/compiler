@@ -1,0 +1,1 @@
+$.manifestPath: expected non-empty path for manifest-backed upload

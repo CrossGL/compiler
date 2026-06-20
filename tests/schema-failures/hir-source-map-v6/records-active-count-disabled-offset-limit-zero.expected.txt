@@ -1,0 +1,1 @@
+$.records.activeCount: expected active record paging field count 2, got 0

@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "module": "GraphicsAbiDuplicateSourceEntryPoint",
+  "target": "vulkan",
+  "entryPoints": [
+    {
+      "stage": "fragment",
+      "sourceName": "main",
+      "backendName": "fragment_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/duplicate-source-entry-point.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    },
+    {
+      "stage": "fragment",
+      "sourceName": "main",
+      "backendName": "fragment_main_variant",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/duplicate-source-entry-point.cgl",
+        "line": 2,
+        "column": 1,
+        "offset": 10,
+        "length": 4,
+        "endLine": 2,
+        "endColumn": 5,
+        "endOffset": 14
+      }
+    }
+  ],
+  "vertexInputs": [],
+  "varyings": [],
+  "fragmentOutputs": [],
+  "builtins": [],
+  "resources": [],
+  "abiRecords": []
+}

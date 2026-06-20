@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "promotionManifestPath": "release/package-release-promotion-manifest.json",
+  "summaryPath": "release/package-maintenance-set-verification-batch-summary.json",
+  "batchPath": "release/package-maintenance-set-verification-batch.json",
+  "status": "eligible",
+  "releaseEligible": true,
+  "blockerCount": 0,
+  "blockers": [],
+  "packageCount": 2,
+  "artifactCount": 1,
+  "existingArtifactCount": 1,
+  "missingArtifactCount": 0,
+  "totalArtifactBytes": 4,
+  "packages": [
+    {
+      "packagePath": "packages/basic",
+      "module": "Basic",
+      "target": "metal",
+      "sourceHash": null,
+      "nativeBinaryStatus": "emitted",
+      "packageArtifactRequirements": {
+        "target": "metal",
+        "packageMode": "native",
+        "requiredPathArtifacts": [
+          "backendSource"
+        ],
+        "requiresNativeBinaryStatus": true,
+        "allowsPlannedNativeBinary": false,
+        "allowsPlannedNativeSourceEvidence": false
+      },
+      "artifactCount": 1,
+      "existingArtifactCount": 1,
+      "missingArtifactCount": 0,
+      "totalArtifactBytes": 4,
+      "artifacts": [
+        {
+          "name": "backendSource",
+          "path": "artifacts/basic.metal",
+          "exists": true,
+          "sizeBytes": 4,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "reflection": {
+        "targetFeatureCount": 1,
+        "targetFeatureEvidenceIds": [
+          "target-legalization.v1.metal.abi.required.package-release-fixture"
+        ]
+      }
+    }
+  ]
+}

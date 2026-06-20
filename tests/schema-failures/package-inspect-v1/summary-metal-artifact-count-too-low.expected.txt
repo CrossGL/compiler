@@ -1,0 +1,1 @@
+$.summary.artifactCount: expected package summary metal artifact count >= 3, got 2

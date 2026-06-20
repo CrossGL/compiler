@@ -1,0 +1,16 @@
+shader StructConstantArrayFieldComputeShader {
+  const int WEIGHT_COUNT = 4;
+  struct Particle {
+    float weights[WEIGHT_COUNT];
+    float mass;
+  }
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+    void main() {
+      float firstWeight = particles[0].weights[0];
+      particles[1].mass = firstWeight;
+      return;
+    }
+  }
+}

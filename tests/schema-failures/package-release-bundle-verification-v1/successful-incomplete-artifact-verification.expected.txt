@@ -1,0 +1,1 @@
+$.verifiedArtifactCount: expected verified artifact count for successful verification 2, got 1

@@ -1,0 +1,1313 @@
+{
+  "schemaVersion": 1,
+  "schema": 1,
+  "kind": "crossgl-crosstl-shared-feature-spec",
+  "description": "Deterministic CrossTL/CrossGL shared feature spec extracted from the committed CrossTL frontend snapshot and cross-repo language contract manifest. It is a tooling/spec contract artifact only.",
+  "document": {
+    "id": "crossgl-crosstl-shared-feature-spec-v0",
+    "path": "tools/cross_repo_language_spec.json"
+  },
+  "source_language_snapshot": {
+    "id": "crosstl-frontend-language-spec-v0",
+    "path": "docs/language/crosstl-frontend-language-spec-v0.json",
+    "schema_version": 0,
+    "sha256": "9924f831110bc5c93cd66691eab7606443f137524e2339fb168f08a3bde4c54c",
+    "authority_references": [
+      {
+        "id": "authority.pr720-merged-reference",
+        "kind": "merged-pr",
+        "repository": "CrossGL/crosstl",
+        "url": "https://github.com/CrossGL/crosstl/pull/720",
+        "state": "MERGED",
+        "headCommit": "19557a4b4e6ccca55622e819c795963d7f3a0a59",
+        "languageAuthorityImpact": "no-sealed-source-drift"
+      },
+      {
+        "id": "authority.pr724-project-porting-reference",
+        "kind": "merged-pr",
+        "repository": "CrossGL/crosstl",
+        "url": "https://github.com/CrossGL/crosstl/pull/724",
+        "state": "MERGED",
+        "headCommit": "ffc1d88519589a7b11c45a18a9c3cac9bddb0604",
+        "languageAuthorityImpact": "project-porting-source-remap-contract"
+      }
+    ],
+    "source_files": [
+      {
+        "path": "crosstl/translator/lexer.py",
+        "sha256": "81820686f072df53de25d5e00d194f48f22899c2dbbe8165d40fe3d76e2541d8"
+      },
+      {
+        "path": "crosstl/translator/parser.py",
+        "sha256": "8776437d940a6c88cfc401433fdbec43f8b7d43549a2c0e87e6c23aaa39fd50b"
+      },
+      {
+        "path": "crosstl/translator/ast.py",
+        "sha256": "a0185e55a230e1cecc40934a5bd8234f5abff95d08c77e744582d093a814697c"
+      },
+      {
+        "path": "crosstl/translator/validation.py",
+        "sha256": "da790d908406aa908a3b83c37a742284ccbcedb194ba64f2ccd382a7ae545cd2"
+      }
+    ]
+  },
+  "contract_manifest": {
+    "path": "tools/cross_repo_language_contract.json",
+    "schema": 1,
+    "contract_count": 161,
+    "accepted_feature_group_count": 8,
+    "negative_case_count": 28,
+    "hash_fields": [
+      "source_sha256",
+      "translator_ast_sha256",
+      "compiler_hir_sha256"
+    ]
+  },
+  "feature_groups": [
+    {
+      "id": "control_flow_and_statements",
+      "status": "accepted-source",
+      "description": "Branching, loops, scoped declarations, early returns, and statement AST forms shared by both frontends.",
+      "snapshot_refs": [
+        "/lexical/keywords",
+        "/ast/statementNodes"
+      ],
+      "snapshot_ref_seals": [
+        {
+          "ref": "/lexical/keywords",
+          "sha256": "c694139c430c664ee66bf06d114935fe32bf59a34057bb186e23e3fe8f9e7c11"
+        },
+        {
+          "ref": "/ast/statementNodes",
+          "sha256": "152cf6b2e0bc796255b316b7413c18a68ff8228cf6ba5c5801aa3bac8db4e135"
+        }
+      ],
+      "fixture_count": 17,
+      "fixtures": [
+        {
+          "id": "compiler/tests/fixtures/IfComputeShader.cgl",
+          "source_sha256": "3d7aecfeff361ec5ab58e6a8038f2d2be14b6dcbd482dcdb98f8d9a66241adb4",
+          "translator_ast_sha256": "2927073ca1d781da3df560584db1e0e6b22dc8ca47ce54b3dc0bc2735f721251",
+          "compiler_hir_sha256": "01cfb036b05e3dd9e1f09533a79922018fda623014776b32e35f4a39d76767b1"
+        },
+        {
+          "id": "compiler/tests/fixtures/IfScopedComputeShader.cgl",
+          "source_sha256": "15c77d46c1f979d7fb2203ed1e3c3c9b62d0e2c815c273dacc39cf3f378b3355",
+          "translator_ast_sha256": "0d40bb4df86952a34fd79b32c9dc8dfa8965f9d2148f5a64c45920a43d70de97",
+          "compiler_hir_sha256": "5fea86ba276ea9c9bcdf486629f987534b755ec95e73c3ed9d2323baad060cda"
+        },
+        {
+          "id": "compiler/tests/fixtures/ColonVarComputeShader.cgl",
+          "source_sha256": "626f9778a57ac9db26f3b698e7acd3d0010a931f58fe31ffe914ef8570ecf977",
+          "translator_ast_sha256": "866cc3dae08c8e8d773dd0173a38e22b94167556f1a724b1d42fe2a514644d67",
+          "compiler_hir_sha256": "2f210cf1dba900485e5d26a5df70d3cf982b9639f7ec47edf5b5d48844b75104"
+        },
+        {
+          "id": "compiler/tests/fixtures/LetMutComputeShader.cgl",
+          "source_sha256": "59a97f5f1def379fa4396cd14cb6bd8a108d673f4902c6b728fc599c897221a0",
+          "translator_ast_sha256": "dde7ee48680e4532b39479b705d0c4337277e9ce62a9977e8a073926801ef0c9",
+          "compiler_hir_sha256": "6b2a5e4cdda8f0cc07d968e9d1af710861b1e71edb13aa00a4db3002eacd11b0"
+        },
+        {
+          "id": "compiler/tests/fixtures/IfReturnComputeShader.cgl",
+          "source_sha256": "304431d6083846c3968ca745a313e19424dc20df9f095a740c33e0de9058903c",
+          "translator_ast_sha256": "f44fca102990143f3e7c879725fdd18b1c104a7026ba4b32e18ba523b24423fe",
+          "compiler_hir_sha256": "e07675f86dcf70930a191bad03fe6f720edfb558b5267f87f031b293d91ea956"
+        },
+        {
+          "id": "compiler/tests/fixtures/ForComputeShader.cgl",
+          "source_sha256": "0d44539472320cb452aef43ef154092869e0cbd7d11eaf4894c984743dd1799d",
+          "translator_ast_sha256": "e9146f83e8f879bc85736a21a8202bc7efc2af7cdc17f9ba71719030a2631a13",
+          "compiler_hir_sha256": "1e8e725683ff0ea5dafadc23de194164db0a256f727eaea1c025c8a1cc31e80d"
+        },
+        {
+          "id": "compiler/tests/fixtures/ForStrideComputeShader.cgl",
+          "source_sha256": "7786bcc65381ba9e9d1c3f81517b343fa505374955376eb70ee18d36a6653dda",
+          "translator_ast_sha256": "577bbe13bbb167af393167475d088ba3f37f034206de7f5b1045cc7816d3be59",
+          "compiler_hir_sha256": "c24a51c29b8a13b2aad93c494a8f3ccf5dafe2ce4756ff4f7207b20502b23c5f"
+        },
+        {
+          "id": "compiler/tests/fixtures/ForDynamicStrideComputeShader.cgl",
+          "source_sha256": "63180de1bf76a80e3d0cfba0a0528efe86ddbdefc77f27014d25599c60b4766f",
+          "translator_ast_sha256": "857742a8d9b5a885a74d36ec80d93760402dbd54bf8ed5b4cadd913f04cc0b44",
+          "compiler_hir_sha256": "7fcb2d59c96608899b544f0207ce2d33d567482c77b8368334be47eb8006072d"
+        },
+        {
+          "id": "compiler/tests/fixtures/ForFoldedUpdateComputeShader.cgl",
+          "source_sha256": "d461efeeeafd69cea78258d0580ad28329748a2db7d328149c7957a50fdc054f",
+          "translator_ast_sha256": "0d68b7bc6506a26c64e4d014c24e1ecc186ec766c243791dcb7485c64c56cb86",
+          "compiler_hir_sha256": "5e1b1f30ab3db66d9f654cca5a27852e9df19ccecacb58ef48c5b77a370351dc"
+        },
+        {
+          "id": "compiler/tests/fixtures/ForOmittedHeaderComputeShader.cgl",
+          "source_sha256": "d5c3467901ac50694a4db5b11bbd983701cee947e197490dcbdd65f87ed80533",
+          "translator_ast_sha256": "b0eee74065b19c6734186660463bd5e69fec7efc1c837fe5fc37b695ea7ff623",
+          "compiler_hir_sha256": "2db50104e0ac3345ecf9f653b9e8ff182ba51cdc05211f5fe380b4abdf36f29d"
+        },
+        {
+          "id": "compiler/tests/fixtures/NestedForComputeShader.cgl",
+          "source_sha256": "62e53827041a9e925e916eade2016047788d43659638bc27fd99ddd6ecb5649d",
+          "translator_ast_sha256": "415e760f1cc2fd02eb90927a0901678f36f64d4b2347d59277199ab9808475be",
+          "compiler_hir_sha256": "5648307c06d55f58192fa29d192183d3f5e5ea2dbcf5c7e7f3011fbdfdcd7232"
+        },
+        {
+          "id": "compiler/tests/fixtures/LoopComputeShader.cgl",
+          "source_sha256": "72b09eae287eeffae6088b81f39cdee61e2278a8d795345e13ddacb868663558",
+          "translator_ast_sha256": "05c33067be4159fab5c601a1a64a90ac33398ac20c7fd4ae23e0daa2cf8d5d70",
+          "compiler_hir_sha256": "f7c3b6021fc91b9efc02db97c92a72b3a4587d5637bd441db4eed9d079aaad41"
+        },
+        {
+          "id": "compiler/tests/fixtures/WhileComputeShader.cgl",
+          "source_sha256": "dd61bafecf825fa88ee0dddcd6670f39af62b1425d00909c3f4d971724badcb3",
+          "translator_ast_sha256": "5e67ed3684e82b615ca8a5cd930c378d0c64d7b546ef713e35479a341def42f4",
+          "compiler_hir_sha256": "e99db3f71bba9b81a622aa8f8d9b0f219b6e5dd173cb5b101bac0279c47e8445"
+        },
+        {
+          "id": "compiler/tests/fixtures/DoWhileComputeShader.cgl",
+          "source_sha256": "6194f5d1643d7c566def1bf93856b96d14a69809b1b3bc16c9bf968cad318c48",
+          "translator_ast_sha256": "a52f9e8134f7a8f8ba758bc6eb0aff15f814d65623749ef9c5014161f6d0f441",
+          "compiler_hir_sha256": "923a302b244bef03db859f0f97fc32b819dc88ce96952c80aea0073cc930f1f3"
+        },
+        {
+          "id": "compiler/tests/fixtures/SwitchComputeShader.cgl",
+          "source_sha256": "c85dd3def959349840abb23bb37d77fa7c0fe13f8b4f29e9b5ed733f7013538e",
+          "translator_ast_sha256": "9ca63f96ec99b18e62c40431a4cee7a59da8d4092a93956bf5ec95519043e4c0",
+          "compiler_hir_sha256": "38f1be3fd66da849f1d8b3f7c17662f8b43a7f6b43accaefcfaa09b6da6ba822"
+        },
+        {
+          "id": "compiler/tests/fixtures/SwitchGroupedLabelsComputeShader.cgl",
+          "source_sha256": "c886654704786d725a7befc880511a8431f75361519e0aec86351e03e8ef512f",
+          "translator_ast_sha256": "738c14f3bede82435e3339a2d9dddc210326c212397300db785af671d89a8829",
+          "compiler_hir_sha256": "53c1873158f10ffae3ea8324ef1390a47fb3d3c6e016ffd0b664197a77989faa"
+        },
+        {
+          "id": "compiler/tests/fixtures/NonParenthesizedControlFlowShader.cgl",
+          "source_sha256": "c177f79e3b2c71fe3b35af9a016e40dc5115b879d67885795f496db43e59be9b",
+          "translator_ast_sha256": "423339f0cab193758490d7c7321289eb46aaf3ddb05f2c94c22356e4ec498cd9",
+          "compiler_hir_sha256": "79e9d7b6c5683b72567c5e95b61d9d6d1dd23684593a70aaadae0616a7c73236"
+        }
+      ]
+    },
+    {
+      "id": "crosstl_examples_and_backend_policy",
+      "status": "accepted-source",
+      "description": "Representative CrossTL example programs plus legal language forms that may remain target/backend unsupported.",
+      "snapshot_refs": [
+        "/notes",
+        "/source/files"
+      ],
+      "snapshot_ref_seals": [
+        {
+          "ref": "/notes",
+          "sha256": "e6453baa6c33308cd16ec63cc3d390b671afe4d01fbc8c99a2f596bf72db1683"
+        },
+        {
+          "ref": "/source/files",
+          "sha256": "5f024911b51fbc8a1b47681feb717af3f7b94341c0348c713f9a0207b0fb967b"
+        }
+      ],
+      "fixture_count": 8,
+      "fixtures": [
+        {
+          "id": "translator/examples/compute/ParticleSimulation.cgl",
+          "source_sha256": "98cbcaec828dd6cc0eb36a53be91797e655cff31ab2f9448f758d1dff1b94d49",
+          "translator_ast_sha256": "833ec9df7876f9235d6f73c759aece67576bfca53a79dcaa2c23dd3a968feccb",
+          "compiler_hir_sha256": "9555206a056a0b1d7bfa957e6169eba4e0c345f9ab1f6fe43b59a7fa74fee215"
+        },
+        {
+          "id": "translator/examples/graphics/ComplexShader.cgl",
+          "source_sha256": "e9e9cfe5a86c820d8ae290e13394183195e687c3b5c3f493dd01e89493fac4b3",
+          "translator_ast_sha256": "957a5ac4de5d9020a662acab7791bce66cf867d78072074d4dfaf992ca83b970",
+          "compiler_hir_sha256": "1b59229b1bac79d49b67aa506c9ae1717a48d3b88cebf0765cee63b8ff75a40c"
+        },
+        {
+          "id": "translator/examples/graphics/PerlinNoise.cgl",
+          "source_sha256": "39270d9fac2e2215ed31d1388ea697c2d168e652981b645b3969bc9d9d8eb893",
+          "translator_ast_sha256": "4561bf7e09ce89727687c9191a09cc99de368fec5b86e94f88f8149de72a624e",
+          "compiler_hir_sha256": "7fcbbe04bbb3b14061f1122a766fc72c11354df16c93d23135f955766bff5364"
+        },
+        {
+          "id": "compiler/tests/fixtures/DirectXMixedManualSamplerUsageUnsupportedShader.cgl",
+          "source_sha256": "a8d606b43698bbb1e3496e66bb8861713248d8102f7ab416aef3391615b97dc0",
+          "translator_ast_sha256": "61a04a895c8c31877f5e3b60021853ebe91e19339f4420c1bc97d697102f8125",
+          "compiler_hir_sha256": "b1ce5ceb61a806b037beabcc9e687695901b68cefc88102806ff9d0765818983"
+        },
+        {
+          "id": "compiler/tests/fixtures/MetalStorageBufferArrayUnsupportedShader.cgl",
+          "source_sha256": "63b8182c62d83744a063049b7a97a943ecfb4c177b22041b30e356feb691a211",
+          "translator_ast_sha256": "cbe6e43559a3258eea3f66ac12d381408e5092f9ef84686d395d5d24988f08f5",
+          "compiler_hir_sha256": "dc86d374466d678330ee447c434fc5c94a109591917b2bf1409bf65194543513"
+        },
+        {
+          "id": "compiler/tests/fixtures/RuntimeResourceArrayUnsupportedShader.cgl",
+          "source_sha256": "6c2f3964b5c150d2dd20d5457e1858883105996139b4bd61f29d4dc91fc6e2d3",
+          "translator_ast_sha256": "8d48832a531e973cd51195757ffd4a92021b6818da6f532e0567b7e0624b4c1a",
+          "compiler_hir_sha256": "883094bb6c9bc69e1bf2383c716641ce21616e14639ecbab0d463c25dfb6323c"
+        },
+        {
+          "id": "compiler/tests/fixtures/StorageBufferUnsizedDescriptorArrayUnsupportedShader.cgl",
+          "source_sha256": "3ec5c851171e18cc00f6c9c25a9cc50a0f8273186cce90a42d190be923bf425c",
+          "translator_ast_sha256": "b5793ed62b339d95b3603d9a21d642bd59d9231d2299ea5a3af2f7f664da2763",
+          "compiler_hir_sha256": "36bcc7b8a51c80bcc4ec8bb09e2edb973a2a852d5c6f176e7f6981d03d27a920"
+        },
+        {
+          "id": "compiler/tests/fixtures/VulkanTextureSamplerArrayAccessUnsupportedShader.cgl",
+          "source_sha256": "dd7260ad7a60da805a240aa85e5e7785072c60ecbe15f8e8b890e7bc4b88ccf7",
+          "translator_ast_sha256": "453603fabfecce5392d51fc369994520abb972738013e30231fc98b74c26aaaa",
+          "compiler_hir_sha256": "88cf95201b4314387c1bd33c9ff4ef031faeffd097ea328e89294d655da0557e"
+        }
+      ]
+    },
+    {
+      "id": "descriptor_indexing_and_nonuniform",
+      "status": "accepted-source",
+      "description": "Descriptor arrays, symbolic/folded/dynamic descriptor indexes, nonuniform markers, and runtime array boundary cases.",
+      "snapshot_refs": [
+        "/language/types/arrayForms",
+        "/language/resources/descriptorIndexMetadata"
+      ],
+      "snapshot_ref_seals": [
+        {
+          "ref": "/language/types/arrayForms",
+          "sha256": "5233f704f89394a2c1edc6ccadefa67e9994f72c335314c61fbbd36c9f25d185"
+        },
+        {
+          "ref": "/language/resources/descriptorIndexMetadata",
+          "sha256": "ada0e738686c60c0b4c10c9d0edcf5d49dc8bd8fa0bc58fa590701aa2c7130ea"
+        }
+      ],
+      "fixture_count": 11,
+      "fixtures": [
+        {
+          "id": "compiler/tests/fixtures/FunctionParameterArrayShader.cgl",
+          "source_sha256": "aa6bac627c015458e73bccd4cd9211a5edf9274279beb64f47e34e59c9991a1c",
+          "translator_ast_sha256": "8944b91cfdb2be7f970a7a0e00af24dbf57510737d061e1d2378ca576b9543fe",
+          "compiler_hir_sha256": "f33ce5295d0865b2656f662e0b69ee5d1062c14a83911a55f4add02a1abc2fc0"
+        },
+        {
+          "id": "compiler/tests/fixtures/RuntimeArrayShader.cgl",
+          "source_sha256": "03f86cc53ffdab6d6a62642af99b24dcbf56957a4ed2d74c1596c80bd349933f",
+          "translator_ast_sha256": "abeb8898ec29222763134adad08da3a7d9c57df380cabf4dd47ef6dd33764f26",
+          "compiler_hir_sha256": "ab1e8bc05a5ae4fe634acb406988225685b716c7c0229fcde2f2b5139d968799"
+        },
+        {
+          "id": "compiler/tests/fixtures/RuntimeStructArrayShader.cgl",
+          "source_sha256": "e8fa931de6cb550bf1b51d88f91e0e4941360aa0daeed2736ac0bbc8b6326e05",
+          "translator_ast_sha256": "c9df1ad00e0d53a294685b9294ca51946bd788870161276a7cfacb4cb5f12e93",
+          "compiler_hir_sha256": "ebbe9942260eb4401124f90fc390a6e6313243a5d06e0fb67d2786a53ec02f73"
+        },
+        {
+          "id": "compiler/tests/fixtures/RuntimeVectorArrayShader.cgl",
+          "source_sha256": "a8e77fee98677471df329c27f3cc8aa99fd9d2a75102d475265f73ddc936c03d",
+          "translator_ast_sha256": "a72f8e6cc92e7cee65ceb362aef942e534436dc0dbed77946aec14fc8270c73f",
+          "compiler_hir_sha256": "1bc7cdf085b06f6943f8aa1892c8d1498be0e374b549b3b0de1956d3d93e5fd6"
+        },
+        {
+          "id": "compiler/tests/fixtures/RuntimeArrayDynamicOuterIndexShader.cgl",
+          "source_sha256": "29aed2b16f903706167da41e49b98f699c49ad3e3ab6716f02aa74454a1cb83a",
+          "translator_ast_sha256": "b74f17fae3256460231da1d3d2ab20e80300c0b210014ebb635ba7c60ff8d327",
+          "compiler_hir_sha256": "5f1bd3942760dd912831dc2f4344c612fccd454a0e0d1031ee464ea42520e48e"
+        },
+        {
+          "id": "compiler/tests/fixtures/MixedResourceDescriptorArrayShader.cgl",
+          "source_sha256": "90ee6800463f84cc582817a13380d4357fa19042f34b0ddd84f2f242636e3780",
+          "translator_ast_sha256": "c601b253f1aae8a8a115df070c9b0a2e4be81c5fbaae6940669eb2368f65d719",
+          "compiler_hir_sha256": "ea22b7b571bf8853e968dbb3fc1cfda807f19ae044b256e3e63b4387aba0c9c6"
+        },
+        {
+          "id": "compiler/tests/fixtures/MixedResourceSymbolicDescriptorArrayShader.cgl",
+          "source_sha256": "f366fcfb3fb6693b7d8d969fcfe7489c047cbfe11393aa128ed8a022b061c4e2",
+          "translator_ast_sha256": "ab2f8c166d55efccc7d941912b217e9e3183b4c99917e6a579338094d0abee96",
+          "compiler_hir_sha256": "1e9c9f2e1344bc2f56a533c120fd44c9506825eb4187d43a0c6208e7dafbf789"
+        },
+        {
+          "id": "compiler/tests/fixtures/VulkanDynamicDescriptorArrayIndexShader.cgl",
+          "source_sha256": "144d8c2e2c318e415fe787d0cc820291d2349dac1405057e9632627c9aeeb411",
+          "translator_ast_sha256": "2a830120509416e0e08da022f14bf00bdc4d0b2b8c298e7204e0a1ec9460a9e6",
+          "compiler_hir_sha256": "c114bdd8e427fd739b147bc16eccbb400dbfda6cdf0faaa8a2a87fc97c9cb8b5"
+        },
+        {
+          "id": "compiler/tests/fixtures/VulkanNonUniformDescriptorArrayIndexShader.cgl",
+          "source_sha256": "bd44376f6fe3c9a0c7e3d067a6813d1b1ebef0a71f5dea96f43c8528f99092cd",
+          "translator_ast_sha256": "ffb4d73bcafd5c4a9f2b7e8caf22148f426fcc47bf43b34a37da1188dee1e381",
+          "compiler_hir_sha256": "cea5db3079852104d7d9d907a4c8255d53a7652dd2a8ebb536d79be24d7e0bff"
+        },
+        {
+          "id": "compiler/tests/fixtures/SamplerOnlyNonUniformDescriptorArraySampleShader.cgl",
+          "source_sha256": "21219e2bf3931c1035bec26702a6058c008a1d0c2b696bd8df4c2ad5baa5a4ed",
+          "translator_ast_sha256": "5b77db9f1176b65ac904e74ad206f3e382113fc621d505a8082033abce27d1a9",
+          "compiler_hir_sha256": "fa89776e44e55b0af2a025c246f845b9bbf87c73093d3011edad08203db8531b"
+        },
+        {
+          "id": "compiler/tests/fixtures/TextureOnlyNonUniformDescriptorArraySampleShader.cgl",
+          "source_sha256": "17e0cedd66b91a4534cd14262beba4a8e629df8672781b785be226730920d1fc",
+          "translator_ast_sha256": "1469c815100020b115e8dad28a34eb97adc62684099b463e62a5f8e2a83e2ebd",
+          "compiler_hir_sha256": "d68dcfbfce4e3bb14d83141af0072ac3d1336ad3c328dd7ec25e7043339085fd"
+        }
+      ]
+    },
+    {
+      "id": "expressions_operators_and_intrinsics",
+      "status": "accepted-source",
+      "description": "Arithmetic/comparison operators, casts, constructors, swizzles, loads/stores, and scalar/vector intrinsic calls.",
+      "snapshot_refs": [
+        "/ast/expressionNodes",
+        "/language/intrinsics"
+      ],
+      "snapshot_ref_seals": [
+        {
+          "ref": "/ast/expressionNodes",
+          "sha256": "7a00e828af05b7b1be0622945d0459e054db1c1f1793849f7f76db1f1ea317f2"
+        },
+        {
+          "ref": "/language/intrinsics",
+          "sha256": "c5acc61b59579b8a3982168e18368fc1fde629fde2e7c74384291aec0af4b419"
+        }
+      ],
+      "fixture_count": 9,
+      "fixtures": [
+        {
+          "id": "compiler/tests/fixtures/ArithmeticComputeShader.cgl",
+          "source_sha256": "c42e247420b88186d019d67b14a5cb7c4c6d5c9ebae176a187c8d9929d5498a6",
+          "translator_ast_sha256": "b5d22ed8f05f2591aea61c54b60b9df63eb6f2afd78db7a1a6419953e5cca671",
+          "compiler_hir_sha256": "97b74e377816d0213a0fdb3256c2cd313cce49263051d572fbe59b5f34140e9e"
+        },
+        {
+          "id": "compiler/tests/fixtures/NumericFloatLiteralShader.cgl",
+          "source_sha256": "8d796ed88ddcefa8434c0214835df5ab243b143f702edb00f57f5a26af2241be",
+          "translator_ast_sha256": "ddfec93bf64186eeaeda45a161ee2e267d1e90b6ba70480a58170d59f22bef17",
+          "compiler_hir_sha256": "ee15408579031d46f2cb6815c5ab1f4ca809ee7e64685dfeb1a2afb4afa1cc55"
+        },
+        {
+          "id": "compiler/tests/fixtures/ComparisonComputeShader.cgl",
+          "source_sha256": "855de28fe1bb73bcc4e0ebe954f25afc0523748a8495d64843d716c435dc6a7e",
+          "translator_ast_sha256": "bf9abe05437247aa27fe34e14d6a439a9274726bef88636c0aaba86715b233b7",
+          "compiler_hir_sha256": "cef990ac3af066e93be744ac17686ebc5d7ce09aad7d323bdf48abe3646d13c2"
+        },
+        {
+          "id": "compiler/tests/fixtures/ComparisonSamplerRoleShader.cgl",
+          "source_sha256": "93396a1f6ae7abc1d1584a093101196919ab90a6a4e4da870a177bf4046bf1f1",
+          "translator_ast_sha256": "7bbf1f8d4aef06355db7a2562dbfd758147f3f7b4bed068e165387d7bed7e7f5",
+          "compiler_hir_sha256": "76c65d6fe0866c0e31fdbb61562f04c0b06f8ec479078a9d574d779367734d02"
+        },
+        {
+          "id": "compiler/tests/fixtures/IntrinsicComputeShader.cgl",
+          "source_sha256": "128745ef2156445b14db62770cac20fa48bf085a9d2b0944cf05741d28c399a0",
+          "translator_ast_sha256": "0c465572d838e518ecd37263fe63465de88e905930e5788809b86f7f3a61cf70",
+          "compiler_hir_sha256": "ba3df2cf09644bc679663acc3abf4827951ce283488e58277558f1302cc6527b"
+        },
+        {
+          "id": "compiler/tests/fixtures/AtanIntrinsicComputeShader.cgl",
+          "source_sha256": "2f7b06c0a6c5d5aa21ec86d5f5788412b3fd6996625dce7d3f358fbae102a5b9",
+          "translator_ast_sha256": "e46be599dd32850947ea18b0ed759532b68807c7cf317bf9528a55b3f24df82d",
+          "compiler_hir_sha256": "2791f50f51414f596eea8a148da409a844661e0c85efb45c01d874ba918f0bf6"
+        },
+        {
+          "id": "compiler/tests/fixtures/LoadLocalComputeShader.cgl",
+          "source_sha256": "3f8ba65174f7b15e4bccf2d0f8d68e72c08763b86159b261a1a703b078e4fab2",
+          "translator_ast_sha256": "71502fe58f7707d3ee7dd3035b17dad2c04bbde385328c7f8d2d8cab081e309e",
+          "compiler_hir_sha256": "a8eaf5c198b61829baebfd1966084279fae1bca0f60ff625bdfd6ac686440b6c"
+        },
+        {
+          "id": "compiler/tests/fixtures/ReadModifyWriteComputeShader.cgl",
+          "source_sha256": "57e92b895897f46caec55a7e65ce37ad00ca9fb92e74cb7e7f9c66548373e984",
+          "translator_ast_sha256": "b180a43f4fdf161188886363c006d5bd4bb7e340fc422cb4770c3338307e27d4",
+          "compiler_hir_sha256": "f8f5721aff5928905297fb9dc0e97de3e3f39874dcb046853d2312b097b03276"
+        },
+        {
+          "id": "compiler/tests/fixtures/VectorScalarCastComputeShader.cgl",
+          "source_sha256": "e453a1aa96aff5627a4d464de46ffc6dc0746ba210f1f7cd5e6ee69dbe1e888c",
+          "translator_ast_sha256": "cd85822b723ad4c3f55735bccacc2955f3ba5866c4a91d31cc2ccb9cd7937bac",
+          "compiler_hir_sha256": "46b6ba3ff7f8388e57caa58c8f21382ff63c632f5ecea27d0846fe05b4ad9c33"
+        }
+      ]
+    },
+    {
+      "id": "module_stages_and_entry_points",
+      "status": "accepted-source",
+      "description": "Shader modules, graphics/compute stage blocks, and named compute entry points accepted by the v0 frontend surface.",
+      "snapshot_refs": [
+        "/language/stages",
+        "/validation/stageLayout",
+        "/ast/classes"
+      ],
+      "snapshot_ref_seals": [
+        {
+          "ref": "/language/stages",
+          "sha256": "1c46f70749c184ce215e373568e4385aafee2ff357b77a728cfaf4a110d75497"
+        },
+        {
+          "ref": "/validation/stageLayout",
+          "sha256": "1c1c4d66f91de34b69cce958ba9f191da9dbfa4af0339a18a0fc215bc63dd954"
+        },
+        {
+          "ref": "/ast/classes",
+          "sha256": "16086c3ab2ed33a5d99b9e60005c06715eb0b9931bbceeb67a12102d759606f4"
+        }
+      ],
+      "fixture_count": 5,
+      "fixtures": [
+        {
+          "id": "compiler/tests/fixtures/FnStyleFunctionShader.cgl",
+          "source_sha256": "f30b3bd0e13a0b7e06f87eb3c0d9a03188f018c7a7b1be7cc24702204ccaa46c",
+          "translator_ast_sha256": "98a21abe78a1146670294e05cf1804c4118d842f7bb9008d5c01c61f5638af30",
+          "compiler_hir_sha256": "cc7d15cc489264d3e9e2105106143fdbf6aa064a66b313aa4e2070814643e6b7"
+        },
+        {
+          "id": "compiler/tests/fixtures/MinimalComputeShader.cgl",
+          "source_sha256": "1a1427f1cd9e0f21d1e05ac1ac5a94043b36ade5af52aff14bfc39566e4b9433",
+          "translator_ast_sha256": "ac6005c5520801b0328d51e44159591d775b10e7dba7562188514cb329b0e7dd",
+          "compiler_hir_sha256": "c8fe69327f5cdfb4cca21d4f44ad4b7f8db62b9d2404981bd62094bdc64b6a46"
+        },
+        {
+          "id": "compiler/tests/fixtures/SimpleShader.cgl",
+          "source_sha256": "f2736779b2831445cf004bd9864e99366bb1298d17457595c8bf286972b84e1c",
+          "translator_ast_sha256": "e34fc0c3dd4d15095a76f64c99a0fee0892ffc9c04728393ec9fbb621112e9d3",
+          "compiler_hir_sha256": "5b9f3d138bffee9c69c68985b8dffebcaf849b16ce3295379f2096b20268f067"
+        },
+        {
+          "id": "translator/examples/graphics/SimpleShader.cgl",
+          "source_sha256": "7af4509b1d78770755c08a5817976bfa316ff1214c6c1403504f4ea67f6be39a",
+          "translator_ast_sha256": "e34fc0c3dd4d15095a76f64c99a0fee0892ffc9c04728393ec9fbb621112e9d3",
+          "compiler_hir_sha256": "5b9f3d138bffee9c69c68985b8dffebcaf849b16ce3295379f2096b20268f067"
+        },
+        {
+          "id": "translator/examples/gpu_computing/MatrixMultiplication.cgl",
+          "source_sha256": "4c002060f3203388c1224a223696ab8b27f40a685a220a77707ebb4374c6c0c8",
+          "translator_ast_sha256": "9a1a6d187128f8f61989ddf7dff19fc5e9ee0dba4becadf6d2d705adc0abdfa3",
+          "compiler_hir_sha256": "c59efe6c3142111d674b6e259593e0842440e1aae9f6a1c2c9dfa0d11772d87d"
+        }
+      ]
+    },
+    {
+      "id": "resources_layouts_and_storage",
+      "status": "accepted-source",
+      "description": "Layout metadata, descriptor resources, storage buffers/images, access qualifiers, and resource arrays.",
+      "snapshot_refs": [
+        "/language/resources",
+        "/language/qualifiers",
+        "/validation/metadata"
+      ],
+      "snapshot_ref_seals": [
+        {
+          "ref": "/language/resources",
+          "sha256": "aabf264fb147cc037542aa10869b39af6ddb2571028e9f1e2aee2dd7f4e2dbbc"
+        },
+        {
+          "ref": "/language/qualifiers",
+          "sha256": "224a22b078334c6003741dcc6ca754f2d9fde879caa7fee1ac9b24215349cc4d"
+        },
+        {
+          "ref": "/validation/metadata",
+          "sha256": "313320a0295ff536f534f1fd9bfd08012e9652c3df38f84c86330725b7f7033f"
+        }
+      ],
+      "fixture_count": 14,
+      "fixtures": [
+        {
+          "id": "compiler/tests/fixtures/ResourceShader.cgl",
+          "source_sha256": "9213f2331dec7747d0e4bea92b083bb3bd9c4e30238d59b943fe49f33b525038",
+          "translator_ast_sha256": "0a3fbfae47665c094058d71889b179568694ce13a2f190f37485ea1fe451ba9c",
+          "compiler_hir_sha256": "b343f0fbf7635d0323ff19f15eb931c183fb401e72ddda16c92dee8d6e1e3134"
+        },
+        {
+          "id": "compiler/tests/fixtures/ResourceGroupAliasShader.cgl",
+          "source_sha256": "4e9cb30903a730cc50eb9fb1e59fdfe06e3e928bdca9e848271c6c6e183224d5",
+          "translator_ast_sha256": "6bb429e67ee5be97e2467fca672ebabad06cb38ad45744184bb9f2ef1eef1096",
+          "compiler_hir_sha256": "08a3a3e3144b736bacf52f33f42aafc5106593acbcdcbd7211beac5a99199c19"
+        },
+        {
+          "id": "compiler/tests/fixtures/ResourceRegisterAliasShader.cgl",
+          "source_sha256": "20bff827368baad7de80692f43b5cd308f46e8f9834a7c4b88316def006936bd",
+          "translator_ast_sha256": "358ae8bf63a059944961b845d8867e71389df85ef892eed66195b1cf2722f656",
+          "compiler_hir_sha256": "a3fcef7eb38287aabf359114130fe50434303bf4a8e7f78a7ac0a91db4b14aaf"
+        },
+        {
+          "id": "compiler/tests/fixtures/ResourceLocationAliasShader.cgl",
+          "source_sha256": "178255643cf42491e75b61014dec1937d0238baddafc83f4e9edd0bebf467018",
+          "translator_ast_sha256": "a551c3f48df35b69951304ca463907923ff04cda507b3f6fd7fb30835426c542",
+          "compiler_hir_sha256": "6e641fc1a8c3175372872f7a5188ee7dd6d5dc448798465e40f824f1976355a2"
+        },
+        {
+          "id": "compiler/tests/fixtures/ResourceArrayShader.cgl",
+          "source_sha256": "7a2978b7cb5f18cd61cd8a13ef9ea074b6a86176ba9db8c0dd828e96bcf5aaad",
+          "translator_ast_sha256": "78203c5f507aab6f9f1af0b7fcdf1cff134dd10946abe6926d79edec257a9c3e",
+          "compiler_hir_sha256": "36ad887e298949348942cd36e860a6255c52bd975f4533c4c4a8d5b9797fe630"
+        },
+        {
+          "id": "compiler/tests/fixtures/ResourceArrayAccessShader.cgl",
+          "source_sha256": "a20951579eaa4d91da2b9e9731cf5cfa11e928abc979f688e8b833eeb1968b29",
+          "translator_ast_sha256": "ad341919089c4dd2432f08763ad84b21ffdc726db5f8351f42a20b380c2313be",
+          "compiler_hir_sha256": "ff7352d0cafe369660c336fabfa652096fd7728f6a5b319c840df56cfc8c7004"
+        },
+        {
+          "id": "compiler/tests/fixtures/StorageBufferComputeShader.cgl",
+          "source_sha256": "7b573de26282b494e21f3ed2f3485fbc67c9a72fba01ce08ff9267c27a81045d",
+          "translator_ast_sha256": "e78daa102676b88506b633027638d53158e391e4be9f500df174457f5e7678cc",
+          "compiler_hir_sha256": "dbb87cb2882a2f60770a717cdd58e6f277a60c8ba9bb2c8cb37a45c068206aea"
+        },
+        {
+          "id": "compiler/tests/fixtures/StorageBufferArrayAccessShader.cgl",
+          "source_sha256": "b723e2b68f881396ad93aeb58edd8f85988eacbee92c6ec852530a94e1509735",
+          "translator_ast_sha256": "f2a1f5448114d84c5015abaabbb0042d2aecfda972e8bf4d8257f23d6170ef60",
+          "compiler_hir_sha256": "7e6cdc1d4dd4a7345594242deca59fd3aa537d9ce6370e91278c8ee42ae83bba"
+        },
+        {
+          "id": "compiler/tests/fixtures/StorageBufferStructArrayFieldDescriptorArrayShader.cgl",
+          "source_sha256": "11c80280ed6471ef61d932882c13fbe62db9b1e475dcc41ed8e40197035586bc",
+          "translator_ast_sha256": "94514d16f7b47df28fa0fc00590c2b49469381e542ea818d06b005e769fd8d93",
+          "compiler_hir_sha256": "0a5aea5264d36fca73f21a1daa069204c52ce0c25a43751990ac3d36b81518b5"
+        },
+        {
+          "id": "compiler/tests/fixtures/StorageImageExplicitFormatDescriptorArrayShader.cgl",
+          "source_sha256": "faa3ee8167675f75c4a505ab62fc9a5e0fd7c1cd9979db48c74ef2ed4951e94e",
+          "translator_ast_sha256": "e89e17d612021a5210c8376a7b9648b43d5330ec8ec593bca87917accec9db0e",
+          "compiler_hir_sha256": "8c7cee5669034eab58ee28da18468edc8cfd0b5c44436d10d276fb9ddc7a0b26"
+        },
+        {
+          "id": "compiler/tests/fixtures/StorageImageExplicitFormatShader.cgl",
+          "source_sha256": "45f88a12264cec4a3bf6eb6ffe7e63f6d9ceeb3964fad7703c64a0ea35a69703",
+          "translator_ast_sha256": "01e54f6606c9bbcdf63132d5eb75c1509ccec3595e45a44bcfa5d1cdc291df53",
+          "compiler_hir_sha256": "5bdbfab809bef13da265856ff054ef4f0ff3954bb215cd71641faede1c0e33ed"
+        },
+        {
+          "id": "compiler/tests/fixtures/StorageImageAtomicDescriptorArrayShader.cgl",
+          "source_sha256": "ca6e726be280eba7e5c649475fb3cb9ac089b9acba259448b63a82257c3e61d4",
+          "translator_ast_sha256": "4aff52d40dca0d1960ef7b0c4812c0495cb96832a8f41aa083da866b18064304",
+          "compiler_hir_sha256": "f9d6bce9ed065f66b5e3da2cdddcc882a0b0ffb6a0addc752d83ebad2998cf3a"
+        },
+        {
+          "id": "compiler/tests/fixtures/StorageImageAtomicShader.cgl",
+          "source_sha256": "a5a0191fffb927d04b796b4cade9d374945dc40b8eecd3b89738b3845adbbf36",
+          "translator_ast_sha256": "e17997b7f8ead39eaf20eb6ae9c9818bae1bf66ae134b80ab57e79840cac6519",
+          "compiler_hir_sha256": "1b107d444bbdd953272a293f64eb30a2d885b758311199695d9cfe0dae78db97"
+        },
+        {
+          "id": "compiler/tests/fixtures/MetalMultiSetResourceShader.cgl",
+          "source_sha256": "0c910356a4db1c2017dc981180a61c6752bd6899a19af6d1ef6343d9c79a90d2",
+          "translator_ast_sha256": "c32657d9d4211bc6531ecfb079763c558bdb92c6f168ba6a3f8b14b3df71d563",
+          "compiler_hir_sha256": "b300c55e0c7849dcd45a6380b225f04f4b22e58e32a4ef37f69ab42ad687e49a"
+        }
+      ]
+    },
+    {
+      "id": "textures_samplers_images_and_intrinsics",
+      "status": "accepted-source",
+      "description": "Texture/sampler/image resource types, shadow compare forms, LOD/manual compare helpers, and texture/image intrinsics.",
+      "snapshot_refs": [
+        "/language/types/textures",
+        "/language/types/samplersAndImages",
+        "/language/intrinsics/textureAndImage"
+      ],
+      "snapshot_ref_seals": [
+        {
+          "ref": "/language/types/textures",
+          "sha256": "736d85071fa35be3111caf00da073336680c86e51a5a4cb3138283ede76dda66"
+        },
+        {
+          "ref": "/language/types/samplersAndImages",
+          "sha256": "bf7088d69597c97c021ec7fd8e40d40e0ae1d8f39eed721553d8f67cc4b4f5c3"
+        },
+        {
+          "ref": "/language/intrinsics/textureAndImage",
+          "sha256": "de2ca7d2897f8990f9e34378bb5ac786016dcd0e962d42087658adaa13acc45e"
+        }
+      ],
+      "fixture_count": 10,
+      "fixtures": [
+        {
+          "id": "compiler/tests/fixtures/TextureDescriptorArrayShader.cgl",
+          "source_sha256": "464e890dc3481a05f7aa5babda28990873e43f25ab4dc929f87b44465b7c60f5",
+          "translator_ast_sha256": "6586b9825bd7537238098738334f9b740fd93d15bdc083b8eb95d207889afc3b",
+          "compiler_hir_sha256": "cf9988fb436e10b4d52d0cacf69deefffe8912b35f15862e74e2a7c742060d45"
+        },
+        {
+          "id": "compiler/tests/fixtures/TextureCompareDescriptorArrayShader.cgl",
+          "source_sha256": "b6f2466126b649c1c00309993a706e4b82ddfaa01e199fd8be7b6f590455f083",
+          "translator_ast_sha256": "532687cc9e03d54c0fc60faf01255f97647e2dcdbce49776f7c0a423697ea8ee",
+          "compiler_hir_sha256": "ce7f7cfaad40cb8c87a6d98e5f341c3cc9bb5dd431bd55552d06b1eda3e3d83f"
+        },
+        {
+          "id": "compiler/tests/fixtures/TextureCompareLodShader.cgl",
+          "source_sha256": "bebb676d84077bd7aeb46fe792576f947629b9520f95610aed326cce0c24b1cd",
+          "translator_ast_sha256": "ba70817256e6ba4dc4fb5b23f32080a358c6283e702e1a28ad7ea0b4abec62dc",
+          "compiler_hir_sha256": "2fff03d307c1e6a3a4057ae909f4cbd468c9e4fc7e5ed4beeb3a254516907231"
+        },
+        {
+          "id": "compiler/tests/fixtures/TextureCompareLodManualDescriptorArrayShader.cgl",
+          "source_sha256": "2cafddbc51931a32027aa07ea3a5ebfc815a9686deba8c1b8ffec798748bfd64",
+          "translator_ast_sha256": "a7c28d1ae500008f3d5afcd9589fc128e26d8eed1dc756141184a0c059a8e3b4",
+          "compiler_hir_sha256": "e6a86bb2e25993087629210e6ca55903f7b21f2b330fd7ea8f8fd29e9d9469be"
+        },
+        {
+          "id": "compiler/tests/fixtures/Texture2DShadowCompareLodManualKernelListShader.cgl",
+          "source_sha256": "e11468b28d51aebd9d0d73c068e1ab14ea0d60ad3846864180c50982a3cdbc20",
+          "translator_ast_sha256": "eada37952097a358a15ec23a6b3f80a8a8ac45b065e03dcec8a600d783de23fe",
+          "compiler_hir_sha256": "71dba1eb0624329e98a6660f802be7bb25ae512e58db92505f07b5315d968824"
+        },
+        {
+          "id": "compiler/tests/fixtures/SamplerDescriptorArrayShader.cgl",
+          "source_sha256": "da89c320b0324b65c0b7df66af489064f0037c8ce7a1f3be2810a1a7dcfe733d",
+          "translator_ast_sha256": "629157d95b672604f8ef59021b5798f822c911890559461b972ca2d6a8498e82",
+          "compiler_hir_sha256": "eff1c5126cbc06b0b2443d805a29b4c9cd4ad21933f3176ba062d8560bf55cfd"
+        },
+        {
+          "id": "compiler/tests/fixtures/SamplerOnlyCompareDescriptorArrayShader.cgl",
+          "source_sha256": "6b96af1ffebbbac25b2bbb53ee476811ba1997b43d754065ca78a07dea62d27f",
+          "translator_ast_sha256": "57b31f04026a50b4b0307ca8fd9ad945fbc81bff1e81ccca0ed11cb9c04dca4f",
+          "compiler_hir_sha256": "2744589d0ace72d4f41c8eebc59b33aedc074f72ac7de0369de8924b9cb78144"
+        },
+        {
+          "id": "compiler/tests/fixtures/MixedTextureCompareDescriptorArrayShader.cgl",
+          "source_sha256": "0edb6cbe71ea7796476e4221c4645ebadf658024ebff7cff0ca895087df72d80",
+          "translator_ast_sha256": "835461557087ba67c4bbf9286669e354c3d5bc55a8b459b98b5d61b5e9ea8ce6",
+          "compiler_hir_sha256": "97f15fd3325cc60f364cf7a04bd4073cb86edb53414829d20449a1333992ab3d"
+        },
+        {
+          "id": "compiler/tests/fixtures/VulkanTextureSamplerLodShader.cgl",
+          "source_sha256": "2f60b58a8f89cab516aaa059edd69ff2d69e37507bbe0363abf7c6ba69144de7",
+          "translator_ast_sha256": "ea7f02b5d4001b8e7170864f4def610f48635076a9d0739e38004d8a37d04749",
+          "compiler_hir_sha256": "4ebe80e53c8e8345cacc595416014115ddd07a16dd084c884c469338ed034b51"
+        },
+        {
+          "id": "compiler/tests/fixtures/VulkanIntegerTextureSamplerLodShader.cgl",
+          "source_sha256": "fe6a37050d42c8c6aab99c19051ab1ab393f38cc05dec1277ff138150cbaf290",
+          "translator_ast_sha256": "91d1bd9f3aee8a7530ddb861d7475bfe85610d9f7c4890e1d27be5df844a9c07",
+          "compiler_hir_sha256": "1df6a22e3fa73b66ad7ac1b519cce89fc2427d69d14d7b750e0163896e034806"
+        }
+      ]
+    },
+    {
+      "id": "types_structs_arrays_and_constants",
+      "status": "accepted-source",
+      "description": "Primitive/vector/matrix/named types, structs, constants, and fixed/runtime array forms.",
+      "snapshot_refs": [
+        "/language/types",
+        "/ast/typeNodes"
+      ],
+      "snapshot_ref_seals": [
+        {
+          "ref": "/language/types",
+          "sha256": "b7ea742b0d785e528792b73caf49a6d274d1406da1d2a416977ccfaafbc9695e"
+        },
+        {
+          "ref": "/ast/typeNodes",
+          "sha256": "618b41543acf88b92fc570d126a5f4a4648be2b27a1670ea6b80430df5688455"
+        }
+      ],
+      "fixture_count": 7,
+      "fixtures": [
+        {
+          "id": "compiler/tests/fixtures/ScalarConstructorComputeShader.cgl",
+          "source_sha256": "cadd63e0a7342853ed59896e8f41b05f06b1918959689798fb76e7a283983295",
+          "translator_ast_sha256": "35fe555cfd13cd88fae435669b891dea9981541a5d77c0512ca56be0774a257b",
+          "compiler_hir_sha256": "398ae10785e9d02b62652ec1d24552b3cdeb6cf8d931b7f1afc523e7fa38d273"
+        },
+        {
+          "id": "compiler/tests/fixtures/VectorScalarComputeShader.cgl",
+          "source_sha256": "3d825101bfc75e4802dd3813d6c745b02051d3c1114d13bd8750597788997dfe",
+          "translator_ast_sha256": "4f40c91fcdbeadaa889b8e0d88a6e9d247f2a7505e3dd9dcc391f1a87b6d231e",
+          "compiler_hir_sha256": "5ea990740a4e37e0055a42e5be0c8dadac584e4b20d7e0006643cebc89c75920"
+        },
+        {
+          "id": "compiler/tests/fixtures/VectorSwizzleComputeShader.cgl",
+          "source_sha256": "00f34df8897ea453363eda48ab6d167aaaf7fe0fe7ecb2221240b329e97b228c",
+          "translator_ast_sha256": "9a7ab4ab8e3cb162c40e5b9d91fc3c8ff311089111bdc56638273dbfac0e8345",
+          "compiler_hir_sha256": "900d5ce178e04393d162a788807879efffc42fc74a39dfcb9920b02fb5706837"
+        },
+        {
+          "id": "compiler/tests/fixtures/StructBufferComputeShader.cgl",
+          "source_sha256": "6f97c7a9f7f9e30f79253d5ebb0477ba3b4c9f06b37a984f56c844e5004f2c60",
+          "translator_ast_sha256": "1b5504ce2311eefc89c20cb981e01859f29252ec9f4009584adc8b43582aa776",
+          "compiler_hir_sha256": "58f8e2aca6ee14c6e988ab367f56ed854e1a06caca8168f86d56bb104805c733"
+        },
+        {
+          "id": "compiler/tests/fixtures/StructNestedFieldComputeShader.cgl",
+          "source_sha256": "028f731b12773f42b0ea312f077533c4c791a73323e668212e9f5153a5dbe86a",
+          "translator_ast_sha256": "223307a7f877a53ab52ead28719e32021f743a248d7be161dc8debff9340eb50",
+          "compiler_hir_sha256": "b306ba87a1e02af74218dc279597c488e04e4b97e140bfd18ce14112ccdbe500"
+        },
+        {
+          "id": "compiler/tests/fixtures/StructConstantArrayFieldComputeShader.cgl",
+          "source_sha256": "f1531e37c1f994aa5801fe4d6363ef17761698969da28071ea17d16563253719",
+          "translator_ast_sha256": "dd6a530a2225d39862039fe1c031573331316f55b3866c0e2ff8213808413f83",
+          "compiler_hir_sha256": "fa72f7e067c9fcebb8336f45278d0d3d7dc9da8a3cf2af71e1bc7254a9dfeda4"
+        },
+        {
+          "id": "translator/examples/advanced/ArrayTest.cgl",
+          "source_sha256": "da802ae5b78a3d272f94bdffcb036e7e574550f1d6db046263cf99d8b07b86da",
+          "translator_ast_sha256": "1bdf9982085b0ca6a0b0f806803cb2f7a1219ad1994d6842bdb464170b4ca42d",
+          "compiler_hir_sha256": "2623324afe40c2a1042b7ccbdcbccc0b250c90c3b6c7ba32a339b4b79e5ba13c"
+        }
+      ]
+    }
+  ],
+  "negative_cases": [
+    {
+      "id": "compiler/tests/check-failures/BadNoStagesShader.cgl",
+      "group": "spec_error",
+      "classification": "spec.error",
+      "feature_group": "module_stages_and_entry_points",
+      "reason": "A v0 shader must declare at least one compilable stage.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadNoStagesShader.cgl",
+      "source_sha256": "2206e4ad7ac6caa37695d37c469a74f69109a390106bcce2f3c26dac92467b4f",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "2e998fe8e73a8346e4122a966e34b04f92688415595fcfde7503487269623d6e"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "sema.no-stages"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadEmptyStageShader.cgl",
+      "group": "spec_error",
+      "classification": "spec.error",
+      "feature_group": "module_stages_and_entry_points",
+      "reason": "A v0 stage block must contain an explicit entry function.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadEmptyStageShader.cgl",
+      "source_sha256": "5ba14e9827e73e0d92b7a7870eb9be29fd9a150fadea1e6f132e2de2789413fa",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "c6da0602937ee8ff24db6cecdb5c8e94365226837ffdc5992286362545615706"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "sema.empty-stage"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadBreakOutsideLoopShader.cgl",
+      "group": "spec_error",
+      "classification": "spec.error",
+      "feature_group": "control_flow_and_statements",
+      "reason": "break is only legal inside loop constructs.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadBreakOutsideLoopShader.cgl",
+      "source_sha256": "7fb5efedc3f9275d78a8ce0ca0940b42bba76b7db2b0c1d2c507f5f741592764",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "59bb28f7c27ec5e0d952496eb4992444cef24bde982091260b2dc493aef2b3ed"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "sema.break-placement"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadDuplicateCBufferFieldShader.cgl",
+      "group": "spec_error",
+      "classification": "spec.error",
+      "feature_group": "resources_layouts_and_storage",
+      "reason": "Duplicate cbuffer member names are ambiguous in unqualified references.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadDuplicateCBufferFieldShader.cgl",
+      "source_sha256": "d3cc81425978f690e4b9bf8777e53482e2dc4d6a768c05d86607fec9dd45b38e",
+      "translator": {
+        "status": "rejects",
+        "error_class": "SyntaxError",
+        "diagnostic_substrings": [
+          "Ambiguous cbuffer member name(s): value"
+        ]
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "sema.duplicate-cbuffer-field"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedExtendedStageShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "module_stages_and_entry_points",
+      "reason": "CrossTL accepts extended stages such as geometry, but native compiler v0 only lowers vertex, fragment, and compute stages.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedExtendedStageShader.cgl",
+      "source_sha256": "34d33c111d90f94466d2757434a278e23de9292aa5a47e274ad8e1ea3e4ab160",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "f6862ddff89eadf2414e8a2a9a44c0c5f971a2ce44521dca8f7d64aae37aac7d"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedRayAnyHitStageShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "module_stages_and_entry_points",
+      "reason": "CrossTL accepts ray any-hit stage blocks, but native compiler v0 only lowers vertex, fragment, and compute stages.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedRayAnyHitStageShader.cgl",
+      "source_sha256": "8358cc94e58874110685869ff8fb04edeeffcf56971dbf6c16a23b65e94ef6c2",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "8b7106601506153c922e8a4992c8326ffbee406049ae9e3207bfc882b7ea0ae0"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedRayCallableStageShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "module_stages_and_entry_points",
+      "reason": "CrossTL accepts ray callable stage blocks, but native compiler v0 only lowers vertex, fragment, and compute stages.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedRayCallableStageShader.cgl",
+      "source_sha256": "b8c319eedb10537c692c1a087f8d997c38701afa4623a1617bcc51aa5ef1a798",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "5b7879edb42cbcfa95856cc220edf86cfd83774e3e4c18a9d0366879f33442d6"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedRayClosestHitStageShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "module_stages_and_entry_points",
+      "reason": "CrossTL accepts ray closest-hit stage blocks, but native compiler v0 only lowers vertex, fragment, and compute stages.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedRayClosestHitStageShader.cgl",
+      "source_sha256": "a97136eed25f3c521abef39bb70a9e774dfcce5c77bb2519df097006e105fbde",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "e821f898fa7bed4fe040e92e6d5b46050c6202e77dfe3c46e959efce08816f53"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedRayStageShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "module_stages_and_entry_points",
+      "reason": "CrossTL accepts ray generation stage blocks, but native compiler v0 only lowers vertex, fragment, and compute stages.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedRayStageShader.cgl",
+      "source_sha256": "0fb9b0b600184c2fc728dcfe7542d37c16faa21729e932c59436f3a89dc39eeb",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "2c68b189815437d42301ef384fc7601e7e1946c5408609980a027616de809f47"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedRayIntersectionStageShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "module_stages_and_entry_points",
+      "reason": "CrossTL accepts ray intersection stage blocks, but native compiler v0 only lowers vertex, fragment, and compute stages.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedRayIntersectionStageShader.cgl",
+      "source_sha256": "16a79b091218f2da1456574470cb66e8e36bfccc06dde9767d2cfc76ec628e3e",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "9b7b1ef75e38f47666e9fe1c00ad5f2805d7a64a0a91ac72c27caa990132f928"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedRayMissStageShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "module_stages_and_entry_points",
+      "reason": "CrossTL accepts ray miss stage blocks, but native compiler v0 only lowers vertex, fragment, and compute stages.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedRayMissStageShader.cgl",
+      "source_sha256": "cf4584ecfbe2d5e55842760b09b872601879a2c8bfab6a5e3b6a16942b59b00a",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "7a056ff9ea6a5e1c7f5bd9d75c5d91dae88fe45f5b68239e0f5b21a912258d99"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedTessellationStageShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "module_stages_and_entry_points",
+      "reason": "CrossTL accepts tessellation stage blocks, but native compiler v0 only lowers vertex, fragment, and compute stages.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedTessellationStageShader.cgl",
+      "source_sha256": "8585ec8a1766a3da2b29abda856752381b4cbfb26b1d7511d723be9826db61cb",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "3650bf8929bcac20c50d879fc0b768a07dd456f91bc689877ff355f55759056e"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedColonVarShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "types_structs_arrays_and_constants",
+      "reason": "CrossTL accepts colon-style variable declarations; native compiler v0 accepts function-body colon-style locals and bare uninitialized stage-scope shared value declarations, but still rejects initialized stage-scope var colon declarations.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedColonVarShader.cgl",
+      "source_sha256": "85ac8c6b0fd0503822b17ab72adbabe32078a6856580826bb320b2528256f88e",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "325bb009e9eec8f4e7b23f3fecaef4c25eface14aa0f3746550bcb7dd51a4a52"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0",
+          "decl.colon-var"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedGenericShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "types_structs_arrays_and_constants",
+      "reason": "CrossTL accepts generic declarations, but native compiler v0 has no generic specialization or monomorphization path.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedGenericShader.cgl",
+      "source_sha256": "f510b1cca3613ce485953b67abb459d4e78cfb0bc6b437aaffe0afb6b01b2581",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "e4cfae5b19828fd7bd182e82d32c5987dabe3261f8eed6cf6184a14499f423c9"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedImplShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "types_structs_arrays_and_constants",
+      "reason": "CrossTL accepts impl declarations, but native compiler v0 has no trait or impl lowering contract.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedImplShader.cgl",
+      "source_sha256": "9f195180428f3f18b82f668079088948bdc5cb98b61813165457c57a78cead53",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "ee3e76f5750d14f7da1847a08b5e74f439907b2591a08f72f070b875c240bfad"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedImportShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "crosstl_examples_and_backend_policy",
+      "reason": "CrossTL accepts source import declarations, but native compiler v0 does not resolve source imports.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedImportShader.cgl",
+      "source_sha256": "e3a1562b86f2a22765ca42d0e144a29bb00cde35d3efa4dcadd1b8069c29855c",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "696aa729a39ffd69578a85576a2f239f8b1df2c939011a83fe42822281e3e2dd"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedLineSplicingPreprocessorShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "crosstl_examples_and_backend_policy",
+      "reason": "CrossTL accepts physical line-splicing tolerance before preprocessor/importer tokenization, but native compiler v0 does not promise backslash-newline splicing as shared .cgl syntax.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedLineSplicingPreprocessorShader.cgl",
+      "source_sha256": "e8e70320d3e9b34ed1a9e580248d71bcbf8ae01cae2ee0a863add0246a2a193d",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "07fd08b92953429fe053758b0db9b858287b5470a443a84f0b0085d7d13c94bb"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0",
+          "decl.line-splicing-preprocessor"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedMatchShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "control_flow_and_statements",
+      "reason": "CrossTL accepts match/pattern control forms, but native compiler v0 does not lower them.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedMatchShader.cgl",
+      "source_sha256": "f7050eb3e710465ec20433de92df9e9d45aeba6eb645bb18afd9e86d79f8f7b1",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "28269c77fc554c9c373194782e3162ae7fd8e0ae0f00080fdb9d9a4db4cdeedb"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedSwitchShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "control_flow_and_statements",
+      "reason": "CrossTL accepts switch/case/default statements, but native compiler v0 only lowers restricted non-fallthrough scalar switch forms.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedSwitchShader.cgl",
+      "source_sha256": "c732d7b7c2854004ddbdd3ceda76d747d5233d026e4622695d7a7f7ae3cd4dc3",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "5a9b87aac8b7039a2a4d223d0d67fc32e30695813242d090a5961ba9c7eab6bb"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedSwitchDuplicateCaseLabelShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "control_flow_and_statements",
+      "reason": "CrossTL accepts duplicate switch case labels, but native compiler v0 rejects duplicate folded scalar labels to avoid silently shadowing later cases.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedSwitchDuplicateCaseLabelShader.cgl",
+      "source_sha256": "73d31e431b27f020836728437424594286c86e82ea52c327e1ef434a9713c39f",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "775f633e8ddd565c46cf03da2230bf5271df9491cde578862de37fefd57789ba"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedSwitchGroupedLabelsShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "control_flow_and_statements",
+      "reason": "CrossTL accepts grouped switch case labels, but native compiler v0 requires each case section to have its own terminal break-delimited body.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedSwitchGroupedLabelsShader.cgl",
+      "source_sha256": "cd2bc086b7ed5af6bcaa2cd0c575a54fc546d60eac5ba64a10e4199a2517a4d9",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "c39f69e68fb44397ca93f2ae478655ff3fdd16ac0c798a1eefd161e75dab9969"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedSwitchIncompatibleCaseLabelTypeShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "control_flow_and_statements",
+      "reason": "CrossTL accepts switch case labels with expressions of different scalar types, but native compiler v0 requires labels compatible with the selector type.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedSwitchIncompatibleCaseLabelTypeShader.cgl",
+      "source_sha256": "59c602ed6a7f67db1460c28b3a0793172c3275948524bcaa4637ffa19838d28f",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "cb6ce9419ec46dcadc5959c8d710f91ce181516f06e830aa666b6c92e0c6f46b"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedSwitchNonTerminalBreakShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "control_flow_and_statements",
+      "reason": "CrossTL accepts break statements inside switch sections, but native compiler v0 only strips a terminal switch-local break from each case body.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedSwitchNonTerminalBreakShader.cgl",
+      "source_sha256": "e07a29bfac2281d299463509ad42a647c398be40b0dc8d7852494cced67be454",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "1ac76db9f8fad247345d7a6993f55d8ce58d7fd51cc250d6809ac76bedd0bae6"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedForInShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "control_flow_and_statements",
+      "reason": "CrossTL accepts for-in loop statements, but native compiler v0 only lowers C-style for loops.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedForInShader.cgl",
+      "source_sha256": "a28b68c84ae7d6169f1a7f37adf42be09ecda4d268bc66f5609053583d9e238b",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "4df1b1f85b00c5690d989e5c6a3e324513207912687535a8afc092ebf455f2f6"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadMalformedForHeaderShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "control_flow_and_statements",
+      "reason": "CrossTL accepts this incomplete for header shape, but native compiler v0 requires the accepted fixture's C-style init, condition, and update header form.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadMalformedForHeaderShader.cgl",
+      "source_sha256": "b94a30699e5f76d0503f547a165c5048ec4d24fd4f86272b818c5873d0b01af8",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "33bb31a6b6735f2a5a2efc89abbe246f154daa5a21cdc48441a123fb597582fd"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedPreprocessorShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "crosstl_examples_and_backend_policy",
+      "reason": "CrossTL accepts preprocessor nodes, but native compiler v0 does not run or preserve a source preprocessor.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedPreprocessorShader.cgl",
+      "source_sha256": "ec513da50815b0b3e1df93431c04c3a4b497f90c756eb3d01e8d9d792c94a20a",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "921f8edeb1647c4cc7673b894ba41bcb92ee260ee347faafaadad3edebb50c36"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedTraitShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "types_structs_arrays_and_constants",
+      "reason": "CrossTL accepts trait declarations, but native compiler v0 has no trait or impl lowering contract.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedTraitShader.cgl",
+      "source_sha256": "3bb460006f8a4036d24597967bd66a876348edc6752baf601bf51e8c3d58c84d",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "97dd8831a6e36f6780a476dae84d2822bb2d320fd109570402d5a0874224f798"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "spec.unsupported-for-native-v0"
+        ]
+      }
+    },
+    {
+      "id": "compiler/tests/check-failures/BadUnsupportedVarAddressSpaceShader.cgl",
+      "group": "spec_unsupported_for_native_v0",
+      "classification": "spec.unsupported-for-native-v0",
+      "feature_group": "resources_layouts_and_storage",
+      "reason": "CrossTL accepts broader var address-space declarations, but native compiler v0 only accepts workgroup/shared stage-scope var storage.",
+      "root": "compiler",
+      "path": "tests/check-failures/BadUnsupportedVarAddressSpaceShader.cgl",
+      "source_sha256": "e5edcd97c852cb5192b150942eabdc9e092437cb5daaeed7f8c59692701b2496",
+      "translator": {
+        "status": "accepts",
+        "ast_sha256": "7733fb124d32ca0c7a5acdd85c06b8248dcd0e537fd23d18d6c7fbb1673454b7"
+      },
+      "compiler": {
+        "status": "rejects",
+        "diagnostic_substrings": [
+          "parse.unsupported-var-address-space",
+          "resource.var-address-space"
+        ]
+      }
+    }
+  ]
+}

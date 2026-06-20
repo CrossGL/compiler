@@ -1,0 +1,24 @@
+shader OpenGLNestedStorageFunctionParameterArrayWriteShader {
+  const int ROWS = 2;
+  const int COLS = 3;
+
+  struct Tile {
+    float grid[ROWS][COLS];
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Tile* tiles;
+
+    float rewriteGrid(float grid[ROWS][COLS]) {
+      grid[1][2] = grid[0][0] + 1.0;
+      return grid[1][2];
+    }
+
+    void main() {
+      float selected = rewriteGrid(tiles[0].grid);
+      tiles[1].grid[0][0] = selected;
+      return;
+    }
+  }
+}

@@ -1,0 +1,168 @@
+name: Cross-Repo Language Contract
+
+on:
+  push:
+    branches:
+      - main
+    # This external matrix is scoped to compiler/shared-language contract
+    # inputs. Runtime-only changes can still run this workflow manually with
+    # workflow_dispatch when a contract check is desired.
+    paths:
+      - ".github/workflows/cross-repo-language-contract.yml"
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "include/**"
+      - "src/**"
+      - "tools/cglc/**"
+      - "tools/check_cross_repo_language_contract.py"
+      - "tools/cross_repo_language_contract.json"
+      - "tools/cross_repo_language_spec.json"
+      - "tools/extract_crosstl_language_spec.py"
+      - "tools/json_schema_semantics/**"
+      - "tools/validate_json_schema.py"
+      - "docs/language/crosstl-frontend-language-spec-v0.json"
+      - "docs/schemas/cross-repo-language-spec-v1.schema.json"
+      - "docs/schemas/crosstl-frontend-language-spec-v0.schema.json"
+      - "tests/check-failures/**"
+      - "tests/cmake/**"
+      - "tests/fixtures/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/cross-repo-language-contract.yml"
+      - "CMakeLists.txt"
+      - "cmake/**"
+      - "include/**"
+      - "src/**"
+      - "tools/cglc/**"
+      - "tools/check_cross_repo_language_contract.py"
+      - "tools/cross_repo_language_contract.json"
+      - "tools/cross_repo_language_spec.json"
+      - "tools/extract_crosstl_language_spec.py"
+      - "tools/json_schema_semantics/**"
+      - "tools/validate_json_schema.py"
+      - "docs/language/crosstl-frontend-language-spec-v0.json"
+      - "docs/schemas/cross-repo-language-spec-v1.schema.json"
+      - "docs/schemas/crosstl-frontend-language-spec-v0.schema.json"
+      - "tests/check-failures/**"
+      - "tests/cmake/**"
+      - "tests/fixtures/**"
+  workflow_dispatch:
+    inputs:
+      crosstl_ref:
+        description: "CrossGL/crosstl ref to validate for this manual run."
+        required: false
+        default: "main"
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event_name == 'pull_request' && github.event.pull_request.head.label || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  language-contract:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-2022]
+
+    steps:
+      - name: Checkout translator
+        uses: actions/checkout@v6
+        with:
+          repository: CrossGL/crosstl
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.crosstl_ref || 'main' }}
+          path: translator
+
+      - name: Checkout compiler
+        uses: actions/checkout@v6
+        with:
+          path: compiler
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install translator dependencies
+        working-directory: translator
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install -r requirements.txt
+
+      - name: Check CrossTL frontend language spec snapshot
+        run: python compiler/tools/extract_crosstl_language_spec.py --root compiler --translator-root translator --check
+
+      - name: Install Ninja on Ubuntu
+        if: runner.os == 'Linux'
+        run: |
+          if ! command -v ninja >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y ninja-build
+          fi
+
+      - name: Install Ninja on macOS
+        if: runner.os == 'macOS'
+        run: brew list ninja >/dev/null 2>&1 || brew install ninja
+
+      - name: Set CMake and CTest parallelism
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          jobs="$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)"
+          if ! [[ "${jobs}" =~ ^[0-9]+$ ]] || [ "${jobs}" -lt 1 ]; then
+            jobs=2
+          fi
+          {
+            echo "CMAKE_BUILD_PARALLEL_LEVEL=${jobs}"
+            echo "CTEST_PARALLEL_LEVEL=${jobs}"
+          } >> "${GITHUB_ENV}"
+
+      - name: Set CMake and CTest parallelism on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $jobs = [Environment]::ProcessorCount
+          if ($jobs -lt 1) {
+            $jobs = 2
+          }
+          "CMAKE_BUILD_PARALLEL_LEVEL=$jobs" >> $env:GITHUB_ENV
+          "CTEST_PARALLEL_LEVEL=$jobs" >> $env:GITHUB_ENV
+
+      - name: Configure compiler
+        if: runner.os != 'Windows'
+        run: cmake -S compiler -B compiler/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCROSSGL_REQUIRE_PYTHON_TESTS=ON
+
+      - name: Configure compiler on Windows
+        if: runner.os == 'Windows'
+        run: cmake -S compiler -B compiler/build -G "Visual Studio 17 2022" -A x64 -DCROSSGL_REQUIRE_PYTHON_TESTS=ON
+
+      - name: Build cglc
+        if: runner.os != 'Windows'
+        shell: bash
+        run: cmake --build compiler/build --config Release --target cglc --parallel "${CMAKE_BUILD_PARALLEL_LEVEL}"
+
+      - name: Build cglc on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: cmake --build compiler/build --config Release --target cglc --parallel $env:CMAKE_BUILD_PARALLEL_LEVEL
+
+      - name: Validate shared language and IR contract
+        run: python compiler/tools/check_cross_repo_language_contract.py --translator-root translator --compiler-root compiler --report compiler/build/reports/cross-repo-language-contract.json
+
+      - name: Upload shared language contract report
+        if: ${{ always() && (github.event_name != 'pull_request' || (failure() && hashFiles('compiler/build/reports/cross-repo-language-contract.json') != '')) }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: cross-repo-language-contract-${{ runner.os }}
+          if-no-files-found: error
+          retention-days: 14
+          path: compiler/build/reports/cross-repo-language-contract.json

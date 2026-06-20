@@ -1,0 +1,1 @@
+$.vertexLayouts[0].attributes: duplicate location 0

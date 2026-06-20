@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "compiler": {
+    "name": "CrossGL-Compiler",
+    "version": "0.1.0",
+    "llvmVersion": "unknown"
+  },
+  "module": "SemanticFixture",
+  "target": "metal",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "c0b5df7fb74ceef746570777efdfdfa48f1bc21077c21d6fea75c09c0b3268e0"
+  },
+  "targetLegalizationToolRequirements": {
+    "target": "metal",
+    "packageMode": "native",
+    "requiredToolCount": 2,
+    "missingToolCount": 0,
+    "requiredToolIds": [
+      "metal.toolchain.xcrun-metal",
+      "metal.toolchain.xcrun-metallib"
+    ],
+    "missingToolIds": [],
+    "optionalNativeToolMissing": false,
+    "optionalNativeToolStatus": "not-required",
+    "toolRequirementEvidenceIds": [
+      "target-legalization.v1.metal.tool-requirements.present",
+      "target-legalization.v1.metal.tool-requirement.required.toolchain.xcrun-metal",
+      "target-legalization.v1.metal.tool-requirement.required.toolchain.other"
+    ]
+  },
+  "artifacts": {
+    "backendSource": "out/backend/metal/SemanticFixture.metal",
+    "intermediate": "out/backend/metal/SemanticFixture.air",
+    "nativeBinary": "out/backend/metal/SemanticFixture.metallib"
+  }
+}

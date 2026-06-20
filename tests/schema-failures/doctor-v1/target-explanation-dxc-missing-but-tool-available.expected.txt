@@ -1,0 +1,1 @@
+$.targetExplanation.targets[0].missingCapabilities: optional native tool capability 'directx.toolchain.dxc' cannot be missing when $.toolchain.tools[0].available is true

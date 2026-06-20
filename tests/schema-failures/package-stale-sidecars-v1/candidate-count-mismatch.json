@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "build/SemanticFixture.cglb",
+  "dryRun": true,
+  "requestedExists": true,
+  "keepLast": null,
+  "olderThanSeconds": null,
+  "retainedCount": 0,
+  "success": true,
+  "candidateCount": 2,
+  "discardedCount": 0,
+  "failedCount": 0,
+  "publication": {
+    "state": "published",
+    "requestedPath": "build/SemanticFixture.cglb",
+    "sidecarKind": null,
+    "sidecarToken": null,
+    "sidecarAttempt": null,
+    "siblingSidecarCount": 0,
+    "siblingSidecars": []
+  },
+  "candidates": [
+    {
+      "path": "build/.SemanticFixture.cglb.previous-alpha-0",
+      "kind": "previous",
+      "token": "alpha",
+      "attempt": 0,
+      "directory": true,
+      "reason": "previous-backup",
+      "action": "would-discard",
+      "success": true
+    }
+  ],
+  "retained": [],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

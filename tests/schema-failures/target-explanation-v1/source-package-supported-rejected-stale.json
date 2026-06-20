@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "defaultTarget": "directx",
+  "buildableTargetCount": 0,
+  "recommendedTarget": null,
+  "recommendedPackageMode": null,
+  "targets": [
+    {
+      "target": "directx",
+      "nativeImplemented": false,
+      "sourcePackageSupported": true,
+      "packageBuildSupported": false,
+      "packageMode": "unsupported",
+      "packageDecisionReason": "unsupported",
+      "packageRankScore": 2,
+      "requiredCapabilityCount": 1,
+      "missingCapabilityCount": 1,
+      "legalizationCoreEvidenceIds": [
+        "target-legalization.v1.directx.decision",
+        "target-legalization.v1.directx.state.rejected",
+        "target-legalization.v1.directx.support.unsupported",
+        "target-legalization.v1.directx.package-mode.unsupported",
+        "target-legalization.v1.directx.package-provenance.unsupported",
+        "target-legalization.v1.directx.package-reason.unsupported"
+      ],
+      "requiredCapabilities": [
+        "directx.diagnostic.directx.mixed-sampler-state-usage"
+      ],
+      "missingCapabilities": [
+        "directx.diagnostic.directx.mixed-sampler-state-usage"
+      ],
+      "targetBackend": "directx",
+      "decisionReasonCodes": [
+        "package-mode:unsupported",
+        "package-reason:unsupported",
+        "unsupported:missing-capabilities"
+      ],
+      "artifactLinks": [
+        "ir/target-explanation.json#targets/directx"
+      ],
+      "reportLinks": [
+        "target-explanation-v1#targets/directx"
+      ],
+      "remediation": "Select a buildable target or satisfy missing target capabilities: directx.diagnostic.directx.mixed-sampler-state-usage."
+    }
+  ]
+}

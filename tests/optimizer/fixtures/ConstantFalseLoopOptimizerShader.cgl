@@ -1,0 +1,29 @@
+shader ConstantFalseLoopOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer int* values;
+
+    int seed(int value) {
+      return value + 1;
+    }
+
+    void main() {
+      int live = values[0];
+      for (int neverIndex = seed(live); false; neverIndex = neverIndex + 1) {
+        int deadForBody = values[10];
+        live = live + deadForBody;
+        values[11] = live;
+      }
+      for (; false;) {
+        int deadEmptyFor = values[12];
+        live = live + deadEmptyFor;
+      }
+      while (false) {
+        int deadWhileBody = values[13];
+        live = live + deadWhileBody;
+      }
+      values[1] = live;
+      return;
+    }
+  }
+}

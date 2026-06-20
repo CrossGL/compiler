@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "tool": "benchmark_performance_corpus",
+  "corpusVersion": "milestone6-smoke-v1",
+  "baselinePolicy": {
+    "comparisonWindow": {
+      "sampleCount": 5,
+      "unit": "elapsedNs",
+      "warmupCount": 1
+    },
+    "hostClass": "linux-x86_64",
+    "hostLabel": "ci-linux-x86_64-pool-a",
+    "optLevel": "O2",
+    "targetProfile": "crossgl-milestone6-smoke",
+    "toolchainClass": "crossgl-cglc-fixture",
+    "toolchainLabel": "cglc",
+    "toolchainVersion": "0.6.0-fixture"
+  },
+  "metadata": {
+    "runtimeEnvironment": {
+      "machine": "x86_64",
+      "platform": "Linux-fixture",
+      "pythonExecutable": "/usr/bin/python3",
+      "pythonImplementation": "CPython",
+      "pythonVersion": "3.11.0",
+      "system": "Linux",
+      "systemRelease": "fixture"
+    }
+  },
+  "config": {
+    "profiles": [
+      "debug",
+      "release"
+    ],
+    "targets": [
+      "directx",
+      "opengl"
+    ],
+    "commandProfiles": [
+      "debug",
+      "release"
+    ]
+  },
+  "cases": [
+    {
+      "case": "storage-buffer-compute::directx::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "fixtureCategory": "storage-buffers",
+      "profile": "release",
+      "target": "directx",
+      "skipped": false,
+      "skipReason": null,
+      "unavailableTools": [],
+      "timing": {
+        "elapsedNs": 100
+      }
+    },
+    {
+      "case": "nested-control-flow::directx::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "fixtureCategory": "control-flow",
+      "profile": "release",
+      "target": "directx",
+      "skipped": true,
+      "skipReason": "cglc-unavailable",
+      "unavailableTools": [
+        "cglc"
+      ],
+      "timing": null
+    },
+    {
+      "case": "texture-descriptor-array::opengl::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "fixtureCategory": "descriptor-arrays",
+      "profile": "release",
+      "target": "opengl",
+      "skipped": false,
+      "skipReason": null,
+      "unavailableTools": [],
+      "timing": {
+        "elapsedNs": 300
+      }
+    },
+    {
+      "case": "dry-run-case::directx::debug",
+      "commandProfile": {
+        "name": "debug"
+      },
+      "fixtureCategory": "control-flow",
+      "profile": "debug",
+      "target": "directx",
+      "skipped": false,
+      "skipReason": null,
+      "unavailableTools": [],
+      "timing": null
+    }
+  ],
+  "summary": {
+    "caseCount": 4,
+    "skippedCaseCountByReason": {
+      "cglc-unavailable": 1
+    },
+    "skippedCasesWithUnavailableTools": [
+      "nested-control-flow::directx::release"
+    ],
+    "skippedCount": 1,
+    "skippedToolCaseCountByTool": {
+      "cglc": 1
+    },
+    "skippedToolCasesByTool": {
+      "cglc": [
+        "nested-control-flow::directx::release"
+      ]
+    },
+    "timedCaseCount": 2,
+    "unavailableToolCount": 1,
+    "commandProfiles": [
+      "debug",
+      "release"
+    ],
+    "caseCountByCommandProfile": {
+      "debug": 1,
+      "release": 3
+    },
+    "caseCategories": [
+      "control-flow",
+      "descriptor-arrays",
+      "storage-buffers"
+    ],
+    "caseCountByCategory": {
+      "control-flow": 2,
+      "descriptor-arrays": 1,
+      "storage-buffers": 1
+    },
+    "caseCountByProfile": {
+      "debug": 1,
+      "release": 3
+    },
+    "caseCountByTarget": {
+      "directx": 3,
+      "opengl": 1
+    },
+    "optLevels": [],
+    "caseCountByOptLevel": {}
+  },
+  "toolAvailability": {
+    "cglc": {
+      "available": false,
+      "class": "crossgl-cglc-fixture",
+      "status": "unavailable",
+      "version": "0.6.0-fixture"
+    }
+  }
+}

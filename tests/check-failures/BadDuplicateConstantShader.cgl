@@ -1,0 +1,10 @@
+shader BadDuplicateConstantShader {
+  const int COUNT = 1;
+  const int COUNT = 2;
+
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

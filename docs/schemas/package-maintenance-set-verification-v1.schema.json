@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/package-maintenance-set-verification-v1.schema.json",
+  "title": "CrossGL Package Maintenance Set Verification JSON",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "rootPath",
+    "setPath",
+    "success",
+    "matches",
+    "scannedPackageCount",
+    "setPackageCount",
+    "missingFromSetCount",
+    "extraInSetCount",
+    "scannedPackages",
+    "setPackages",
+    "missingFromSet",
+    "extraInSet",
+    "diagnosticCounts",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "rootPath": {
+      "type": "string"
+    },
+    "setPath": {
+      "type": "string"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "matches": {
+      "type": "boolean"
+    },
+    "scannedPackageCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "setPackageCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "missingFromSetCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "extraInSetCount": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "scannedPackages": {
+      "$ref": "#/$defs/pathList"
+    },
+    "setPackages": {
+      "$ref": "#/$defs/pathList"
+    },
+    "missingFromSet": {
+      "$ref": "#/$defs/pathList"
+    },
+    "extraInSet": {
+      "$ref": "#/$defs/pathList"
+    },
+    "diagnosticCounts": {
+      "$ref": "#/$defs/diagnosticCounts"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/diagnostic"
+      }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "pathList": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "diagnosticCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note",
+        "warning",
+        "error"
+      ],
+      "properties": {
+        "note": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warning": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endOffset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "location"
+      ],
+      "properties": {
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "target": {
+          "type": "string"
+        },
+        "missingCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

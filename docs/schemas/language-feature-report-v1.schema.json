@@ -1,0 +1,692 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/language-feature-report-v1.schema.json",
+  "title": "CrossGL Language Feature Report JSON v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "module",
+    "language",
+    "crossTLSnapshotSeal",
+    "compatibilityBucketSummary",
+    "targetFeatureGates",
+    "resourceMemoryLayoutFeatures",
+    "crossTLLanguageSurfaceFeatures",
+    "facts",
+    "evidence",
+    "generation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "module": {
+      "$ref": "#/$defs/module"
+    },
+    "language": {
+      "$ref": "#/$defs/language"
+    },
+    "crossTLSnapshotSeal": {
+      "$ref": "#/$defs/crossTLSnapshotSeal"
+    },
+    "compatibilityBucketSummary": {
+      "$ref": "#/$defs/compatibilityBucketSummary"
+    },
+    "targetFeatureGates": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/targetFeatureGate"
+      }
+    },
+    "resourceMemoryLayoutFeatures": {
+      "$ref": "#/$defs/resourceMemoryLayoutFeatures"
+    },
+    "crossTLLanguageSurfaceFeatures": {
+      "$ref": "#/$defs/crossTLLanguageSurfaceFeatures"
+    },
+    "facts": {
+      "$ref": "#/$defs/facts"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      }
+    },
+    "generation": {
+      "$ref": "#/$defs/generation"
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "evidenceId": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(spec-index|compatibility|contract|support-matrix|conformance|ctest|fixture|diagnostic|reflection|target-contract):[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+    },
+    "module": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "moduleId",
+        "sourcePath",
+        "sourceSha256",
+        "stageEntryPoints"
+      ],
+      "properties": {
+        "moduleId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourcePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "stageEntryPoints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/stageEntryPoint"
+          }
+        }
+      }
+    },
+    "stageEntryPoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stage",
+        "entryPoint"
+      ],
+      "properties": {
+        "stage": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entryPoint": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "family",
+        "version",
+        "nativeProfile",
+        "compatibilityContract"
+      ],
+      "properties": {
+        "family": {
+          "type": "string",
+          "const": "CrossGL"
+        },
+        "version": {
+          "type": "string",
+          "const": "v0"
+        },
+        "nativeProfile": {
+          "type": "string",
+          "const": "native-v0"
+        },
+        "compatibilityContract": {
+          "type": "string",
+          "const": "tools/cross_repo_language_contract.json"
+        }
+      }
+    },
+    "crossTLSnapshotSeal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "snapshotId",
+        "snapshotPath",
+        "snapshotSha256",
+        "snapshotSchemaVersion"
+      ],
+      "properties": {
+        "snapshotId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapshotPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapshotSha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "snapshotSchemaVersion": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "compatibilityBucketSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cross-tl-inventory-only",
+        "accepted-source",
+        "package-supported",
+        "compatibility-only",
+        "spec.unsupported-for-native-v0",
+        "spec.deprecated",
+        "spec.error",
+        "target.unsupported"
+      ],
+      "properties": {
+        "cross-tl-inventory-only": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "accepted-source": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "package-supported": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "compatibility-only": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "spec.unsupported-for-native-v0": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "spec.deprecated": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "spec.error": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "target.unsupported": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "targetName": {
+      "type": "string",
+      "enum": [
+        "directx",
+        "metal",
+        "opengl",
+        "vulkan",
+        "wgsl"
+      ]
+    },
+    "packageMode": {
+      "type": "string",
+      "enum": [
+        "source",
+        "native",
+        "unavailable",
+        "report-only"
+      ]
+    },
+    "featureFamily": {
+      "type": "string",
+      "enum": [
+        "language",
+        "resources",
+        "memory",
+        "layout",
+        "intrinsics",
+        "package"
+      ]
+    },
+    "gateStatus": {
+      "type": "string",
+      "enum": [
+        "supported",
+        "unsupported",
+        "planned-failure",
+        "deprecated",
+        "unavailable"
+      ]
+    },
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidenceIdList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/evidenceId"
+      }
+    },
+    "targetFeatureGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "targetVersion",
+        "packageMode",
+        "gateId",
+        "featureFamily",
+        "status",
+        "requiredCapabilities",
+        "diagnosticCodes",
+        "evidenceIds"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/targetName"
+        },
+        "targetVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        },
+        "gateId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "featureFamily": {
+          "$ref": "#/$defs/featureFamily"
+        },
+        "status": {
+          "$ref": "#/$defs/gateStatus"
+        },
+        "requiredCapabilities": {
+          "$ref": "#/$defs/stringList"
+        },
+        "diagnosticCodes": {
+          "$ref": "#/$defs/stringList"
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "compatibilityBucket": {
+      "type": "string",
+      "enum": [
+        "cross-tl-inventory-only",
+        "accepted-source",
+        "package-supported",
+        "compatibility-only",
+        "spec.unsupported-for-native-v0",
+        "spec.deprecated",
+        "spec.error",
+        "target.unsupported"
+      ]
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endColumn": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endOffset": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "featureRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "featureId",
+        "status",
+        "sourceLocations",
+        "evidenceIds"
+      ],
+      "properties": {
+        "featureId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "status": {
+          "$ref": "#/$defs/compatibilityBucket"
+        },
+        "sourceLocations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceLocation"
+          }
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        },
+        "snapshotRefs": {
+          "$ref": "#/$defs/stringList"
+        },
+        "inventoryCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "featureRecordList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/featureRecord"
+      }
+    },
+    "resourceMemoryLayoutFeatures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "resources",
+        "memory",
+        "layout"
+      ],
+      "properties": {
+        "resources": {
+          "$ref": "#/$defs/featureRecordList"
+        },
+        "memory": {
+          "$ref": "#/$defs/featureRecordList"
+        },
+        "layout": {
+          "$ref": "#/$defs/featureRecordList"
+        }
+      }
+    },
+    "crossTLLanguageSurfaceFeatures": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stages",
+        "types",
+        "intrinsics",
+        "ast"
+      ],
+      "properties": {
+        "stages": {
+          "$ref": "#/$defs/featureRecordList"
+        },
+        "types": {
+          "$ref": "#/$defs/featureRecordList"
+        },
+        "intrinsics": {
+          "$ref": "#/$defs/featureRecordList"
+        },
+        "ast": {
+          "$ref": "#/$defs/featureRecordList"
+        }
+      }
+    },
+    "unsupportedClassification": {
+      "type": "string",
+      "enum": [
+        "spec.unsupported-for-native-v0",
+        "target.unsupported"
+      ]
+    },
+    "factRecordBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "factId",
+        "classification",
+        "message",
+        "evidenceIds"
+      ],
+      "properties": {
+        "factId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "classification": {
+          "$ref": "#/$defs/compatibilityBucket"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "unsupportedFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "factId",
+        "classification",
+        "message",
+        "evidenceIds"
+      ],
+      "properties": {
+        "factId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "classification": {
+          "$ref": "#/$defs/unsupportedClassification"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "deprecatedFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "factId",
+        "classification",
+        "message",
+        "evidenceIds"
+      ],
+      "properties": {
+        "factId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "classification": {
+          "type": "string",
+          "const": "spec.deprecated"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "errorFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "factId",
+        "classification",
+        "message",
+        "evidenceIds"
+      ],
+      "properties": {
+        "factId": {
+          "$ref": "#/$defs/identifier"
+        },
+        "classification": {
+          "type": "string",
+          "const": "spec.error"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidenceIds": {
+          "$ref": "#/$defs/evidenceIdList"
+        }
+      }
+    },
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unsupported",
+        "deprecated",
+        "error"
+      ],
+      "properties": {
+        "unsupported": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unsupportedFact"
+          }
+        },
+        "deprecated": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deprecatedFact"
+          }
+        },
+        "error": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/errorFact"
+          }
+        }
+      }
+    },
+    "evidenceKind": {
+      "type": "string",
+      "enum": [
+        "spec-index",
+        "compatibility",
+        "contract",
+        "support-matrix",
+        "conformance",
+        "ctest",
+        "fixture",
+        "diagnostic",
+        "reflection",
+        "target-contract"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/evidenceId"
+        },
+        "kind": {
+          "$ref": "#/$defs/evidenceKind"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "anchor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ctestName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fixture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "diagnosticCode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "schemaPath": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "mode",
+        "command"
+      ],
+      "properties": {
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "const": "report-only"
+        },
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

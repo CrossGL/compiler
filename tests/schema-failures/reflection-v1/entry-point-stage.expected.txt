@@ -1,0 +1,1 @@
+$.workgroupSizes[0].stage: expected entry point stage 'compute', got 'fragment'

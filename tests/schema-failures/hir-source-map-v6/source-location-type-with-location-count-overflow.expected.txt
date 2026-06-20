@@ -1,0 +1,1 @@
+$.hirSourceLocations.typeWithLocationCount: expected $.hirSourceLocations.types length 0, got 1

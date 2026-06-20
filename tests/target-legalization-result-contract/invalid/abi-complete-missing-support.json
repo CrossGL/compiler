@@ -1,0 +1,80 @@
+{
+  "contract": "crossgl.target-legalization-result.v0",
+  "schemaVersion": 0,
+  "policy": {
+    "mode": "report-only",
+    "decisionAuthority": "current-compiler-behavior",
+    "consumerMigration": "pending",
+    "productionBehavior": "unchanged"
+  },
+  "result": {
+    "target": "vulkan",
+    "targetProfile": {
+      "target": "vulkan",
+      "profile": "vulkan.v0.native",
+      "packageMode": "native"
+    },
+    "packageMode": "native",
+    "packageDecisionProvenance": "native-package-available",
+    "supportStatus": "native",
+    "moduleSupported": true,
+    "requiredCapabilities": [
+      "vulkan.backend.spirv-lowering",
+      "vulkan.package.native-artifact"
+    ],
+    "missingCapabilities": [],
+    "toolRequirements": {
+      "requiredToolIds": [],
+      "missingToolIds": [],
+      "optionalNativeToolMissing": false,
+      "evidenceIds": [
+        "target-legalization.v1.vulkan.tool-requirements.empty"
+      ],
+      "records": [],
+      "optionalNativeToolStatus": "not-required"
+    },
+    "diagnostics": [],
+    "rewrites": [
+      {
+        "id": "descriptor-set-normalization",
+        "order": 0,
+        "status": "not-required",
+        "description": "No target-aware rewrite is required for this fixture.",
+        "evidenceIds": [
+          "target-legalization.v1.vulkan.rewrite.not-required"
+        ]
+      }
+    ],
+    "abiFacts": {
+      "state": "complete",
+      "facts": [
+        {
+          "id": "entry-point.compute-main",
+          "kind": "entry-point",
+          "status": "missing",
+          "target": "vulkan",
+          "evidenceIds": [
+            "target-legalization.v1.vulkan.abi.entry-point"
+          ]
+        }
+      ],
+      "evidenceIds": [
+        "target-legalization.v1.vulkan.abi.entry-point"
+      ]
+    },
+    "resourceBindingEvidenceIds": [
+      "target-legalization.v1.vulkan.resource-bindings.empty"
+    ],
+    "evidenceIds": [
+      "target-legalization.v1.vulkan.abi.entry-point",
+      "target-legalization.v1.vulkan.decision",
+      "target-legalization.v1.vulkan.package-mode.native",
+      "target-legalization.v1.vulkan.package-provenance.native-package-available",
+      "target-legalization.v1.vulkan.resource-bindings.empty",
+      "target-legalization.v1.vulkan.rewrite.not-required",
+      "target-legalization.v1.vulkan.state.legalized",
+      "target-legalization.v1.vulkan.support.native",
+      "target-legalization.v1.vulkan.tool-requirements.empty"
+    ]
+  }
+}

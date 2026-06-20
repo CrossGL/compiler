@@ -1,0 +1,1 @@
+$.targetDecision.selectedTargetMissingCapabilityGroups[0].count: expected $.targetDecision.selectedTargetMissingCapabilityGroups[0].capabilities length 1, got 0

@@ -1,0 +1,20 @@
+shader BadRuntimeStorageImageArrayShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform image2D colorImages[];
+    layout(set = 0, binding = 1) uniform iimage2D labelImages[];
+    layout(set = 0, binding = 2) uniform uimage2DArray maskAtlases[];
+
+    void main() {
+      ivec2 pixel = ivec2(0, 0);
+      ivec3 arrayPixel = ivec3(0, 0, 0);
+      vec4 color = imageLoad(colorImages[0], pixel);
+      ivec4 label = imageLoad(labelImages[0], pixel);
+      uvec4 mask = imageLoad(maskAtlases[0], arrayPixel);
+      imageStore(colorImages[0], pixel, color);
+      imageStore(labelImages[0], pixel, label);
+      imageStore(maskAtlases[0], arrayPixel, mask);
+      return;
+    }
+  }
+}

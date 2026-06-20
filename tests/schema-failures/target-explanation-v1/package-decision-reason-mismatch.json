@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "defaultTarget": "metal",
+  "buildableTargetCount": 1,
+  "recommendedTarget": "metal",
+  "recommendedPackageMode": "native",
+  "targets": [
+    {
+      "target": "metal",
+      "nativeImplemented": true,
+      "sourcePackageSupported": false,
+      "packageBuildSupported": true,
+      "packageMode": "native",
+      "packageDecisionReason": "source-package-available",
+      "packageRankScore": 0,
+      "requiredCapabilityCount": 0,
+      "missingCapabilityCount": 0,
+      "requiredCapabilities": [],
+      "missingCapabilities": [],
+      "legalizationCoreEvidenceIds": [
+        "target-legalization.v1.metal.decision",
+        "target-legalization.v1.metal.state.legalized",
+        "target-legalization.v1.metal.support.native",
+        "target-legalization.v1.metal.package-mode.native",
+        "target-legalization.v1.metal.package-provenance.native-package-available",
+        "target-legalization.v1.metal.package-reason.native-package-available"
+      ],
+      "targetBackend": "metal",
+      "decisionReasonCodes": [
+        "package-mode:native",
+        "package-reason:source-package-available"
+      ],
+      "artifactLinks": [
+        "ir/target-explanation.json#targets/metal"
+      ],
+      "reportLinks": [
+        "target-explanation-v1#targets/metal"
+      ],
+      "remediation": "No remediation required; native package output is available."
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "SemanticFixture.cglb",
+  "success": true,
+  "summary": {
+    "module": "SemanticFixture",
+    "target": "directx",
+    "nativeBinaryStatus": null,
+    "artifactCount": 2,
+    "debugArtifactsPresent": false,
+    "nativeArtifactDescriptor": {
+      "artifactPresent": false,
+      "descriptorExists": false,
+      "health": "not-present",
+      "path": null,
+      "optimizationLevel": null,
+      "optimizationEvidence": null
+    },
+    "vulkanNativeProfile": {
+      "applicable": false,
+      "nativeProfileArtifactPresent": false,
+      "nativeProfileExists": false,
+      "health": "not-applicable",
+      "schemaVersion": null,
+      "api": null,
+      "profileName": null,
+      "vulkanVersion": null,
+      "spirvVersion": null,
+      "generator": null,
+      "nativeBinary": null,
+      "backendAssembly": null,
+      "disassemblyStatus": null,
+      "disassemblyPath": null,
+      "disassemblyExists": null,
+      "checks": {
+        "targetMatchesPackage": null,
+        "moduleMatchesPackage": null,
+        "nativeBinaryMatchesManifest": null,
+        "backendAssemblyMatchesManifest": null,
+        "emittedDisassemblyExists": null,
+        "spirvProfilePresent": null
+      }
+    }
+  },
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 0
+  },
+  "diagnostics": []
+}

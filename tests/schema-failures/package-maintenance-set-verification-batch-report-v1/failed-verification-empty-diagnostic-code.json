@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "batchPath": "maintenance/package-set-verifications.json",
+  "success": false,
+  "matches": false,
+  "verificationCount": 1,
+  "matchedCount": 0,
+  "mismatchedCount": 0,
+  "failedCount": 1,
+  "verifications": [
+    {
+      "schemaVersion": 1,
+      "rootPath": "packages",
+      "setPath": "maintenance/package-set.json",
+      "success": false,
+      "matches": false,
+      "scannedPackageCount": 1,
+      "setPackageCount": 1,
+      "missingFromSetCount": 0,
+      "extraInSetCount": 0,
+      "scannedPackages": [
+        "packages/alpha.crossgl-package.json"
+      ],
+      "setPackages": [
+        "packages/alpha.crossgl-package.json"
+      ],
+      "missingFromSet": [],
+      "extraInSet": [],
+      "diagnosticCounts": {
+        "note": 0,
+        "warning": 0,
+        "error": 1
+      },
+      "diagnostics": [
+        {
+          "severity": "error",
+          "code": "",
+          "message": "scan failed",
+          "location": {
+            "file": "packages/basic.crossgl",
+            "line": 1,
+            "column": 1,
+            "offset": 0,
+            "length": 1,
+            "endLine": 1,
+            "endColumn": 2,
+            "endOffset": 1
+          }
+        }
+      ]
+    }
+  ],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "",
+      "message": "scan failed",
+      "location": {
+        "file": "packages/basic.crossgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 1,
+        "endLine": 1,
+        "endColumn": 2,
+        "endOffset": 1
+      }
+    }
+  ]
+}

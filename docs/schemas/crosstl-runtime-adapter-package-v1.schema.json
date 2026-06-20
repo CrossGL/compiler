@@ -1,0 +1,384 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/crosstl-runtime-adapter-package-v1.schema.json",
+  "title": "CrossTL Runtime Adapter Descriptor Package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "sourcePackage",
+    "sourcePackageHash",
+    "generatedAt",
+    "success",
+    "scope",
+    "nonGoals",
+    "packageRoot",
+    "adapterRoot",
+    "adapterManifest",
+    "project",
+    "summary",
+    "targets",
+    "descriptors",
+    "actions",
+    "runtimePlan",
+    "adapterPlan",
+    "packageInspection",
+    "diagnosticCounts",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "crosstl-runtime-adapter-package"
+    },
+    "sourcePackage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourcePackageHash": {
+      "$ref": "#/$defs/hash"
+    },
+    "generatedAt": {
+      "$ref": "#/$defs/nonNegativeInteger"
+    },
+    "success": {
+      "type": "boolean"
+    },
+    "scope": {
+      "type": "string",
+      "const": "runtime-adapter-descriptor-package"
+    },
+    "nonGoals": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "packageRoot": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapterRoot": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapterManifest": {
+      "type": "string",
+      "const": "runtime-adapters.json"
+    },
+    "project": {
+      "$ref": "#/$defs/objectOrNull"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/target"
+      }
+    },
+    "descriptors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/descriptorRecord"
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "runtimePlan": {
+      "$ref": "#/$defs/objectOrNull"
+    },
+    "adapterPlan": {
+      "$ref": "#/$defs/adapterPlan"
+    },
+    "packageInspection": {
+      "$ref": "#/$defs/objectOrNull"
+    },
+    "diagnosticCounts": {
+      "$ref": "#/$defs/diagnosticCounts"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "sha256"
+        },
+        "value": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "normalizedRelativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!.*//)(?!.*/$).+$"
+    },
+    "objectOrNull": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stringOrObject": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "artifactFormat": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hostInterfaceStatus": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "blocked",
+        "unavailable",
+        "not-inspected",
+        "failed"
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetCount",
+        "adapterCount",
+        "descriptorCount",
+        "readyDescriptorCount",
+        "blockedDescriptorCount",
+        "actionCount",
+        "runtimeReferenceCount"
+      ],
+      "properties": {
+        "targetCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "adapterCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "descriptorCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "readyDescriptorCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "blockedDescriptorCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "actionCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "runtimeReferenceCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "adapterKind",
+        "adapterCount",
+        "descriptorCount",
+        "readyDescriptorCount",
+        "blockedDescriptorCount",
+        "runtimeReferenceCount",
+        "requiredTools",
+        "descriptors",
+        "packagePaths"
+      ],
+      "properties": {
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adapterKind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adapterCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "descriptorCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "readyDescriptorCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "blockedDescriptorCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "runtimeReferenceCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "requiredTools": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "descriptors": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "packagePaths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/normalizedRelativePath"
+          }
+        }
+      }
+    },
+    "descriptorRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "target",
+        "adapterKind",
+        "artifactFormat",
+        "binding",
+        "artifact",
+        "packagePath",
+        "descriptorPath",
+        "descriptorHash",
+        "descriptorSizeBytes",
+        "hostInterfaceStatus",
+        "requiredTools"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adapterKind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifactFormat": {
+          "$ref": "#/$defs/artifactFormat"
+        },
+        "binding": {
+          "$ref": "#/$defs/stringOrObject"
+        },
+        "artifact": {
+          "$ref": "#/$defs/stringOrObject"
+        },
+        "packagePath": {
+          "$ref": "#/$defs/normalizedRelativePath"
+        },
+        "descriptorPath": {
+          "$ref": "#/$defs/normalizedRelativePath"
+        },
+        "descriptorHash": {
+          "$ref": "#/$defs/hash"
+        },
+        "descriptorSizeBytes": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "hostInterfaceStatus": {
+          "$ref": "#/$defs/hostInterfaceStatus"
+        },
+        "requiredTools": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "adapterPlan": {
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "adapterCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "diagnosticCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note",
+        "warning",
+        "error"
+      ],
+      "properties": {
+        "note": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "warning": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "error": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    }
+  }
+}

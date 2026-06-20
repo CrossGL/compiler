@@ -1,0 +1,1 @@
+$.result.targetProfile.autoRequested: expected to match requestedTarget == 'auto'

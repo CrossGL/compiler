@@ -1,0 +1,1 @@
+$.sourcePath: expected string to match pattern

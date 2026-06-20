@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "project": {
+    "targets": [
+      "metal"
+    ]
+  },
+  "summary": {
+    "artifactCount": 1,
+    "sourceRemapCount": 0,
+    "sourceRemapMappingCount": 0
+  },
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "target": "vulkan",
+      "path": "out/vulkan/simple.spv",
+      "status": "translated",
+      "provenance": {
+        "pipeline": "single-file-translate",
+        "intermediate": null
+      }
+    }
+  ]
+}

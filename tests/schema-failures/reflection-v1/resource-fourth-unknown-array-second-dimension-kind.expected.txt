@@ -1,0 +1,1 @@
+$.resources[3].arrayDimensions[1].kind: unknown array dimension kind 'specialization'

@@ -1,0 +1,1 @@
+$.summary.verificationCount: expected >= matched+mismatched+failed counts

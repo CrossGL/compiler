@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 8,
+  "filters": {
+    "activeCount": 0
+  },
+  "pagination": {
+    "activeCount": 0,
+    "expressionOffset": 0,
+    "typeOffset": 0,
+    "statementOffset": 0,
+    "resourceOffset": 0,
+    "expressionTotalCount": 0,
+    "expressionEmittedCount": 0,
+    "expressionHasMore": false,
+    "expressionNextOffset": 0,
+    "typeTotalCount": 0,
+    "typeEmittedCount": 0,
+    "typeHasMore": false,
+    "typeNextOffset": 0,
+    "statementTotalCount": 0,
+    "statementEmittedCount": 0,
+    "statementHasMore": false,
+    "statementNextOffset": 0,
+    "resourceTotalCount": 1,
+    "resourceEmittedCount": 1,
+    "resourceHasMore": false,
+    "resourceNextOffset": 1
+  },
+  "categoryCounts": {
+    "expressionTotalCount": 0,
+    "typeTotalCount": 0,
+    "statementTotalCount": 0,
+    "resourceTotalCount": 1,
+    "recordTotalCount": 1,
+    "expressionKinds": [],
+    "statementKinds": [],
+    "typeOwnerKinds": [],
+    "resourceRecordKinds": [
+      {
+        "name": "declaration",
+        "count": 1
+      }
+    ],
+    "resourceKinds": [
+      {
+        "name": "texture",
+        "count": 1
+      }
+    ]
+  },
+  "records": {
+    "enabled": true,
+    "activeCount": 1,
+    "offset": 0,
+    "totalCount": 1,
+    "emittedCount": 1,
+    "hasMore": false,
+    "nextOffset": 1,
+    "items": [
+      {
+        "cursor": 0,
+        "recordKind": "resource",
+        "resource": {
+          "index": 0,
+          "resourceRecordKind": "declaration",
+          "stage": "compute",
+          "entryPoint": "compute_main",
+          "resourceName": "otherTex",
+          "resourceKind": "texture",
+          "location": {
+            "file": "fixture.cgl",
+            "line": 1,
+            "column": 1,
+            "offset": 0,
+            "length": 7,
+            "endLine": 1,
+            "endColumn": 8,
+            "endOffset": 7
+          }
+        }
+      }
+    ]
+  },
+  "hirSourceLocations": {
+    "expressionCount": 0,
+    "expressionWithLocationCount": 0,
+    "typeCount": 0,
+    "typeWithLocationCount": 0,
+    "statementCount": 0,
+    "statementWithLocationCount": 0,
+    "resourceCount": 1,
+    "resourceWithLocationCount": 1,
+    "expressions": [],
+    "types": [],
+    "statements": [],
+    "resources": [
+      {
+        "index": 0,
+        "resourceRecordKind": "declaration",
+        "stage": "compute",
+        "entryPoint": "compute_main",
+        "resourceName": "tex0",
+        "resourceKind": "texture",
+        "location": {
+          "file": "fixture.cgl",
+          "line": 1,
+          "column": 1,
+          "offset": 0,
+          "length": 7,
+          "endLine": 1,
+          "endColumn": 8,
+          "endOffset": 7
+        }
+      }
+    ]
+  }
+}

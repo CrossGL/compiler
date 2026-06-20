@@ -1,0 +1,350 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schema-defs/source-map-locations-v3.json",
+  "title": "CrossGL Shared Source Map Location Definitions v3",
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "length": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "expressionSourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "statementKind",
+        "kind",
+        "value",
+        "type",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "statementKind": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "typeSourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "ownerKind",
+        "ownerName",
+        "type",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "ownerKind": {
+          "type": "string"
+        },
+        "ownerName": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "statementSourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "statementKind",
+        "name",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "statementKind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "hirSourceLocations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expressionCount",
+        "expressionWithLocationCount",
+        "typeCount",
+        "typeWithLocationCount",
+        "statementCount",
+        "statementWithLocationCount",
+        "resourceCount",
+        "resourceWithLocationCount",
+        "expressions",
+        "types",
+        "statements",
+        "resources"
+      ],
+      "properties": {
+        "expressionCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressionWithLocationCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeWithLocationCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementWithLocationCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/expressionSourceLocation"
+          }
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typeSourceLocation"
+          }
+        },
+        "statements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statementSourceLocation"
+          }
+        },
+        "resourceCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "resourceWithLocationCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/resourceSourceLocation"
+          }
+        }
+      }
+    },
+    "resourceSourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "resourceRecordKind",
+        "stage",
+        "entryPoint",
+        "resourceName",
+        "resourceKind",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "resourceRecordKind": {
+          "type": "string",
+          "enum": [
+            "declaration",
+            "layout",
+            "set",
+            "binding",
+            "access"
+          ]
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "resourceName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resourceKind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "function": {
+          "type": "string"
+        },
+        "ownerKind": {
+          "type": "string"
+        },
+        "ownerName": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "accessKind": {
+          "type": "string",
+          "enum": [
+            "read",
+            "write",
+            "sample",
+            "load",
+            "store",
+            "atomic",
+            "call",
+            "bind",
+            "unknown"
+          ]
+        },
+        "accessPath": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "memberName": {
+          "type": "string"
+        },
+        "indexExpression": {
+          "type": "string"
+        },
+        "bindingSet": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "binding": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "descriptorSet": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "registerSpace": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "registerName": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    }
+  }
+}

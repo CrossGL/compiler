@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "values",
+      "kind": "buffer",
+      "type": "float",
+      "arrayDimensions": [
+        {
+          "source": "2",
+          "kind": "fixed",
+          "elementCount": 2
+        }
+      ],
+      "set": 0,
+      "binding": 0,
+      "addressSpace": "unordered-access"
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "compute_main",
+      "name": "values",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "unordered-access",
+      "abi": "registerBinding",
+      "bindingClass": "uav",
+      "descriptorType": "UAV",
+      "argumentIndex": 0,
+      "set": 0,
+      "binding": 0,
+      "arrayDimensions": [
+        {
+          "source": "2",
+          "kind": "fixed",
+          "elementCount": 2
+        }
+      ]
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

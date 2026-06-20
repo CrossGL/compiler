@@ -1,0 +1,1 @@
+$.publication.siblingSidecarCount: expected sibling sidecars length 2, got 1

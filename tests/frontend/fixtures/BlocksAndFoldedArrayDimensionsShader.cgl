@@ -1,0 +1,31 @@
+shader BlocksAndFoldedArrayDimensionsShader {
+  const int BASE = 2;
+
+  struct Payload {
+    float weights[BASE * 2];
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) uniform sampler2D maps[BASE * 2];
+    layout(set = 0, binding = 1) buffer float* values;
+    layout(set = 0, binding = 2) uniform Payload payloads[BASE * 2];
+
+    float readSample(float samples[BASE * 2], int index) {
+      return samples[index];
+    }
+
+    void main() {
+      int sample = 1;
+      {
+        float sample = values[0];
+        float blockValues[BASE * 2];
+        blockValues[0] = sample;
+        values[1] = readSample(blockValues, 0);
+      }
+      sample = sample + 1;
+      values[2] = float(sample);
+      return;
+    }
+  }
+}

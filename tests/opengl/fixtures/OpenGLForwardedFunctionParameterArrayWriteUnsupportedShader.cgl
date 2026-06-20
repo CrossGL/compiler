@@ -1,0 +1,23 @@
+shader OpenGLForwardedFunctionParameterArrayWriteUnsupportedShader {
+  const int COUNT = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+    float rewrite(float values[COUNT]) {
+      values[0] = 1.0;
+      return values[0];
+    }
+
+    float forward(float values[COUNT]) {
+      return rewrite(values);
+    }
+
+    void main() {
+      float values[COUNT];
+      values[0] = 0.0;
+      values[1] = forward(values);
+      return;
+    }
+  }
+}

@@ -1,0 +1,17 @@
+shader TextureSamplerDescriptorArraySizeMismatchShader {
+  const int TEXTURE_COUNT = 2;
+  const int SAMPLER_COUNT = 3;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[TEXTURE_COUNT];
+    layout(set = 0, binding = 5) sampler linearSamplers[SAMPLER_COUNT];
+    void main() {
+      vec4 color = textureLod(colorMaps[1], linearSamplers[2],
+                              vec2(0.5, 0.5), 0.0);
+      values[0] = color;
+      return;
+    }
+  }
+}

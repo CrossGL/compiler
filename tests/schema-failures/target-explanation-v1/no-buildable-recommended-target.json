@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "defaultTarget": "opengl",
+  "buildableTargetCount": 0,
+  "recommendedTarget": "opengl",
+  "recommendedPackageMode": null,
+  "targets": [
+    {
+      "target": "opengl",
+      "nativeImplemented": false,
+      "sourcePackageSupported": false,
+      "packageBuildSupported": false,
+      "packageMode": "unsupported",
+      "packageDecisionReason": "unsupported",
+      "packageRankScore": 2,
+      "requiredCapabilityCount": 1,
+      "missingCapabilityCount": 1,
+      "requiredCapabilities": [
+        "opengl.backend.glsl-lowering"
+      ],
+      "missingCapabilities": [
+        "opengl.backend.glsl-lowering"
+      ],
+      "legalizationCoreEvidenceIds": [
+        "target-legalization.v1.opengl.decision",
+        "target-legalization.v1.opengl.state.rejected",
+        "target-legalization.v1.opengl.support.unsupported",
+        "target-legalization.v1.opengl.package-mode.unsupported",
+        "target-legalization.v1.opengl.package-provenance.unsupported-source-form",
+        "target-legalization.v1.opengl.package-reason.unsupported"
+      ],
+      "targetBackend": "opengl",
+      "decisionReasonCodes": [
+        "package-mode:unsupported",
+        "package-reason:unsupported",
+        "unsupported:missing-capabilities"
+      ],
+      "artifactLinks": [
+        "ir/target-explanation.json#targets/opengl"
+      ],
+      "reportLinks": [
+        "target-explanation-v1#targets/opengl"
+      ],
+      "remediation": "Select a buildable target or satisfy missing target capabilities: opengl.backend.glsl-lowering."
+    }
+  ]
+}

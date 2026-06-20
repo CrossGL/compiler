@@ -1,0 +1,21 @@
+shader VulkanVectorWritableLocalFunctionParameterArrayShader {
+  const int COUNT = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* outputs;
+
+    vec4 combineValues(vec4 values[COUNT]) {
+      return values[0] + values[1];
+    }
+
+    void main() {
+      vec4 values[COUNT];
+      values[0] = outputs[0];
+      values[1] = vec4(1.0, 2.0, 3.0, 4.0);
+      vec4 result = combineValues(values);
+      outputs[2] = result;
+      return;
+    }
+  }
+}

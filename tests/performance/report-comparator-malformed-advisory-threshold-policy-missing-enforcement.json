@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "tool": "compare_performance_reports",
+  "kind": "advisory-threshold-policy",
+  "mode": "report-only",
+  "name": "fixture-missing-enforcement-policy",
+  "description": "Invalid policy fixture missing required report-only enforcement metadata.",
+  "evidencePolicy": {
+    "metadataComparabilityPolicy": "Timing threshold claims require matching recognized host, toolchain, target-profile, optimization, comparison-window, and skipped-tool metadata on both reports. Metadata drift is advisory context only; it never changes comparator exit status.",
+    "minimumSampleCount": 2,
+    "policy": "Timing threshold claims require repeated baseline and candidate samples and comparable baseline-policy metadata, with explicit timed-case fixtureName, target, profile, and optLevel identity. Cases without at least two samples on both sides, pairs with missing/drifting metadata, or timed cases that rely on inferred identity are reported as timing observations, but threshold-exceeded claims are withheld.",
+    "requiresComparableMetadata": true,
+    "requiresExplicitTimedCaseIdentity": true,
+    "requiresRepeatedBaselineAndCandidateSamples": true
+  },
+  "failurePolicy": "report-only; advisory timing threshold observations never change comparator exit status",
+  "releaseBlockerPolicy": "Timing advisory thresholds are report-only and are not release blockers without explicit owner approval.",
+  "ruleCount": 1,
+  "rules": [
+    {
+      "category": "storage-buffers",
+      "profile": "release",
+      "maxRegressionPercent": 10,
+      "label": "missing enforcement storage release lane",
+      "ruleSpecificity": "category-profile"
+    }
+  ]
+}

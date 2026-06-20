@@ -1,0 +1,22 @@
+shader StorageImageExplicitFormatShader {
+  compute {
+    layout(local_size_x = 2, local_size_y = 2, local_size_z = 1) in;
+    layout(set = 0, binding = 0, format = r32f) readonly uniform image2D readColor;
+    layout(set = 0, binding = 1, format = r32i) readonly uniform iimage2D readLabel;
+    layout(set = 0, binding = 2, format = r32ui) readonly uniform uimage2D readMask;
+    layout(set = 0, binding = 3, format = r32ui) writeonly uniform uimage2D writeMask;
+    layout(set = 0, binding = 4) buffer vec4* colors;
+    layout(set = 0, binding = 5) buffer ivec4* labels;
+
+    void main() {
+      ivec2 pixel = ivec2(0, 0);
+      vec4 color = imageLoad(readColor, pixel);
+      ivec4 label = imageLoad(readLabel, pixel);
+      uvec4 mask = imageLoad(readMask, pixel);
+      imageStore(writeMask, pixel, mask);
+      colors[0] = color;
+      labels[0] = label;
+      return;
+    }
+  }
+}

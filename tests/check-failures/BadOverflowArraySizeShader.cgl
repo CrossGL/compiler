@@ -1,0 +1,8 @@
+shader BadOverflowArraySizeShader {
+  compute {
+    layout(set = 0, binding = 1) uniform sampler2D maps[999999999999999999999999999999999999999999];
+    void main() {
+      return;
+    }
+  }
+}

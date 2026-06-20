@@ -1,0 +1,1 @@
+$.targets[1].packageAdmission.nativeSupportClass: expected registry v0 native support class 'prototype-native', got 'native'

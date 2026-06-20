@@ -1,0 +1,1 @@
+$.artifacts: nativeBinaryStatus is metadata, not an artifact

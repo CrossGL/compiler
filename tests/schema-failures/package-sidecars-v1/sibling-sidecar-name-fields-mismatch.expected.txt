@@ -1,0 +1,1 @@
+$.publication.siblingSidecars[0].path: expected sidecar basename from kind/token/attempt '.SemanticFixture.cglb.previous-alpha-0', got '.SemanticFixture.cglb.previous-beta-0'

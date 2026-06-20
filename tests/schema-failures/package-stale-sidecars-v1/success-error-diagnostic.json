@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "packagePath": "build/SemanticFixture.cglb",
+  "dryRun": true,
+  "requestedExists": true,
+  "keepLast": null,
+  "olderThanSeconds": null,
+  "retainedCount": 0,
+  "success": true,
+  "candidateCount": 0,
+  "discardedCount": 0,
+  "failedCount": 0,
+  "publication": {
+    "state": "published",
+    "requestedPath": "build/SemanticFixture.cglb",
+    "sidecarKind": null,
+    "sidecarToken": null,
+    "sidecarAttempt": null,
+    "siblingSidecarCount": 0,
+    "siblingSidecars": []
+  },
+  "candidates": [],
+  "retained": [],
+  "diagnosticCounts": {
+    "note": 0,
+    "warning": 0,
+    "error": 1
+  },
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "package.recover.fixture",
+      "message": "fixture error",
+      "location": {
+        "file": "manifest.json",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 10,
+        "endLine": 1,
+        "endColumn": 11,
+        "endOffset": 10
+      }
+    }
+  ]
+}

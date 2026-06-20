@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [],
+  "structs": [
+    {
+      "name": "Globals",
+      "fields": [
+        {
+          "name": "scale",
+          "type": "float"
+        }
+      ]
+    },
+    {
+      "name": "Uniforms",
+      "fields": [
+        {
+          "name": "value",
+          "type": "float"
+        },
+        {
+          "name": "value",
+          "type": "float4"
+        }
+      ]
+    }
+  ],
+  "resources": [],
+  "targetResourceBindings": [],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

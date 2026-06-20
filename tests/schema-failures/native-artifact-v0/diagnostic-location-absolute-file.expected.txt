@@ -1,0 +1,1 @@
+$.validationDiagnostics[0].location.file: expected string to match pattern

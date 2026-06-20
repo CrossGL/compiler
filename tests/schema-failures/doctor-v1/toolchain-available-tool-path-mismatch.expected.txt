@@ -1,0 +1,1 @@
+$.toolchain.tools[0].path: expected resolvedPath '/usr/bin/dxc', got '/tmp/dxc'

@@ -1,0 +1,9 @@
+shader BadConstantAssignmentShader {
+  const int COUNT = 1;
+  compute {
+    void main() {
+      COUNT = 2;
+      return;
+    }
+  }
+}

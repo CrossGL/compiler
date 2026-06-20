@@ -1,0 +1,1 @@
+$.hirSourceLocations.expressions[0].location.length: expected > 0

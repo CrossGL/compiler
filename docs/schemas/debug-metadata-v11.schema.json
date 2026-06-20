@@ -1,0 +1,880 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/debug-metadata-v11.schema.json",
+  "title": "CrossGL Debug Metadata JSON Schema v11",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "targetDecision",
+    "targetCapabilities",
+    "hirSourceLocations",
+    "manualTextureCompareKernelSummary",
+    "manualTextureCompareKernelBuckets",
+    "manualTextureCompareKernels"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 11
+    },
+    "targetDecision": {
+      "$ref": "#/$defs/targetDecision"
+    },
+    "targetCapabilities": {
+      "$ref": "#/$defs/targetCapabilities"
+    },
+    "sourcePackageValidation": {
+      "$ref": "#/$defs/sourcePackageValidation"
+    },
+    "hirSourceLocations": {
+      "$ref": "#/$defs/hirSourceLocations"
+    },
+    "manualTextureCompareKernelSummary": {
+      "$ref": "#/$defs/manualTextureCompareKernelSummary"
+    },
+    "manualTextureCompareKernelBuckets": {
+      "$ref": "#/$defs/manualTextureCompareKernelBuckets"
+    },
+    "manualTextureCompareKernels": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/manualTextureCompareKernel"
+      }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "concreteTargetName": {
+      "type": "string",
+      "enum": [
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl",
+        "wgsl"
+      ]
+    },
+    "requestedTargetName": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "metal",
+        "vulkan",
+        "directx",
+        "opengl",
+        "wgsl"
+      ]
+    },
+    "packageMode": {
+      "type": "string",
+      "enum": [
+        "native",
+        "source-package",
+        "unsupported"
+      ]
+    },
+    "selectedPackageMode": {
+      "type": "string",
+      "enum": [
+        "native",
+        "source-package",
+        "unsupported",
+        "unknown"
+      ]
+    },
+    "packageDecisionReason": {
+      "type": "string",
+      "enum": [
+        "native-package-available",
+        "source-package-available",
+        "package-build-available",
+        "unsupported"
+      ]
+    },
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "toolIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(metal|vulkan|directx|opengl|wgsl)\\.(native-tool|toolchain|validation)\\.[A-Za-z0-9_.-]+$"
+      }
+    },
+    "optionalNativeToolStatus": {
+      "type": "string",
+      "enum": [
+        "available",
+        "missing",
+        "not-required"
+      ]
+    },
+    "targetList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/concreteTargetName"
+      }
+    },
+    "sourcePackageValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "tool",
+        "policy",
+        "status"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/concreteTargetName"
+        },
+        "tool": {
+          "type": "string",
+          "const": "glslangValidator"
+        },
+        "policy": {
+          "type": "string",
+          "const": "use-when-available"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "validated",
+            "skipped-tool-missing",
+            "failed"
+          ]
+        }
+      }
+    },
+    "indexList": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonNegativeInteger"
+      }
+    },
+    "capabilityGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "count",
+        "capabilities"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "count": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/stringList"
+        }
+      }
+    },
+    "capabilityGroups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/capabilityGroup"
+      }
+    },
+    "targetDecisionDiagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "severity",
+        "target",
+        "message",
+        "capabilities",
+        "legalizationCoreEvidenceIds",
+        "capabilityGroups"
+      ],
+      "properties": {
+        "code": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "note",
+            "warning",
+            "error"
+          ]
+        },
+        "target": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/stringList"
+        },
+        "legalizationCoreEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "capabilityGroups": {
+          "$ref": "#/$defs/capabilityGroups"
+        }
+      }
+    },
+    "targetFallback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rank",
+        "target",
+        "packageMode",
+        "rankReason",
+        "nativeImplemented",
+        "sourcePackageSupported",
+        "packageBuildSupported",
+        "missingCapabilityCount",
+        "missingCapabilities",
+        "legalizationCoreEvidenceIds",
+        "missingCapabilityGroups"
+      ],
+      "properties": {
+        "rank": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "target": {
+          "$ref": "#/$defs/concreteTargetName"
+        },
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        },
+        "rankReason": {
+          "$ref": "#/$defs/packageDecisionReason"
+        },
+        "nativeImplemented": {
+          "type": "boolean"
+        },
+        "sourcePackageSupported": {
+          "type": "boolean"
+        },
+        "packageBuildSupported": {
+          "type": "boolean"
+        },
+        "missingCapabilityCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "missingCapabilities": {
+          "$ref": "#/$defs/stringList"
+        },
+        "legalizationCoreEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "requiredToolCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "missingToolCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "requiredToolIds": {
+          "$ref": "#/$defs/toolIdList"
+        },
+        "missingToolIds": {
+          "$ref": "#/$defs/toolIdList"
+        },
+        "optionalNativeToolMissing": {
+          "type": "boolean"
+        },
+        "optionalNativeToolStatus": {
+          "$ref": "#/$defs/optionalNativeToolStatus"
+        },
+        "toolRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "packageArtifactRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "missingCapabilityGroups": {
+          "$ref": "#/$defs/capabilityGroups"
+        }
+      }
+    },
+    "targetDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestedTarget",
+        "selectedTarget",
+        "selectionReason",
+        "selectedTargetNativeImplemented",
+        "selectedTargetSourcePackageSupported",
+        "selectedTargetPackageBuildSupported",
+        "selectedTargetPackageMode",
+        "selectedTargetMissingCapabilityCount",
+        "selectedTargetMissingCapabilities",
+        "selectedTargetLegalizationCoreEvidenceIds",
+        "selectedTargetMissingCapabilityGroups",
+        "selectedTargetDiagnosticCount",
+        "diagnostics",
+        "viableTargets",
+        "fallbackTargets",
+        "fallbackTargetRecordCount",
+        "fallbackTargetRecords",
+        "nonViableTargets"
+      ],
+      "properties": {
+        "requestedTarget": {
+          "$ref": "#/$defs/requestedTargetName"
+        },
+        "selectedTarget": {
+          "$ref": "#/$defs/concreteTargetName"
+        },
+        "selectionReason": {
+          "type": "string",
+          "enum": [
+            "auto-host-default",
+            "auto-recommended-target",
+            "explicit-target"
+          ]
+        },
+        "selectedTargetNativeImplemented": {
+          "type": "boolean"
+        },
+        "selectedTargetSourcePackageSupported": {
+          "type": "boolean"
+        },
+        "selectedTargetPackageBuildSupported": {
+          "type": "boolean"
+        },
+        "selectedTargetPackageMode": {
+          "$ref": "#/$defs/selectedPackageMode"
+        },
+        "selectedTargetMissingCapabilityCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "selectedTargetMissingCapabilities": {
+          "$ref": "#/$defs/stringList"
+        },
+        "selectedTargetLegalizationCoreEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "selectedTargetRequiredToolCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "selectedTargetMissingToolCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "selectedTargetRequiredToolIds": {
+          "$ref": "#/$defs/toolIdList"
+        },
+        "selectedTargetMissingToolIds": {
+          "$ref": "#/$defs/toolIdList"
+        },
+        "selectedTargetOptionalNativeToolMissing": {
+          "type": "boolean"
+        },
+        "selectedTargetOptionalNativeToolStatus": {
+          "$ref": "#/$defs/optionalNativeToolStatus"
+        },
+        "selectedTargetToolRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "packageArtifactRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "selectedTargetMissingCapabilityGroups": {
+          "$ref": "#/$defs/capabilityGroups"
+        },
+        "selectedTargetDiagnosticCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/targetDecisionDiagnostic"
+          }
+        },
+        "viableTargets": {
+          "$ref": "#/$defs/targetList"
+        },
+        "fallbackTargets": {
+          "$ref": "#/$defs/targetList"
+        },
+        "fallbackTargetRecordCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "fallbackTargetRecords": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/targetFallback"
+          }
+        },
+        "nonViableTargets": {
+          "$ref": "#/$defs/targetList"
+        }
+      }
+    },
+    "targetCapabilitySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target",
+        "nativeImplemented",
+        "sourcePackageSupported",
+        "packageBuildSupported",
+        "packageMode",
+        "packageDecisionReason",
+        "packageRankScore",
+        "requiredCapabilityCount",
+        "missingCapabilityCount",
+        "requiredCapabilities",
+        "missingCapabilities",
+        "legalizationCoreEvidenceIds",
+        "requiredCapabilityGroups",
+        "missingCapabilityGroups"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/concreteTargetName"
+        },
+        "nativeImplemented": {
+          "type": "boolean"
+        },
+        "sourcePackageSupported": {
+          "type": "boolean"
+        },
+        "packageBuildSupported": {
+          "type": "boolean"
+        },
+        "packageMode": {
+          "$ref": "#/$defs/packageMode"
+        },
+        "packageDecisionReason": {
+          "$ref": "#/$defs/packageDecisionReason"
+        },
+        "packageRankScore": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "requiredCapabilityCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "missingCapabilityCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "requiredCapabilities": {
+          "$ref": "#/$defs/stringList"
+        },
+        "missingCapabilities": {
+          "$ref": "#/$defs/stringList"
+        },
+        "legalizationCoreEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "requiredToolCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "missingToolCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "requiredToolIds": {
+          "$ref": "#/$defs/toolIdList"
+        },
+        "missingToolIds": {
+          "$ref": "#/$defs/toolIdList"
+        },
+        "optionalNativeToolMissing": {
+          "type": "boolean"
+        },
+        "optionalNativeToolStatus": {
+          "$ref": "#/$defs/optionalNativeToolStatus"
+        },
+        "toolRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "packageArtifactRequirementEvidenceIds": {
+          "$ref": "#/$defs/stringList"
+        },
+        "requiredCapabilityGroups": {
+          "$ref": "#/$defs/capabilityGroups"
+        },
+        "missingCapabilityGroups": {
+          "$ref": "#/$defs/capabilityGroups"
+        }
+      }
+    },
+    "targetCapabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "defaultTarget",
+        "summaries"
+      ],
+      "properties": {
+        "defaultTarget": {
+          "$ref": "#/$defs/concreteTargetName"
+        },
+        "summaries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/targetCapabilitySummary"
+          }
+        }
+      }
+    },
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "line",
+        "column",
+        "offset",
+        "length",
+        "endLine",
+        "endColumn",
+        "endOffset"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "line": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "column": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "offset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "length": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endLine": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endColumn": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "endOffset": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "expressionSourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "statementKind",
+        "kind",
+        "value",
+        "type",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "statementKind": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "typeSourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "ownerKind",
+        "ownerName",
+        "type",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "ownerKind": {
+          "type": "string"
+        },
+        "ownerName": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "statementSourceLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "statementKind",
+        "name",
+        "location"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "statementKind": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "location": {
+          "$ref": "#/$defs/sourceLocation"
+        },
+        "originalLocation": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    },
+    "hirSourceLocations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expressionCount",
+        "expressionWithLocationCount",
+        "typeCount",
+        "typeWithLocationCount",
+        "statementCount",
+        "statementWithLocationCount",
+        "expressions",
+        "types",
+        "statements"
+      ],
+      "properties": {
+        "expressionCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressionWithLocationCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "typeWithLocationCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "statementWithLocationCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "expressions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/expressionSourceLocation"
+          }
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/typeSourceLocation"
+          }
+        },
+        "statements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/statementSourceLocation"
+          }
+        }
+      }
+    },
+    "manualTextureCompareKernelSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "totalCount",
+        "staticNormalizedCount",
+        "staticNonNormalizedCount",
+        "staticZeroSumCount",
+        "dynamicCount"
+      ],
+      "properties": {
+        "totalCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "staticNormalizedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "staticNonNormalizedCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "staticZeroSumCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "dynamicCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        }
+      }
+    },
+    "manualTextureCompareKernelBuckets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "staticNormalized",
+        "staticNonNormalized",
+        "staticZeroSum",
+        "dynamic"
+      ],
+      "properties": {
+        "staticNormalized": {
+          "$ref": "#/$defs/indexList"
+        },
+        "staticNonNormalized": {
+          "$ref": "#/$defs/indexList"
+        },
+        "staticZeroSum": {
+          "$ref": "#/$defs/indexList"
+        },
+        "dynamic": {
+          "$ref": "#/$defs/indexList"
+        }
+      }
+    },
+    "manualTextureCompareKernel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "stage",
+        "entryPoint",
+        "function",
+        "operation",
+        "sourceKind",
+        "canonicalOperation",
+        "compatibilityAlias",
+        "weightClass",
+        "tapCount",
+        "weightsStatic",
+        "weightsZeroSum",
+        "weightsNormalized"
+      ],
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "entryPoint": {
+          "type": "string"
+        },
+        "function": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "sourceKind": {
+          "type": "string",
+          "enum": [
+            "fixed4",
+            "fixed8",
+            "tap-list",
+            "unknown"
+          ]
+        },
+        "canonicalOperation": {
+          "type": "string"
+        },
+        "compatibilityAlias": {
+          "type": "boolean"
+        },
+        "weightClass": {
+          "type": "string",
+          "enum": [
+            "static-normalized",
+            "static-non-normalized",
+            "static-zero-sum",
+            "dynamic",
+            "unknown"
+          ]
+        },
+        "tapCount": {
+          "$ref": "#/$defs/nonNegativeInteger"
+        },
+        "weightsStatic": {
+          "type": "boolean"
+        },
+        "weightSum": {
+          "type": "number"
+        },
+        "weightsZeroSum": {
+          "type": "boolean"
+        },
+        "weightsNormalized": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

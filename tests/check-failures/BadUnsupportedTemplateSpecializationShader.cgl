@@ -1,0 +1,11 @@
+shader BadUnsupportedTemplateSpecialization {
+  template <>
+  float load_unsafe<int16_t, 4, true>(float value) {
+    return value;
+  }
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

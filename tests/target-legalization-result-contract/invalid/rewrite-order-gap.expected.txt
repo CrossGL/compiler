@@ -1,0 +1,1 @@
+$.result.rewrites[0].order: expected 0, got 1

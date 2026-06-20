@@ -1,0 +1,236 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifactEvidence",
+  "contractVersion": "native-artifact-v0",
+  "rows": [
+    {
+      "target": "metal",
+      "binaryKind": "metal.metallib",
+      "packageMode": "native",
+      "claimState": "emitted-native",
+      "artifactExtensions": [
+        ".metallib"
+      ],
+      "requiredToolRoles": [
+        "compiler",
+        "linker"
+      ],
+      "producedFixture": "tests/native-artifact-contract/valid/metal-metallib.json"
+    },
+    {
+      "target": "vulkan",
+      "binaryKind": "vulkan.spirv-module",
+      "packageMode": "native",
+      "claimState": "optimized-native",
+      "artifactExtensions": [
+        ".spv"
+      ],
+      "requiredToolRoles": [
+        "assembler"
+      ],
+      "producedFixture": "tests/native-artifact-contract/valid/vulkan-spirv-module.json"
+    },
+    {
+      "target": "directx",
+      "binaryKind": "directx.dxil",
+      "packageMode": "source-package",
+      "claimState": "validated-native",
+      "artifactExtensions": [
+        ".dxil"
+      ],
+      "requiredToolRoles": [
+        "compiler"
+      ],
+      "producedFixture": "tests/native-artifact-contract/valid/directx-dxil.json"
+    },
+    {
+      "target": "directx",
+      "binaryKind": "directx.dxil",
+      "packageMode": "source-package",
+      "claimState": "emitted-native",
+      "artifactExtensions": [
+        ".dxil"
+      ],
+      "requiredToolRoles": [
+        "compiler"
+      ],
+      "producedFixture": "tests/native-artifact-contract/valid/directx-dxil-emitted.json"
+    },
+    {
+      "target": "directx",
+      "binaryKind": "directx.dxbc",
+      "packageMode": "source-package",
+      "claimState": "emitted-native",
+      "artifactExtensions": [
+        ".dxbc"
+      ],
+      "requiredToolRoles": [
+        "compiler"
+      ],
+      "producedFixture": "tests/native-artifact-contract/valid/directx-dxbc.json"
+    },
+    {
+      "target": "opengl",
+      "binaryKind": "opengl.source",
+      "packageMode": "source-package",
+      "claimState": "validated-native",
+      "artifactExtensions": [
+        ".glsl"
+      ],
+      "requiredToolRoles": [
+        "generator"
+      ],
+      "producedFixture": "tests/native-artifact-contract/valid/opengl-source.json"
+    },
+    {
+      "target": "opengl",
+      "binaryKind": "opengl.package",
+      "packageMode": "source-package",
+      "claimState": "source-package",
+      "artifactExtensions": [
+        ".cglb",
+        ".zip",
+        ".tar",
+        ".tar.gz"
+      ],
+      "requiredToolRoles": [
+        "packager"
+      ],
+      "producedFixture": "tests/native-artifact-contract/valid/opengl-package.json"
+    }
+  ],
+  "optimizationEvidence": [
+    {
+      "target": "vulkan",
+      "claimState": "optimized-native",
+      "descriptorFixture": "tests/native-artifact-contract/valid/vulkan-spirv-module.json",
+      "nativeProfileFixture": "tests/native-artifact-contract/vulkan-profile/vulkan-o2-applied.json",
+      "requestedLevel": "O2",
+      "requiredStatus": "applied"
+    },
+    {
+      "target": "directx",
+      "claimState": "emitted-native",
+      "descriptorFixture": "tests/native-artifact-contract/valid/directx-dxil-emitted-optimization-evidence.json",
+      "requestedLevel": "O2",
+      "requiredStatus": "applied"
+    },
+    {
+      "target": "metal",
+      "claimState": "emitted-native",
+      "descriptorFixture": "tests/native-artifact-contract/valid/metal-metallib-optimization-evidence.json",
+      "requestedLevel": "O2",
+      "requiredStatus": "applied"
+    }
+  ],
+  "plannedSourcePackageFixtures": [
+    {
+      "target": "directx",
+      "claimState": "planned-native",
+      "fixture": "tests/native-artifact-contract/valid/directx-planned-source-package.json",
+      "optionalToolEvidence": {
+        "tool": "dxc",
+        "missingToolDiagnosticCode": "directx.source-package-only",
+        "missingToolReleaseClaimPolicy": "planned-status-is-not-native-evidence"
+      }
+    },
+    {
+      "target": "opengl",
+      "claimState": "planned-native",
+      "fixture": "tests/native-artifact-contract/valid/opengl-planned-source-package.json",
+      "optionalToolEvidence": {
+        "tool": "glslangValidator",
+        "missingToolDiagnosticCode": "opengl.source-package-only",
+        "missingToolReleaseClaimPolicy": "planned-status-is-not-validated-evidence"
+      }
+    }
+  ],
+  "negativeFixtureEvidence": [
+    {
+      "rule": "target owns binaryKind",
+      "fixture": "tests/schema-failures/native-artifact-v0/target-kind-mismatch.json"
+    },
+    {
+      "rule": "artifactPath extension matches binaryKind",
+      "fixture": "tests/schema-failures/native-artifact-v0/artifact-extension-mismatch.json"
+    },
+    {
+      "rule": "source-package descriptors require nativeBinaryStatus",
+      "fixture": "tests/schema-failures/native-artifact-v0/source-package-missing-native-status.json"
+    },
+    {
+      "rule": "native target descriptors reject nativeBinaryStatus",
+      "fixture": "tests/schema-failures/native-artifact-v0/native-status-on-native-target.json"
+    },
+    {
+      "rule": "planned descriptors omit produced artifact facts",
+      "fixture": "tests/schema-failures/native-artifact-v0/planned-with-artifact-path.json"
+    },
+    {
+      "rule": "planned descriptors use generator-only provenance",
+      "fixture": "tests/schema-failures/native-artifact-v0/planned-with-compiler-tool.json"
+    },
+    {
+      "rule": "planned descriptors cannot claim optimizer levels",
+      "fixture": "tests/schema-failures/native-artifact-v0/planned-with-optimization-level.json"
+    },
+    {
+      "rule": "unavailable validation omits validator provenance",
+      "fixture": "tests/schema-failures/native-artifact-v0/unavailable-with-validator.json"
+    },
+    {
+      "rule": "Vulkan applied optimizer evidence names native profile source",
+      "fixture": "tests/schema-failures/native-artifact-v0/vulkan-applied-optimization-missing-evidence-source.json"
+    },
+    {
+      "rule": "DirectX applied optimizer evidence names a provenance tool",
+      "fixture": "tests/schema-failures/native-artifact-v0/directx-optimization-tool-missing-provenance.json"
+    },
+    {
+      "rule": "Metal applied optimizer evidence names a provenance tool",
+      "fixture": "tests/schema-failures/native-artifact-v0/metal-optimization-tool-missing-provenance.json"
+    },
+    {
+      "rule": "SPIR-V dependency metadata declares extended instruction imports",
+      "fixture": "tests/schema-failures/native-artifact-v0/spirv-dependencies-missing-imports.json"
+    },
+    {
+      "rule": "SPIR-V dependency metadata is Vulkan-only",
+      "fixture": "tests/schema-failures/native-artifact-v0/spirv-dependencies-non-vulkan.json"
+    },
+    {
+      "rule": "SPIR-V extended instruction imports are unique",
+      "fixture": "tests/schema-failures/native-artifact-v0/spirv-dependencies-duplicate-instruction-set.json"
+    },
+    {
+      "rule": "tool resolvedExecutable is non-empty host evidence",
+      "fixture": "tests/schema-failures/native-artifact-v0/tool-resolved-executable-empty.json"
+    },
+    {
+      "rule": "tool executableSource uses resolver vocabulary",
+      "fixture": "tests/schema-failures/native-artifact-v0/tool-executable-source-invalid.json"
+    },
+    {
+      "rule": "tool versionProbeStatus uses probe vocabulary",
+      "fixture": "tests/schema-failures/native-artifact-v0/tool-version-probe-status-invalid.json"
+    },
+    {
+      "rule": "tool versionDetail is non-empty when present",
+      "fixture": "tests/schema-failures/native-artifact-v0/tool-version-detail-empty.json"
+    }
+  ],
+  "vulkanProfileNegativeFixtureEvidence": [
+    {
+      "rule": "Vulkan applied optimizer evidence requires targetEnv",
+      "fixture": "tests/schema-failures/vulkan-native-profile-v1/optimization-target-env-missing.json"
+    },
+    {
+      "rule": "Vulkan applied optimizer evidence requires targetEnv vulkan1.2",
+      "fixture": "tests/schema-failures/vulkan-native-profile-v1/optimization-target-env-vulkan13.json"
+    },
+    {
+      "rule": "Vulkan applied optimizer evidence requires available spirv-opt status",
+      "fixture": "tests/schema-failures/vulkan-native-profile-v1/optimization-tool-status-mismatch.json"
+    }
+  ]
+}

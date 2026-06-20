@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "bundlePath": "release/package-release-bundle.json",
+  "promotionManifestPath": "release/package-release-promotion-manifest.json",
+  "summaryPath": "release/package-maintenance-set-verification-batch-summary.json",
+  "batchPath": "release/package-maintenance-set-verification-batch.json",
+  "status": "eligible",
+  "releaseEligible": true,
+  "blockerCount": 1,
+  "blockers": [
+    {
+      "code": "package.release.bundle.missing-artifact",
+      "message": "missing artifact",
+      "count": 1
+    }
+  ],
+  "packageCount": 0,
+  "artifactCount": 0,
+  "existingArtifactCount": 0,
+  "missingArtifactCount": 0,
+  "totalArtifactBytes": 0,
+  "packages": []
+}

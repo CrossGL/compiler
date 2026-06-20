@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "kind": "crosstl-project-portability-report",
+  "summary": {
+    "artifactCount": 2,
+    "sourceRemapCount": 1,
+    "sourceRemapMappingCount": 2,
+    "backendSourceMapCount": 1,
+    "backendSourceMapMappingCount": 1
+  },
+  "artifacts": [
+    {
+      "source": "simple.cgl",
+      "sourceBackend": "cgl",
+      "target": "cgl",
+      "path": "generated/from-translator.cgl",
+      "status": "translated",
+      "sourceRemap": {
+        "schemaVersion": 1,
+        "path": "ir/source-remap.json",
+        "target": "cgl",
+        "sourceBackend": "cgl",
+        "generatedFile": "generated/from-translator.cgl",
+        "mappingGranularity": "line",
+        "mappingCount": 2,
+        "sizeBytes": 982,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        }
+      }
+    },
+    {
+      "source": "generated/from-translator.cgl",
+      "sourceBackend": "cgl",
+      "target": "directx",
+      "path": "out/directx/simple.hlsl",
+      "status": "translated",
+      "backendSourceMap": {
+        "schemaVersion": 1,
+        "kind": "crossgl.backendSourceMap",
+        "path": "out/directx/simple.backend-source-map.json",
+        "target": "directx",
+        "module": "Simple",
+        "generatedFile": "out/directx/simple.hlsl",
+        "mappingGranularity": "statement",
+        "sourceBackend": "crossgl-hir",
+        "targetBackend": "hlsl",
+        "backendLanguage": "hlsl",
+        "backendLineCount": 12,
+        "mappingCount": 1,
+        "sizeBytes": 512,
+        "hash": {
+          "algorithm": "sha256",
+          "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        "sourceRemap": {
+          "path": "ir/source-remap.json",
+          "sha256": {
+            "algorithm": "sha256",
+            "value": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+          },
+          "sizeBytes": 999,
+          "generatedFile": "generated/from-translator.cgl",
+          "mappingCount": 2,
+          "target": "cgl",
+          "mappingGranularity": "line",
+          "sourceBackend": "cgl"
+        }
+      }
+    }
+  ]
+}

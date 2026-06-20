@@ -1,0 +1,1 @@
+$.crosstlRuntimeAdapters.loadUnits[0].artifactFormat: expected selected artifact format 'backend-source', got 'native-binary'

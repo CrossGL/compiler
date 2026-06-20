@@ -1,0 +1,1 @@
+$.artifacts.nativeBinaryStatus: metal packages must not declare nativeBinaryStatus

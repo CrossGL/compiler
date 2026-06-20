@@ -1,0 +1,1 @@
+$.summary.nativeBinaryStatus: metal package summary may only report nativeBinaryStatus 'emitted'

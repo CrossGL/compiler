@@ -1,0 +1,1 @@
+$.targetDecision.diagnostics[0].capabilityGroups: expected flat capability list length 1, got 2

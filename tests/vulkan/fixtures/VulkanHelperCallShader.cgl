@@ -1,0 +1,17 @@
+shader VulkanHelperCallShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    float scaleAndBias(float value, float bias) {
+      return value * 2.0 + bias;
+    }
+
+    void main() {
+      float source = values[0];
+      float result = scaleAndBias(source, 1.0);
+      values[1] = result;
+      return;
+    }
+  }
+}

@@ -1,0 +1,14 @@
+shader VulkanTextureSampler3DArrayLodShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* values;
+    layout(set = 0, binding = 2) uniform sampler3D volumeMaps[2];
+    layout(set = 0, binding = 5) sampler volumeSamplers[2];
+    void main() {
+      vec4 color = textureLod(volumeMaps[1], volumeSamplers[0],
+                              vec3(0.125, 0.5, 0.875), 3.0);
+      values[0] = color;
+      return;
+    }
+  }
+}

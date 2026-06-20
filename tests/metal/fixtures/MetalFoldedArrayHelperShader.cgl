@@ -1,0 +1,30 @@
+shader MetalFoldedArrayHelperShader {
+  const int BASE = 2;
+  const int ROWS = 2;
+  const int COLS = BASE + 1;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* outputs;
+
+    float readFolded(float values[ROWS][COLS]) {
+      return values[1][2];
+    }
+
+    float forwardFolded(float values[ROWS][COLS]) {
+      return readFolded(values);
+    }
+
+    void main() {
+      float localRows[ROWS][COLS];
+      localRows[0][0] = outputs[0];
+      localRows[0][1] = outputs[1];
+      localRows[0][2] = outputs[2];
+      localRows[1][0] = outputs[3];
+      localRows[1][1] = outputs[4];
+      localRows[1][2] = outputs[5];
+      outputs[6] = forwardFolded(localRows);
+      return;
+    }
+  }
+}

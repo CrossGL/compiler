@@ -1,0 +1,36 @@
+shader OpenGLFunctionParameterArrayShader {
+  const int COUNT = 2;
+
+  struct Particle {
+    float weights[COUNT];
+    vec3 velocities[COUNT];
+  }
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer Particle* particles;
+
+    void copyWeight(float weights[COUNT]) {
+      float value = weights[1];
+      particles[1].weights[0] = value;
+      return;
+    }
+
+    void copyVelocity(vec3 velocities[COUNT]) {
+      vec3 velocity = velocities[1];
+      particles[1].velocities[0] = velocity;
+      return;
+    }
+
+    void relayVelocity(vec3 velocities[COUNT]) {
+      copyVelocity(velocities);
+      return;
+    }
+
+    void main() {
+      copyWeight(particles[0].weights);
+      relayVelocity(particles[0].velocities);
+      return;
+    }
+  }
+}

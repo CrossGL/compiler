@@ -1,0 +1,1 @@
+$.diagnostics[0].target: expected summary target 'directx', got 'metal'

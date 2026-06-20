@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.nativeArtifact",
+  "contractVersion": "native-artifact-v0",
+  "target": "metal",
+  "binaryKind": "vulkan.spirv-module",
+  "artifactPath": "backend/vulkan/SimpleShader.spv",
+  "artifactHash": {
+    "algorithm": "sha256",
+    "value": "4545454545454545454545454545454545454545454545454545454545454545"
+  },
+  "sizeBytes": 4096,
+  "sourcePath": "backend/vulkan/SimpleShader.spvasm",
+  "sourceHash": {
+    "algorithm": "sha256",
+    "value": "4444444444444444444444444444444444444444444444444444444444444444"
+  },
+  "toolchainProvenance": {
+    "producer": "cglc package build",
+    "tools": [
+      {
+        "name": "spirv-as",
+        "role": "assembler",
+        "version": "fixture",
+        "executable": "spirv-as"
+      }
+    ],
+    "invocation": {
+      "commandLineSha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "environmentSha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  },
+  "optimizationLevel": "O0",
+  "validationStatus": "not-run",
+  "validationDiagnostics": []
+}

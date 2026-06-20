@@ -1,0 +1,12 @@
+shader BadUnsupportedImpl {
+  impl Sample {
+    fn value() -> float {
+      return 1.0;
+    }
+  }
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

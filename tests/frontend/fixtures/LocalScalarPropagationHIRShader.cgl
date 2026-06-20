@@ -1,0 +1,40 @@
+shader LocalScalarPropagationHIRShader {
+  const int RESOURCE_COUNT = 2;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+    layout(set = 0, binding = 1) buffer int* indices;
+    layout(set = 0, binding = 2) uniform sampler2D colorMaps[RESOURCE_COUNT];
+    layout(set = 0, binding = 3) sampler linearSamplers[RESOURCE_COUNT];
+    layout(set = 0, binding = 4) uniform sampler2DArrayShadow shadowAtlases[RESOURCE_COUNT];
+    layout(set = 0, binding = 5) sampler rawShadowSamplers[RESOURCE_COUNT];
+
+    void main() {
+      int dynamicIndex = indices[0];
+      int slot = 1;
+      int step = 1;
+      bool writeSelected = true;
+      float scale = 3.0;
+      float depth = 0.33;
+      float lod = 2.0;
+      vec4 sampled =
+          textureLod(colorMaps[nonuniform(slot)], linearSamplers[slot],
+                     vec2(0.0, 0.0), 0.0);
+      float manual =
+          textureCompareLodManual(shadowAtlases[nonuniform(slot)],
+                                  rawShadowSamplers[slot],
+                                  vec3(0.25, 0.5, 1.0), depth, lod,
+                                  less_equal);
+      if (writeSelected) {
+        values[slot] = sampled.x + manual;
+      } else {
+        values[dynamicIndex] = scale;
+      }
+      for (int i = 0; i < 2; i = i + step) {
+        values[i] = values[i] + scale;
+      }
+      return;
+    }
+  }
+}

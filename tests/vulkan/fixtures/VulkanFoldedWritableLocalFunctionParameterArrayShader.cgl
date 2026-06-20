@@ -1,0 +1,25 @@
+shader VulkanFoldedWritableLocalFunctionParameterArrayShader {
+  const int BASE_COUNT = 1;
+  const int COUNT = BASE_COUNT + 1;
+  const int FIRST = 0;
+  const int SECOND = COUNT - 1;
+  const int OUTPUT_INDEX = COUNT;
+
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    float sumWeights(float weights[COUNT]) {
+      return weights[FIRST] + weights[SECOND];
+    }
+
+    void main() {
+      float weights[COUNT];
+      weights[FIRST] = values[FIRST];
+      weights[SECOND] = values[SECOND];
+      float value = sumWeights(weights);
+      values[OUTPUT_INDEX] = value;
+      return;
+    }
+  }
+}

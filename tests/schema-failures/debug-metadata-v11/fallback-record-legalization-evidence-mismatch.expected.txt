@@ -1,0 +1,1 @@
+$.targetDecision.fallbackTargetRecords[0].legalizationCoreEvidenceIds: expected fallback target summary legalizationCoreEvidenceIds

@@ -1,0 +1,1 @@
+$.diagnostics[0].message: expected non-empty diagnostic message

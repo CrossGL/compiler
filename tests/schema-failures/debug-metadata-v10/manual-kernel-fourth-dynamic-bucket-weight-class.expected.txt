@@ -1,0 +1,1 @@
+$.manualTextureCompareKernels[3].weightClass: expected dynamic bucket weight class 'dynamic', got 'static-normalized'

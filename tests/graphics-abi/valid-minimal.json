@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "module": "GraphicsAbiFixture",
+  "target": "vulkan",
+  "entryPoints": [
+    {
+      "stage": "vertex",
+      "sourceName": "vs_main",
+      "backendName": "vertex_vs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 1,
+        "column": 1,
+        "offset": 0,
+        "length": 4,
+        "endLine": 1,
+        "endColumn": 5,
+        "endOffset": 4
+      }
+    },
+    {
+      "stage": "fragment",
+      "sourceName": "fs_main",
+      "backendName": "fragment_fs_main",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 2,
+        "column": 1,
+        "offset": 10,
+        "length": 4,
+        "endLine": 2,
+        "endColumn": 5,
+        "endOffset": 14
+      }
+    }
+  ],
+  "vertexInputs": [
+    {
+      "stage": "vertex",
+      "entryPoint": "vertex_vs_main",
+      "name": "position",
+      "type": "vec3",
+      "location": 0,
+      "format": "float32x3",
+      "semantic": "POSITION"
+    }
+  ],
+  "varyings": [
+    {
+      "interpolation": "smooth",
+      "producer": {
+        "stage": "vertex",
+        "entryPoint": "vertex_vs_main",
+        "name": "vColor",
+        "type": "vec4",
+        "location": 0,
+        "direction": "output"
+      },
+      "consumer": {
+        "stage": "fragment",
+        "entryPoint": "fragment_fs_main",
+        "name": "vColor",
+        "type": "vec4",
+        "location": 0,
+        "direction": "input"
+      }
+    }
+  ],
+  "fragmentOutputs": [
+    {
+      "stage": "fragment",
+      "entryPoint": "fragment_fs_main",
+      "name": "outColor",
+      "type": "vec4",
+      "location": 0,
+      "format": "rgba32f"
+    }
+  ],
+  "builtins": [
+    {
+      "stage": "vertex",
+      "entryPoint": "vertex_vs_main",
+      "name": "position",
+      "builtin": "position",
+      "type": "vec4",
+      "direction": "output"
+    },
+    {
+      "stage": "fragment",
+      "entryPoint": "fragment_fs_main",
+      "name": "frontFacing",
+      "builtin": "front_facing",
+      "type": "bool",
+      "direction": "input"
+    }
+  ],
+  "resources": [
+    {
+      "stage": "vertex",
+      "name": "Camera",
+      "kind": "buffer",
+      "type": "CameraUniforms",
+      "arrayDimensions": [],
+      "set": 0,
+      "binding": 0,
+      "addressSpace": "uniform",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 3,
+        "column": 1,
+        "offset": 20,
+        "length": 4,
+        "endLine": 3,
+        "endColumn": 5,
+        "endOffset": 24
+      }
+    },
+    {
+      "stage": "fragment",
+      "name": "albedo",
+      "kind": "texture",
+      "type": "sampler2D",
+      "arrayDimensions": [],
+      "set": 0,
+      "binding": 1,
+      "addressSpace": "uniform",
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 4,
+        "column": 1,
+        "offset": 30,
+        "length": 4,
+        "endLine": 4,
+        "endColumn": 5,
+        "endOffset": 34
+      }
+    }
+  ],
+  "abiRecords": [
+    {
+      "target": "vulkan",
+      "stage": "vertex",
+      "entryPoint": "vertex_vs_main",
+      "name": "Camera",
+      "kind": "buffer",
+      "sourceType": "CameraUniforms",
+      "storageClass": "Uniform",
+      "spirvType": "%CameraUniforms",
+      "descriptorType": "uniform_buffer",
+      "addressSpace": "uniform",
+      "abi": "descriptor",
+      "bindingClass": "uniform-buffer",
+      "evidenceId": "target-legalization.v1.vulkan.resource-binding.vertex.vertex_vs_main.Camera",
+      "set": 0,
+      "binding": 0,
+      "arrayDimensions": [],
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 5,
+        "column": 1,
+        "offset": 40,
+        "length": 4,
+        "endLine": 5,
+        "endColumn": 5,
+        "endOffset": 44
+      }
+    },
+    {
+      "target": "vulkan",
+      "stage": "fragment",
+      "entryPoint": "fragment_fs_main",
+      "name": "albedo",
+      "kind": "texture",
+      "sourceType": "sampler2D",
+      "storageClass": "UniformConstant",
+      "spirvType": "%type_sampled_image",
+      "descriptorType": "combined_image_sampler",
+      "addressSpace": "uniform",
+      "abi": "descriptor",
+      "bindingClass": "sampled-texture",
+      "evidenceId": "target-legalization.v1.vulkan.resource-binding.fragment.fragment_fs_main.albedo",
+      "set": 0,
+      "binding": 1,
+      "arrayDimensions": [],
+      "sourceMapRef": {
+        "file": "tests/graphics-abi/valid-minimal.cgl",
+        "line": 6,
+        "column": 1,
+        "offset": 50,
+        "length": 4,
+        "endLine": 6,
+        "endColumn": 5,
+        "endOffset": 54
+      }
+    }
+  ]
+}

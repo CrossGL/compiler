@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "kind": "crossgl.sourceBatchResult",
+  "manifest": "build/cglc-cli-source-batch-check.json",
+  "success": true,
+  "entryCount": 2,
+  "entries": [
+    {
+      "id": "simple",
+      "path": "tests/fixtures/SimpleShader.cgl",
+      "logicalInput": "translator/snapshots/SimpleShader.cgl",
+      "target": "auto",
+      "success": true
+    },
+    {
+      "id": "storage-directx",
+      "path": "tests/fixtures/StorageBufferComputeShader.cgl",
+      "output": "build/source-batch/storage-directx.cglb",
+      "artifact": "build/source-batch/storage-directx.cglb",
+      "target": "directx",
+      "success": true
+    }
+  ],
+  "diagnosticReport": {
+    "schemaVersion": 1,
+    "diagnostics": []
+  }
+}

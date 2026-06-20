@@ -1,0 +1,1 @@
+$.hostLoaderIntegration.loadUnits[0].backendSourceMap.provenance.sourceRemapPath: expected $.hostLoaderIntegration.loadUnits[0].sourceRemap.packagePath 'ir/source-remap-provenance.json', got 'ir/stale-source-remap-provenance.json'

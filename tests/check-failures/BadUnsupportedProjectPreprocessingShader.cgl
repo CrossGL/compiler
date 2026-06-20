@@ -1,0 +1,10 @@
+project preprocess {
+  include "kernels/*.metal";
+}
+shader BadUnsupportedProjectPreprocessing {
+  compute {
+    void main() {
+      return;
+    }
+  }
+}

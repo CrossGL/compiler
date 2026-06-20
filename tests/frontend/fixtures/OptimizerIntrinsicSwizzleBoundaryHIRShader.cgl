@@ -1,0 +1,18 @@
+shader OptimizerIntrinsicSwizzleBoundaryHIRShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer float* values;
+
+    void main() {
+      float dynamicAbs = abs(values[0]);
+      vec4 dynamicVector = vec4(values[0], values[1], values[2], values[3]);
+      float dynamicLength = length(dynamicVector);
+      float unusedFolded = sqrt(16.0);
+      vec3 unusedSwizzle = dynamicVector.rgb;
+      values[0] = dynamicAbs + dynamicLength;
+      values[1] = length(vec2(3.0, 4.0));
+      values[2] = dynamicVector.rgb.z;
+      return;
+    }
+  }
+}

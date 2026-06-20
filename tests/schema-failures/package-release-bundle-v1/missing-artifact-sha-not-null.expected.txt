@@ -1,0 +1,1 @@
+$.packages[0].artifacts[0].sha256: missing artifact must use null

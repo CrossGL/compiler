@@ -1,0 +1,1 @@
+$.targetResourceBindings[0].sourceType: expected source resource type 'float', got 'float4'

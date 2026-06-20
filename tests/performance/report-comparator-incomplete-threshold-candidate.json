@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "artifactSummary": {
+        "available": true,
+        "byteSize": 1000,
+        "fileCount": 1
+      },
+      "case": "storage-buffer-compute::directx::release",
+      "commandProfile": {
+        "name": "release"
+      },
+      "fixtureCategory": "storage-buffers",
+      "fixtureName": "storage-buffer-compute",
+      "optLevel": "O2",
+      "profile": "release",
+      "skipped": false,
+      "target": "directx",
+      "timing": {
+        "elapsedNs": 130
+      },
+      "unavailableTools": []
+    }
+  ],
+  "corpusVersion": "milestone6-smoke-v1",
+  "schemaVersion": 1,
+  "summary": {
+    "caseCount": 1,
+    "caseCategories": [
+      "storage-buffers"
+    ],
+    "caseCountByCategory": {
+      "storage-buffers": 1
+    },
+    "caseCountByCommandProfile": {
+      "release": 1
+    },
+    "caseCountByProfile": {
+      "release": 1
+    },
+    "caseCountByTarget": {
+      "directx": 1
+    },
+    "commandProfiles": [
+      "release"
+    ],
+    "skippedCount": 0,
+    "timedCaseCount": 1,
+    "unavailableToolCount": 0,
+    "optLevels": [
+      "O2"
+    ],
+    "caseCountByOptLevel": {
+      "O2": 1
+    }
+  },
+  "tool": "benchmark_performance_corpus"
+}

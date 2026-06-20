@@ -1,0 +1,15 @@
+shader VectorTrigIntrinsicFoldOptimizerShader {
+  compute {
+    layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+    layout(set = 0, binding = 0) buffer vec4* vectors;
+
+    void main() {
+      vec4 foldedCos = cos(vec4(0.0, 0.0, 0.0, 0.0));
+      vec4 foldedTan = tan(vec4(0.0, 0.0, 0.0, 0.0));
+
+      vectors[0] = foldedCos;
+      vectors[1] = foldedTan;
+      return;
+    }
+  }
+}

@@ -1,0 +1,46 @@
+shader VulkanGraphicsLoopControlShader {
+    struct VertexInput {
+        vec3 position;
+        vec2 texCoord;
+    }
+
+    struct VertexOutput {
+        vec2 uv;
+        vec4 position;
+    }
+
+    struct FragmentInput {
+        vec2 uv;
+    }
+
+    struct FragmentOutput {
+        vec4 color;
+    }
+
+    vertex {
+        VertexOutput main(VertexInput input) {
+            VertexOutput output;
+            output.uv = input.texCoord;
+            output.position = vec4(input.position, 1.0);
+            return output;
+        }
+    }
+
+    fragment {
+        FragmentOutput main(FragmentInput input) {
+            FragmentOutput output;
+            vec4 accum = vec4(input.uv, 0.0, 1.0);
+            for (int i = 0; i < 3; i++) {
+                if (i == 1) {
+                    continue;
+                }
+                if (i == 2) {
+                    break;
+                }
+                accum = accum + vec4(0.1, 0.0, 0.0, 0.0);
+            }
+            output.color = accum;
+            return output;
+        }
+    }
+}

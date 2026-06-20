@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "module": "SemanticFixture",
+  "target": "directx",
+  "nativeBinary": "",
+  "entryPoints": [
+    {
+      "stage": "compute",
+      "sourceName": "main",
+      "backendName": "compute_main",
+      "returnType": "void",
+      "parameters": []
+    }
+  ],
+  "structs": [],
+  "resources": [
+    {
+      "stage": "compute",
+      "name": "values",
+      "kind": "buffer",
+      "type": "float"
+    }
+  ],
+  "targetResourceBindings": [
+    {
+      "target": "directx",
+      "stage": "compute",
+      "entryPoint": "missing_main",
+      "name": "values",
+      "kind": "buffer",
+      "sourceType": "float",
+      "addressSpace": "storage",
+      "abi": "hlsl",
+      "bindingClass": "uav"
+    }
+  ],
+  "pushConstants": [],
+  "functionConstants": [],
+  "vertexLayouts": [],
+  "workgroupSizes": [],
+  "manualTextureCompareKernelSummary": {
+    "totalCount": 0,
+    "staticNormalizedCount": 0,
+    "staticNonNormalizedCount": 0,
+    "staticZeroSumCount": 0,
+    "dynamicCount": 0
+  },
+  "manualTextureCompareKernels": [],
+  "targetFeatures": []
+}

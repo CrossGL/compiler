@@ -1,0 +1,1 @@
+$.summary.targetLegalizationEvidence.packageModeSource: expected one of ['manifest.packageArtifactRequirements', 'debugMetadata.targetDecision.selectedTargetPackageMode', 'targetExplanation.targets[].packageMode', None], got 'legacy-v0-target-contract'

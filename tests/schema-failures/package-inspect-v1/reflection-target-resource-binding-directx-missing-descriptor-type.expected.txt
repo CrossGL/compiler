@@ -1,0 +1,1 @@
+$.reflection.targetResourceBindings[0].descriptorType: required for directx registerBinding binding

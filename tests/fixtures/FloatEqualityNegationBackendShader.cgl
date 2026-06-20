@@ -1,0 +1,16 @@
+shader FloatEqualityNegationBackendShader {
+    compute {
+        layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+        layout(set = 0, binding = 0) buffer int* values;
+
+        void main() {
+            int dynamicIndex = values[0];
+            float dynamicFloat = float(dynamicIndex);
+            bool equalityNegationFloat = !(dynamicFloat == 31.0);
+            bool inequalityNegationFloat = !(dynamicFloat != 32.0);
+            values[1] = equalityNegationFloat ? 1 : 0;
+            values[2] = inequalityNegationFloat ? 1 : 0;
+            return;
+        }
+    }
+}

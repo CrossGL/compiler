@@ -1,0 +1,1 @@
+$.targets[1].displayName: expected registry v0 target display name 'Vulkan', got 'Metal'

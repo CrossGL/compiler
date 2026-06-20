@@ -1,0 +1,1 @@
+$.targetDecision.diagnostics[0].legalizationCoreEvidenceIds: expected diagnostic target legalizationCoreEvidenceIds

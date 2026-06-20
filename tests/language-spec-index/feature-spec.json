@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "source_language_snapshot": {
+    "path": "snapshot.json",
+    "schema_version": 0,
+    "sha256": "68d5dde5d84fb39f2942a041a4f5b791c98acaa8e8cec958ffd7ff722a51322b"
+  },
+  "contract_manifest": {
+    "path": "contract.json",
+    "accepted_feature_group_count": 2,
+    "negative_case_count": 1
+  },
+  "feature_groups": [
+    {
+      "id": "module_stages_and_entry_points"
+    },
+    {
+      "id": "crosstl_examples_and_backend_policy"
+    }
+  ]
+}

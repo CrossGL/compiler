@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://crossgl.dev/schemas/crosstl-runtime-adapter-descriptor-v1.schema.json",
+  "title": "CrossTL Runtime Adapter Descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "sourcePackage",
+    "sourcePackageHash",
+    "packageRoot",
+    "adapterPlan",
+    "id",
+    "target",
+    "adapterKind",
+    "artifactFormat",
+    "binding",
+    "artifact",
+    "packagePath",
+    "sourcePath",
+    "sourceBackend",
+    "stage",
+    "variant",
+    "defines",
+    "sourceRemap",
+    "hostInterface",
+    "requiredTools",
+    "hostResponsibilities",
+    "validation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "kind": {
+      "type": "string",
+      "const": "crosstl-runtime-adapter-descriptor"
+    },
+    "sourcePackage": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourcePackageHash": {
+      "$ref": "#/$defs/hash"
+    },
+    "packageRoot": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapterPlan": {
+      "$ref": "#/$defs/adapterPlan"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapterKind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifactFormat": {
+      "type": "string",
+      "minLength": 1
+    },
+    "binding": {
+      "$ref": "#/$defs/stringOrObject"
+    },
+    "artifact": {
+      "$ref": "#/$defs/stringOrObject"
+    },
+    "packagePath": {
+      "$ref": "#/$defs/normalizedRelativePath"
+    },
+    "sourcePath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceBackend": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stage": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "variant": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "defines": {
+      "type": "object"
+    },
+    "sourceRemap": {
+      "$ref": "#/$defs/objectOrNull"
+    },
+    "hostInterface": {
+      "$ref": "#/$defs/hostInterfaceOrNull"
+    },
+    "requiredTools": {
+      "$ref": "#/$defs/stringArray"
+    },
+    "hostResponsibilities": {
+      "type": "array"
+    },
+    "validation": {
+      "$ref": "#/$defs/validation"
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "hash": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "algorithm",
+        "value"
+      ],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "const": "sha256"
+        },
+        "value": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "normalizedRelativePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)(?:\\.|\\.\\.)(?:/|$))(?!.*//)(?!.*/$).+$"
+    },
+    "objectOrNull": {
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stringOrObject": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "stringArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "adapterPlan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "success",
+        "scope"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "hostInterfaceOrNull": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "ready",
+                "blocked",
+                "unavailable",
+                "not-inspected",
+                "failed"
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "validation": {
+      "type": "object",
+      "properties": {
+        "loadReady": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1 @@
+$.manualTextureCompareKernels[1]: static weights require weightSum

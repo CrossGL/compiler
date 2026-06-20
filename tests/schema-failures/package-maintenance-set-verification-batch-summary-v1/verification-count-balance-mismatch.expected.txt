@@ -1,0 +1,1 @@
+$.verifications[1].scannedPackageCount: expected scanned package count from set/missing/extra counts 2, got 1

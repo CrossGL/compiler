@@ -1,0 +1,218 @@
+{
+  "compilerInvocationRequired": false,
+  "deviceExecutionRequired": false,
+  "diagnosticCounts": {
+    "error": 0,
+    "note": 0,
+    "warning": 0
+  },
+  "diagnostics": [],
+  "hostLoaderIntegration": {
+    "kind": "crossgl-runtime-host-loader-integration",
+    "loadUnits": [],
+    "nonGoals": [
+      "host-code-rewriting",
+      "device-execution",
+      "runtime-framework-generation",
+      "target-sdk-installation"
+    ],
+    "schemaVersion": 1,
+    "scope": "host-loader-scaffold-generation",
+    "status": "unavailable",
+    "summary": {
+      "blockedLoadUnitCount": 0,
+      "entryPointCount": 1,
+      "loadUnitCount": 0,
+      "readyLoadUnitCount": 0,
+      "resourceBindingCount": 1,
+      "targetCount": 0,
+      "workgroupSizeCount": 1,
+      "functionConstantCount": 0,
+      "specializationConstantCount": 0
+    }
+  },
+  "kind": "crossgl-runtime-loader-plan",
+  "loadable": true,
+  "metadataOnly": true,
+  "packageArtifactRequirements": {
+    "allowsPlannedNativeBinary": true,
+    "allowsPlannedNativeSourceEvidence": true,
+    "evidenceIds": [],
+    "packageMode": "source-package",
+    "requiredPathArtifacts": [
+      "backendSource",
+      "nativeBinary"
+    ],
+    "requiresNativeBinaryStatus": true,
+    "target": "directx"
+  },
+  "packageArtifactRequirementsSource": "manifest.packageArtifactRequirements",
+  "packageFormat": "directory",
+  "packageTarget": "directx",
+  "packageVersion": 1,
+  "reflectionInputs": {
+    "entryPointCount": 1,
+    "entryPoints": [
+      {
+        "backendName": "main",
+        "sourceName": "main",
+        "stage": "compute"
+      }
+    ],
+    "resourceCount": 1,
+    "resources": [
+      {
+        "arrayDimensions": [],
+        "arrayElementCount": null,
+        "binding": 0,
+        "kind": "storageBuffer",
+        "name": "Resource0",
+        "set": 0,
+        "stage": "compute",
+        "storageImageAccess": null,
+        "storageImageFormat": null,
+        "type": "float4"
+      }
+    ],
+    "schemaVersion": 1,
+    "selectedTarget": "directx",
+    "skippedTargetFeatureCount": 0,
+    "skippedTargetResourceBindingCount": 0,
+    "targetFeatureCount": 1,
+    "targetFeatures": [
+      {
+        "evidenceIds": [],
+        "kind": "package",
+        "name": "source-package",
+        "target": "directx"
+      }
+    ],
+    "targetResourceBindingCount": 1,
+    "targetResourceBindings": [
+      {
+        "abi": {
+          "register": "u0",
+          "space": 0
+        },
+        "bindingClass": "uav",
+        "descriptorType": "UAV",
+        "entryPoint": "main",
+        "evidenceId": "target-legalization.v1.directx.resource-binding.compute.main.Resource0",
+        "kind": "storageBuffer",
+        "name": "Resource0",
+        "stage": "compute",
+        "target": "directx"
+      }
+    ],
+    "workgroupSizeCount": 1,
+    "workgroupSizes": [
+      {
+        "entryPoint": "main",
+        "stage": "compute",
+        "x": "1",
+        "y": "1",
+        "z": "1"
+      }
+    ],
+    "workgroupSizesAvailable": true,
+    "functionConstantCount": 0,
+    "specializationConstantCount": 0,
+    "functionConstantsAvailable": false,
+    "functionConstants": []
+  },
+  "reflectionSummary": {
+    "entryPointCount": 1,
+    "resourceCount": 1,
+    "targetFeatureCount": 1,
+    "targetResourceBindingCount": 1,
+    "threadgroupShapeSource": "reflection.workgroupSizes",
+    "workgroupSizeCount": 1,
+    "functionConstantCount": 0,
+    "specializationConstantCount": 0
+  },
+  "requestedLoaderTarget": "directx",
+  "requestedPackageMode": "auto",
+  "requiredArtifactPaths": {
+    "backendSource": "backend/directx/Shader.hlsl",
+    "nativeBinary": "backend/directx/Shader.dxil"
+  },
+  "requiredArtifacts": [
+    "backendSource",
+    "nativeBinary"
+  ],
+  "requiredMetadataInputs": [
+    "manifest.json",
+    "reflection.json",
+    "diagnostics.json"
+  ],
+  "runtimeArtifactPath": null,
+  "runtimeArtifactSelection": {
+    "artifact": null,
+    "compilerInvocationRequired": false,
+    "deviceExecutionRequired": false,
+    "packageTarget": "directx",
+    "requestedPackageMode": "auto",
+    "requestedTarget": "directx",
+    "schemaVersion": 1,
+    "selected": true,
+    "selectedPackageMode": null,
+    "selectedTarget": "directx",
+    "sourceInputs": [],
+    "sourceParsingRequired": false
+  },
+  "schemaVersion": 1,
+  "selectedArtifact": null,
+  "selectedPackageMode": null,
+  "selectedTarget": "directx",
+  "sourceParsingRequired": false,
+  "success": true,
+  "targetLegalizationEvidenceSummary": {
+    "missingToolCount": 0,
+    "missingToolIds": [],
+    "packageMode": "source-package",
+    "requiredToolCount": 0,
+    "requiredToolIds": [],
+    "target": "directx",
+    "toolRequirementEvidenceIds": [],
+    "toolRequirementsPresent": true
+  },
+  "targetMatchesPackage": true,
+  "targetResourceBindingMetadata": {
+    "bindingCount": 1,
+    "bindings": [
+      {
+        "abi": {
+          "register": "u0",
+          "space": 0
+        },
+        "argumentIndex": null,
+        "arrayDimensions": [],
+        "arrayElementCount": null,
+        "binding": 0,
+        "bindingClass": "uav",
+        "descriptorType": "UAV",
+        "entryPoint": "main",
+        "evidenceId": "target-legalization.v1.directx.resource-binding.compute.main.Resource0",
+        "identity": {
+          "entryPoint": "main",
+          "kind": "storageBuffer",
+          "name": "Resource0",
+          "stage": "compute",
+          "target": "directx"
+        },
+        "kind": "storageBuffer",
+        "name": "Resource0",
+        "set": 0,
+        "stage": "compute",
+        "storageImageAccess": null,
+        "storageImageFormat": null,
+        "target": "directx"
+      }
+    ],
+    "loaderTarget": "directx",
+    "packageTarget": "directx",
+    "schemaVersion": 1,
+    "selectedTarget": "directx",
+    "skippedBindingCount": 0
+  }
+}

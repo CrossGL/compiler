@@ -1,0 +1,1 @@
+$.artifactPath: expected string to match pattern

@@ -1,0 +1,1 @@
+$.packageArtifactRequirements.evidenceIds: expected manifest package artifact requirement evidence IDs ['target-legalization.v1.directx.package-artifacts.source-package'], got ['stale.projected.evidence']

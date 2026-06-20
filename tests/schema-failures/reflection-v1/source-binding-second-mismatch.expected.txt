@@ -1,0 +1,1 @@
+$.targetResourceBindings[1].binding: expected source resource binding 1, got 2

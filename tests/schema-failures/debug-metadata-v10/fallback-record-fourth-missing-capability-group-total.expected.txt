@@ -1,0 +1,1 @@
+$.targetDecision.fallbackTargetRecords[3].missingCapabilityGroups: expected flat capability list length 1, got 0
