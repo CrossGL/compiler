@@ -167,6 +167,7 @@ add_library(crossgl_compiler
   src/HIR/Intrinsics.cpp
   src/HIR/SideEffects.cpp
   src/HIR/StorageShape.cpp
+  src/HIR/Type.cpp
   src/HIR/TypeSemantics.cpp
   src/IR/IRPrinter.cpp
   src/Optimizer/HIRPassManager.cpp

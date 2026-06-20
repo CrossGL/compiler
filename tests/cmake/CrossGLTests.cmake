@@ -24,6 +24,9 @@ if(BUILD_TESTING)
 
   add_executable(crossgl_unit_tests tests/unit/CompilerUnitTests.cpp)
   target_link_libraries(crossgl_unit_tests PRIVATE crossgl_compiler)
+
+  add_executable(crossgl_type_roundtrip_tests tests/unit/TypeRoundTripTests.cpp)
+  target_link_libraries(crossgl_type_roundtrip_tests PRIVATE crossgl_compiler)
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLPythonTests.cmake")
 
   include("${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/CrossGLTestFixtures.cmake")
