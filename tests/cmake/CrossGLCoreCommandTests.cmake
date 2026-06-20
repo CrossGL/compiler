@@ -1,4 +1,5 @@
 add_test(NAME crossgl_unit_tests COMMAND crossgl_unit_tests)
+add_test(NAME crossgl_type_roundtrip_tests COMMAND crossgl_type_roundtrip_tests)
 add_executable(crossgl_toolchain_process_capture_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/ToolchainProcessCaptureTests.cpp)
 target_link_libraries(crossgl_toolchain_process_capture_tests
