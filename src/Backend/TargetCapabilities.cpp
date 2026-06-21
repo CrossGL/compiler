@@ -210,20 +210,8 @@ bool openGLRuntimeDescriptorArrayCapabilitySatisfied(
   return false;
 }
 
-bool isVectorTypeName(std::string_view name) {
-  return name == "vec2" || name == "vec3" || name == "vec4" ||
-         name == "ivec2" || name == "ivec3" || name == "ivec4" ||
-         name == "uvec2" || name == "uvec3" || name == "uvec4" ||
-         name == "bvec2" || name == "bvec3" || name == "bvec4";
-}
-
 bool isScalarTypeName(std::string_view name) {
   return name == "float" || name == "int" || name == "uint" || name == "bool";
-}
-
-bool isMatrixTypeName(std::string_view name) {
-  return name == "mat2" || name == "mat3" || name == "mat4" ||
-         name == "mat2x2" || name == "mat3x3" || name == "mat4x4";
 }
 
 bool isComparisonOperator(std::string_view op) {
@@ -388,9 +376,9 @@ void addTypeCapabilities(CapabilityCollector &collector, const HIRType &type,
   if (typeHasNestedArray(type)) {
     collector.add("array", "fixed-nested-arrays");
   }
-  if (isScalarTypeName(type.name) || isVectorTypeName(type.name)) {
+  if (isScalarTypeName(type.name) || isVectorType(type.name)) {
     collector.add("array", "scalar-vector-elements");
-  } else if (isMatrixTypeName(type.name)) {
+  } else if (isMatrixType(type.name)) {
     collector.add("array", "matrix-elements");
   }
 }
@@ -546,9 +534,9 @@ void addExpressionCapabilities(
     }
     break;
   case HIRExpressionKind::Constructor:
-    if (isVectorTypeName(expression.type.name)) {
+    if (isVectorType(expression.type.name)) {
       collector.add("operation", "vector-constructor");
-    } else if (isMatrixTypeName(expression.type.name)) {
+    } else if (isMatrixType(expression.type.name)) {
       collector.add("operation", "matrix-constructor");
     } else if (isScalarTypeName(expression.type.name)) {
       collector.add("operation", "scalar-constructor");
@@ -562,7 +550,7 @@ void addExpressionCapabilities(
   case HIRExpressionKind::Binary:
     // Preserve the original binary-operation feature ABI: every binary
     // expression is classified as scalar/vector arithmetic by result type.
-    if (isVectorTypeName(expression.type.name)) {
+    if (isVectorType(expression.type.name)) {
       collector.add("operation", "vector-arithmetic");
     } else {
       collector.add("operation", "scalar-arithmetic");
@@ -570,8 +558,8 @@ void addExpressionCapabilities(
     if (isComparisonOperator(expression.value)) {
       const bool vectorOperand =
           expression.children.size() >= 2 &&
-          (isVectorTypeName(expression.children[0].type.name) ||
-           isVectorTypeName(expression.children[1].type.name));
+          (isVectorType(expression.children[0].type.name) ||
+           isVectorType(expression.children[1].type.name));
       collector.add("operation",
                     vectorOperand ? "vector-comparison" : "scalar-comparison");
     } else if (isLogicalOperator(expression.value)) {
