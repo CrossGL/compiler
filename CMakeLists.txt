@@ -20,9 +20,42 @@ option(CROSSGL_ENABLE_MLIR_EXPERIMENTAL
 
 find_package(LLVM CONFIG QUIET)
 find_package(MLIR CONFIG QUIET)
+find_package(SPIRV-Tools CONFIG QUIET)
+if(NOT SPIRV-Tools_FOUND)
+  find_package(SPIRV-Tools-tools CONFIG QUIET)
+endif()
 
 if(LLVM_FOUND)
   message(STATUS "Found LLVM ${LLVM_PACKAGE_VERSION}: ${LLVM_DIR}")
+endif()
+
+# Optional SPIRV-Tools: when present, the Vulkan backend can assemble the
+# generated SPIR-V text (.spvasm) into a real binary (.spv) in-process via the
+# SPIRV-Tools C API. This mirrors the optional MLIR path -- a build WITHOUT
+# SPIRV-Tools still succeeds and simply does not emit the sibling .spv.
+if(SPIRV-Tools_FOUND)
+  if(TARGET SPIRV-Tools)
+    set(CROSSGL_SPIRV_TOOLS_TARGET SPIRV-Tools)
+  elseif(TARGET SPIRV-Tools-shared)
+    set(CROSSGL_SPIRV_TOOLS_TARGET SPIRV-Tools-shared)
+  elseif(TARGET SPIRV-Tools-static)
+    set(CROSSGL_SPIRV_TOOLS_TARGET SPIRV-Tools-static)
+  else()
+    set(CROSSGL_SPIRV_TOOLS_TARGET "")
+  endif()
+endif()
+
+if(SPIRV-Tools_FOUND AND CROSSGL_SPIRV_TOOLS_TARGET)
+  message(STATUS
+    "Found SPIRV-Tools: ${SPIRV-Tools_DIR}; "
+    "binary .spv emission enabled via ${CROSSGL_SPIRV_TOOLS_TARGET}; "
+    "CROSSGL_HAVE_SPIRV_TOOLS=1")
+else()
+  message(STATUS
+    "SPIRV-Tools not found; binary .spv emission disabled; "
+    "the .spvasm text artifact is still produced; "
+    "CROSSGL_HAVE_SPIRV_TOOLS=0")
+  set(CROSSGL_SPIRV_TOOLS_TARGET "")
 endif()
 
 if(MLIR_FOUND)
@@ -128,6 +161,7 @@ add_library(crossgl_compiler
   src/Backend/MetalBackend.cpp
   src/Backend/OpenGLBackend.cpp
   src/Backend/ResourceArrays.cpp
+  src/Backend/SPIRVAssembler.cpp
   src/Backend/SPIRVModule.cpp
   src/Backend/StorageBufferSupport.cpp
   src/Backend/Target.cpp
@@ -200,6 +234,11 @@ if(MLIR_FOUND)
   target_compile_definitions(crossgl_compiler PUBLIC CROSSGL_HAS_MLIR=1)
 else()
   target_compile_definitions(crossgl_compiler PUBLIC CROSSGL_HAS_MLIR=0)
+endif()
+
+if(SPIRV-Tools_FOUND AND CROSSGL_SPIRV_TOOLS_TARGET)
+  target_compile_definitions(crossgl_compiler PRIVATE CROSSGL_HAVE_SPIRV_TOOLS=1)
+  target_link_libraries(crossgl_compiler PRIVATE ${CROSSGL_SPIRV_TOOLS_TARGET})
 endif()
 
 if(CROSSGL_ENABLE_MLIR_EXPERIMENTAL)

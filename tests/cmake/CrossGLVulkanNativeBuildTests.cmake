@@ -3031,3 +3031,32 @@ if(NOT CROSSGL_HAS_VULKAN_SPIRV_DIS)
     REASON "optional Vulkan spirv-dis sidecar smoke requires spirv-dis"
     REQUIRED_VARS CROSSGL_SPIRV_DIS)
 endif()
+
+# Optional in-process SPIRV-Tools binary (.spv) emission. Registered only when
+# the compiler was built WITH SPIRV-Tools (CROSSGL_HAVE_SPIRV_TOOLS=1) and
+# spirv-val is present to validate the assembled binary; otherwise a skip
+# sentinel is registered so the suite documents why it was unavailable.
+if(SPIRV-Tools_FOUND)
+  set(CROSSGL_HAS_SPIRV_TOOLS_LIBRARY TRUE)
+else()
+  set(CROSSGL_HAS_SPIRV_TOOLS_LIBRARY FALSE)
+endif()
+if(CROSSGL_HAS_SPIRV_TOOLS_LIBRARY AND CROSSGL_SPIRV_VAL)
+  add_test(NAME cglc_build_vulkan_spirv_tools_binary_smoke
+    COMMAND ${CMAKE_COMMAND}
+      -DCGLC=$<TARGET_FILE:cglc>
+      -DINPUT=${CROSSGL_STORAGE_BUFFER_COMPUTE_SHADER}
+      -DOUTPUT=${CMAKE_CURRENT_BINARY_DIR}/test-vulkan-spirv-tools-binary.cglb
+      -DEXPECTED_MODULE=StorageBufferComputeShader
+      "-DSPIRV_VAL=${CROSSGL_SPIRV_VAL}"
+      -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cmake/VulkanSpirvToolsBinarySmoke.cmake)
+  crossgl_label_optional_native_test(cglc_build_vulkan_spirv_tools_binary_smoke
+    vulkan)
+else()
+  crossgl_add_optional_native_skip_test(
+    NAME cglc_build_vulkan_spirv_tools_binary_unavailable
+    TARGET vulkan
+    REASON "optional in-process SPIRV-Tools .spv emission requires the \
+SPIRV-Tools library at build time (CROSSGL_HAVE_SPIRV_TOOLS) and spirv-val"
+    REQUIRED_VARS CROSSGL_HAS_SPIRV_TOOLS_LIBRARY CROSSGL_SPIRV_VAL)
+endif()

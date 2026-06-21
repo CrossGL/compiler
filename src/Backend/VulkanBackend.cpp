@@ -4,6 +4,7 @@
 #include "crossgl/Backend/BackendPlan.h"
 #include "crossgl/Backend/BackendHIR.h"
 #include "crossgl/Backend/ResourceArrays.h"
+#include "crossgl/Backend/SPIRVAssembler.h"
 #include "crossgl/Backend/SPIRVModule.h"
 #include "crossgl/Backend/TargetLegalization.h"
 #include "crossgl/Backend/TextureCompare.h"
@@ -18,6 +19,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <limits>
@@ -16360,6 +16362,52 @@ bool writeTextFile(const std::filesystem::path &path, std::string_view text,
   return true;
 }
 
+bool writeSpirvWordsFile(const std::filesystem::path &path,
+                         const std::vector<std::uint32_t> &words,
+                         DiagnosticEngine &diagnostics, std::string_view code) {
+  std::ofstream output(path, std::ios::binary);
+  if (!output) {
+    diagnostics.error(std::string(code),
+                      "failed to write '" + path.string() + "'");
+    return false;
+  }
+  // SPIR-V words are emitted in the host byte order, matching the convention
+  // used by spirv-as when producing a module for the host toolchain.
+  output.write(reinterpret_cast<const char *>(words.data()),
+               static_cast<std::streamsize>(words.size() * sizeof(std::uint32_t)));
+  return output.good();
+}
+
+// Optionally assemble the generated SPIR-V text into a real binary module using
+// the in-process SPIRV-Tools library. This is an opt-in feature: builds without
+// SPIRV-Tools compile to a stub that returns false here, leaving the .spvasm
+// text artifact as the only SPIR-V output. When the library is present we write a
+// sibling <module>.spv next to the .spvasm so the binary is available even when
+// the spirv-as CLI is not on PATH. The CLI native path, when available, later
+// rewrites the same file (byte-identical, same target environment).
+bool emitOptionalSpirvBinaryFromAssembly(
+    const std::string &assembly, const std::filesystem::path &spvPath,
+    DiagnosticEngine &diagnostics) {
+  if (!spirvToolsAssemblyAvailable()) {
+    return false;
+  }
+  std::string assembleError;
+  const std::optional<std::vector<std::uint32_t>> words =
+      assembleVulkanSpirvText(assembly, &assembleError);
+  if (!words) {
+    // The generated .spvasm did not assemble. Surface the exact SPIRV-Tools
+    // diagnostic rather than silently dropping the binary; this reveals any
+    // pre-existing .spvasm validity gap instead of masking it.
+    diagnostics.error("vulkan.spirv-tools-assemble-failed",
+                      "SPIRV-Tools failed to assemble generated Vulkan "
+                      "prototype assembly: " +
+                          assembleError);
+    return false;
+  }
+  return writeSpirvWordsFile(spvPath, *words, diagnostics,
+                             "artifact.write-vulkan-spirv-binary");
+}
+
 } // namespace
 
 std::vector<VulkanSPIRVImport>
@@ -17163,6 +17211,15 @@ VulkanBuildResult buildVulkanPrototypeBinary(
       vulkanPackageRelativePath(packageDir, result.assemblyPath);
   if (!writeTextFile(result.assemblyPath, assembly, diagnostics,
                      "artifact.write-vulkan-assembly")) {
+    return result;
+  }
+
+  // Optionally assemble the .spvasm into a real binary .spv in-process via the
+  // SPIRV-Tools library. No-op (and no diagnostics) when SPIRV-Tools was not
+  // compiled in; the spirv-as CLI path below remains the canonical producer.
+  if (spirvToolsAssemblyAvailable() &&
+      !emitOptionalSpirvBinaryFromAssembly(assembly, result.spvPath,
+                                           diagnostics)) {
     return result;
   }
 
