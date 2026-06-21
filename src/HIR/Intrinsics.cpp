@@ -177,13 +177,6 @@ std::string formatArgumentCount(std::size_t count) {
   return std::to_string(count) + (count == 1 ? " argument" : " arguments");
 }
 
-bool isFloatVectorType(std::string_view baseName) {
-  if (!isVectorType(baseName)) {
-    return false;
-  }
-  return isFloatLike(baseTypeName(scalarTypeForVector(baseName)));
-}
-
 bool isNumericValueType(const HIRType &type) {
   if (type.name.empty() || type.arraySize.has_value()) {
     return false;
@@ -206,7 +199,7 @@ bool isFloatValueType(const HIRType &type) {
     return false;
   }
   const std::string baseName = baseTypeName(type);
-  return isFloatLike(baseName) || isFloatVectorType(baseName) ||
+  return isFloatLike(baseName) || isFloatVectorType(std::string_view{baseName}) ||
          isMatrixType(baseName);
 }
 
@@ -229,15 +222,7 @@ bool isFloatScalarOrVectorType(const HIRType &type) {
     return false;
   }
   const std::string baseName = baseTypeName(type);
-  return isFloatLike(baseName) || isFloatVectorType(baseName);
-}
-
-bool isFloatVectorType(const HIRType &type) {
-  if (type.name.empty() || type.arraySize.has_value()) {
-    return false;
-  }
-  const std::string baseName = baseTypeName(type);
-  return isFloatVectorType(std::string_view{baseName});
+  return isFloatLike(baseName) || isFloatVectorType(std::string_view{baseName});
 }
 
 bool isFloatVector3Type(const HIRType &type) {

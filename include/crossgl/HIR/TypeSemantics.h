@@ -66,6 +66,8 @@ bool isNumericScalarTypeName(std::string_view name);
 bool isFloatLike(std::string_view name);
 bool isVectorType(std::string_view name);
 bool isNumericVectorTypeName(std::string_view name);
+bool isFloatVectorType(std::string_view name);
+bool isFloatVectorType(const HIRType &type);
 bool isMatrixType(std::string_view name);
 bool isScalarAggregateTypePair(const HIRType &left, const HIRType &right);
 bool shouldDiagnoseTypeMismatch(const HIRType &expected, const HIRType &actual);

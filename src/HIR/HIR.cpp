@@ -659,12 +659,6 @@ bool isComputeInvocationBuiltinIntConversion(const HIRExpression &expression,
          isComputeInvocationBuiltinComponentAccess(expression.children.front());
 }
 
-bool isFloatVectorType(const HIRType &type) {
-  const std::string name = baseTypeName(type);
-  return !type.arraySize.has_value() &&
-         (name == "vec2" || name == "vec3" || name == "vec4");
-}
-
 std::optional<std::size_t> matrixDimensionFromHIRTypeName(std::string_view name) {
   if (name == "mat2" || name == "mat2x2") {
     return std::size_t{2};
