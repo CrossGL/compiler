@@ -177,13 +177,6 @@ std::string formatArgumentCount(std::size_t count) {
   return std::to_string(count) + (count == 1 ? " argument" : " arguments");
 }
 
-bool isNumericVectorType(std::string_view baseName) {
-  if (!isVectorType(baseName)) {
-    return false;
-  }
-  return isNumericScalarTypeName(baseTypeName(scalarTypeForVector(baseName)));
-}
-
 bool isFloatVectorType(std::string_view baseName) {
   if (!isVectorType(baseName)) {
     return false;
@@ -196,7 +189,7 @@ bool isNumericValueType(const HIRType &type) {
     return false;
   }
   const std::string baseName = baseTypeName(type);
-  return isNumericScalarTypeName(baseName) || isNumericVectorType(baseName) ||
+  return isNumericScalarTypeName(baseName) || isNumericVectorTypeName(baseName) ||
          isMatrixType(baseName);
 }
 
@@ -205,7 +198,7 @@ bool isNumericScalarOrVectorType(const HIRType &type) {
     return false;
   }
   const std::string baseName = baseTypeName(type);
-  return isNumericScalarTypeName(baseName) || isNumericVectorType(baseName);
+  return isNumericScalarTypeName(baseName) || isNumericVectorTypeName(baseName);
 }
 
 bool isFloatValueType(const HIRType &type) {

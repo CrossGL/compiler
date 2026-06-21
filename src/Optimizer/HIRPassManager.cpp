@@ -2386,18 +2386,12 @@ void validateHIRCallCalleeType(const HIRExpression &expression,
                     expression.location);
 }
 
-bool isHIRNumericVectorTypeName(std::string_view name) {
-  return name == "vec2" || name == "vec3" || name == "vec4" ||
-         name == "ivec2" || name == "ivec3" || name == "ivec4" ||
-         name == "uvec2" || name == "uvec3" || name == "uvec4";
-}
-
 bool isHIRNumericAggregateType(const HIRType &type) {
   if (type.arraySize.has_value()) {
     return false;
   }
   const std::string name = baseTypeName(type);
-  return isHIRNumericVectorTypeName(name) || isMatrixType(name);
+  return isNumericVectorTypeName(name) || isMatrixType(name);
 }
 
 bool isHIRArithmeticOperandType(const HIRType &type) {
@@ -2427,7 +2421,7 @@ bool isHIRSelectBranchOperandType(const HIRType &type) {
   }
   const std::string name = baseTypeName(type);
   return isScalarBoolType(type) || isHIRScalarNumericType(type) ||
-         isHIRNumericVectorTypeName(name) || isMatrixType(name);
+         isNumericVectorTypeName(name) || isMatrixType(name);
 }
 
 bool isHIRSelectBranchOperandPair(const HIRType &left, const HIRType &right) {
