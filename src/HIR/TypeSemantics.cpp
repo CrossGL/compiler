@@ -455,6 +455,21 @@ bool isNumericVectorTypeName(std::string_view name) {
   return isVectorType(name) && !name.starts_with("bvec");
 }
 
+bool isFloatVectorType(std::string_view name) {
+  // Vector types whose component type is float-like (vecN); ivecN/uvecN/bvecN
+  // are excluded.
+  return isVectorType(name) &&
+         isFloatLike(baseTypeName(scalarTypeForVector(name)));
+}
+
+bool isFloatVectorType(const HIRType &type) {
+  if (type.arraySize.has_value()) {
+    return false;
+  }
+  const std::string name = baseTypeName(type);
+  return isFloatVectorType(std::string_view{name});
+}
+
 bool isMatrixType(std::string_view name) {
   return name == "mat2" || name == "mat3" || name == "mat4" ||
          name == "mat2x2" || name == "mat3x3" || name == "mat4x4";
