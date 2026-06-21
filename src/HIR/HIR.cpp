@@ -570,12 +570,6 @@ bool isSpecializationConstantTypeSupported(const HIRType &type) {
           baseTypeName(type) == "uint" || baseTypeName(type) == "float");
 }
 
-bool isNumericVectorTypeName(std::string_view name) {
-  return name == "vec2" || name == "vec3" || name == "vec4" ||
-         name == "ivec2" || name == "ivec3" || name == "ivec4" ||
-         name == "uvec2" || name == "uvec3" || name == "uvec4";
-}
-
 bool isNumericAggregateType(const HIRType &type) {
   if (type.arraySize.has_value()) {
     return false;

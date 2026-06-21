@@ -449,6 +449,12 @@ bool isVectorType(std::string_view name) {
          name == "bvec2" || name == "bvec3" || name == "bvec4";
 }
 
+bool isNumericVectorTypeName(std::string_view name) {
+  // Vector types with numeric components: every vector type except the boolean
+  // vectors (bvecN).
+  return isVectorType(name) && !name.starts_with("bvec");
+}
+
 bool isMatrixType(std::string_view name) {
   return name == "mat2" || name == "mat3" || name == "mat4" ||
          name == "mat2x2" || name == "mat3x3" || name == "mat4x4";
