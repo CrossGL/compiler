@@ -3073,7 +3073,12 @@ bool crossTLBackendSourceMapSourceRemapReferencesMatch(
 
 struct CrossTLBackendSourceMapSpan {
   std::uintmax_t startLine = 0;
+  std::optional<std::uintmax_t> startColumn;
+  std::optional<std::uintmax_t> offset;
+  std::optional<std::uintmax_t> length;
   std::uintmax_t endLine = 0;
+  std::optional<std::uintmax_t> endColumn;
+  std::optional<std::uintmax_t> endOffset;
 };
 
 struct CrossTLBackendSourceMapMappingIdentity {
@@ -3091,7 +3096,11 @@ bool crossTLBackendSourceMapSpansOverlap(
 bool crossTLBackendSourceMapSpansEqual(
     const CrossTLBackendSourceMapSpan &left,
     const CrossTLBackendSourceMapSpan &right) {
-  return left.startLine == right.startLine && left.endLine == right.endLine;
+  return left.startLine == right.startLine &&
+         left.startColumn == right.startColumn && left.offset == right.offset &&
+         left.length == right.length && left.endLine == right.endLine &&
+         left.endColumn == right.endColumn &&
+         left.endOffset == right.endOffset;
 }
 
 bool crossTLBackendSourceMapMappingIdentitiesEqual(
@@ -3180,8 +3189,11 @@ bool parseCrossTLBackendSourceMapBackendSpan(
                              std::string(context) + " must be a JSON object");
     return false;
   }
-  if (!validateSourceBatchAllowedMembers(spanText, {"startLine", "endLine"},
-                                         context, manifestPath, diagnostics)) {
+  if (!validateSourceBatchAllowedMembers(
+          spanText,
+          {"startLine", "startColumn", "offset", "length", "endLine",
+           "endColumn", "endOffset"},
+          context, manifestPath, diagnostics)) {
     return false;
   }
   if (!parseRequiredSourceBatchUnsignedMember(spanText, "startLine", context,
@@ -3190,6 +3202,23 @@ bool parseCrossTLBackendSourceMapBackendSpan(
       !parseRequiredSourceBatchUnsignedMember(spanText, "endLine", context,
                                               manifestPath, diagnostics,
                                               span.endLine)) {
+    return false;
+  }
+  if (!parseOptionalSourceBatchUnsignedMember(
+          spanText, "startColumn", context, manifestPath, diagnostics,
+          span.startColumn) ||
+      !parseOptionalSourceBatchUnsignedMember(spanText, "offset", context,
+                                              manifestPath, diagnostics,
+                                              span.offset) ||
+      !parseOptionalSourceBatchUnsignedMember(spanText, "length", context,
+                                              manifestPath, diagnostics,
+                                              span.length) ||
+      !parseOptionalSourceBatchUnsignedMember(spanText, "endColumn", context,
+                                              manifestPath, diagnostics,
+                                              span.endColumn) ||
+      !parseOptionalSourceBatchUnsignedMember(spanText, "endOffset", context,
+                                              manifestPath, diagnostics,
+                                              span.endOffset)) {
     return false;
   }
   if (span.startLine == 0) {
@@ -3209,6 +3238,54 @@ bool parseCrossTLBackendSourceMapBackendSpan(
                                  ".endLine must be greater than or equal to "
                                  "startLine");
     return false;
+  }
+  const bool hasByteSpanFields =
+      span.startColumn || span.offset || span.length || span.endColumn ||
+      span.endOffset;
+  const bool hasCompleteByteSpanFields =
+      span.startColumn && span.offset && span.length && span.endColumn &&
+      span.endOffset;
+  if (hasByteSpanFields && !hasCompleteByteSpanFields) {
+    sourceBatchManifestError(
+        diagnostics, manifestPath,
+        std::string(context) +
+            " backend byte span fields must be emitted together");
+    return false;
+  }
+  if (hasCompleteByteSpanFields) {
+    if (*span.startColumn == 0) {
+      sourceBatchManifestError(diagnostics, manifestPath,
+                               std::string(context) +
+                                   ".startColumn must be positive");
+      return false;
+    }
+    if (*span.length == 0) {
+      sourceBatchManifestError(diagnostics, manifestPath,
+                               std::string(context) + ".length must be positive");
+      return false;
+    }
+    if (*span.endColumn == 0) {
+      sourceBatchManifestError(diagnostics, manifestPath,
+                               std::string(context) +
+                                   ".endColumn must be positive");
+      return false;
+    }
+    if (*span.offset >
+            std::numeric_limits<std::uintmax_t>::max() - *span.length ||
+        *span.endOffset != *span.offset + *span.length) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          std::string(context) + ".endOffset must equal offset + length");
+      return false;
+    }
+    if (span.endLine == span.startLine &&
+        *span.endColumn <= *span.startColumn) {
+      sourceBatchManifestError(
+          diagnostics, manifestPath,
+          std::string(context) +
+              ".endColumn must be greater than startColumn for same-line span");
+      return false;
+    }
   }
   if (backendLineCount == 0) {
     sourceBatchManifestError(

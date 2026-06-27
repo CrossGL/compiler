@@ -22,7 +22,12 @@
       "name": "value",
       "backend": {
         "startLine": 1,
-        "endLine": 1
+        "startColumn": 1,
+        "offset": 0,
+        "length": 31,
+        "endLine": 1,
+        "endColumn": 32,
+        "endOffset": 31
       },
       "location": {
         "file": "out/cgl/simple.cgl",
