@@ -8,11 +8,11 @@
     "files": [
       {
         "path": "crosstl/translator/lexer.py",
-        "sha256": "81820686f072df53de25d5e00d194f48f22899c2dbbe8165d40fe3d76e2541d8"
+        "sha256": "2c6c4a32ea916efe7d0edc5555a010a7372c0e18dd9e687fca90281b59cf932f"
       },
       {
         "path": "crosstl/translator/parser.py",
-        "sha256": "8776437d940a6c88cfc401433fdbec43f8b7d43549a2c0e87e6c23aaa39fd50b"
+        "sha256": "79ffc4671dcf296fb253e923c0cc8de138187fb03ef26bda9982f612a5f1cd45"
       },
       {
         "path": "crosstl/translator/ast.py",
@@ -625,6 +625,78 @@
       {
         "name": "SAMPLER2DMSARRAY",
         "pattern": "\\bsampler2dmsarray\\b"
+      },
+      {
+        "name": "ISAMPLER1D",
+        "pattern": "\\bisampler1[Dd]\\b"
+      },
+      {
+        "name": "ISAMPLER1DARRAY",
+        "pattern": "\\bisampler1[Dd][Aa]rray\\b"
+      },
+      {
+        "name": "ISAMPLER2D",
+        "pattern": "\\bisampler2[Dd]\\b"
+      },
+      {
+        "name": "ISAMPLER3D",
+        "pattern": "\\bisampler3[Dd]\\b"
+      },
+      {
+        "name": "ISAMPLERCUBE",
+        "pattern": "\\bisampler[Cc]ube\\b"
+      },
+      {
+        "name": "ISAMPLERCUBEARRAY",
+        "pattern": "\\bisampler[Cc]ube[Aa]rray\\b"
+      },
+      {
+        "name": "ISAMPLER2DARRAY",
+        "pattern": "\\bisampler2[Dd][Aa]rray\\b"
+      },
+      {
+        "name": "ISAMPLER2DMS",
+        "pattern": "\\bisampler2[Dd][Mm][Ss]\\b"
+      },
+      {
+        "name": "ISAMPLER2DMSARRAY",
+        "pattern": "\\bisampler2[Dd][Mm][Ss][Aa]rray\\b"
+      },
+      {
+        "name": "USAMPLER1D",
+        "pattern": "\\busampler1[Dd]\\b"
+      },
+      {
+        "name": "USAMPLER1DARRAY",
+        "pattern": "\\busampler1[Dd][Aa]rray\\b"
+      },
+      {
+        "name": "USAMPLER2D",
+        "pattern": "\\busampler2[Dd]\\b"
+      },
+      {
+        "name": "USAMPLER3D",
+        "pattern": "\\busampler3[Dd]\\b"
+      },
+      {
+        "name": "USAMPLERCUBE",
+        "pattern": "\\busampler[Cc]ube\\b"
+      },
+      {
+        "name": "USAMPLERCUBEARRAY",
+        "pattern": "\\busampler[Cc]ube[Aa]rray\\b"
+      },
+      {
+        "name": "USAMPLER2DARRAY",
+        "pattern": "\\busampler2[Dd][Aa]rray\\b"
+      },
+      {
+        "name": "USAMPLER2DMS",
+        "pattern": "\\busampler2[Dd][Mm][Ss]\\b"
+      },
+      {
+        "name": "USAMPLER2DMSARRAY",
+        "pattern": "\\busampler2[Dd][Mm][Ss][Aa]rray\\b"
       },
       {
         "name": "IIMAGE1D",
@@ -1345,6 +1417,42 @@
         "token": "RAY_INTERSECTION"
       },
       {
+        "spelling": "isampler1d",
+        "token": "ISAMPLER1D"
+      },
+      {
+        "spelling": "isampler1darray",
+        "token": "ISAMPLER1DARRAY"
+      },
+      {
+        "spelling": "isampler2d",
+        "token": "ISAMPLER2D"
+      },
+      {
+        "spelling": "isampler2darray",
+        "token": "ISAMPLER2DARRAY"
+      },
+      {
+        "spelling": "isampler2dms",
+        "token": "ISAMPLER2DMS"
+      },
+      {
+        "spelling": "isampler2dmsarray",
+        "token": "ISAMPLER2DMSARRAY"
+      },
+      {
+        "spelling": "isampler3d",
+        "token": "ISAMPLER3D"
+      },
+      {
+        "spelling": "isamplercube",
+        "token": "ISAMPLERCUBE"
+      },
+      {
+        "spelling": "isamplercubearray",
+        "token": "ISAMPLERCUBEARRAY"
+      },
+      {
         "spelling": "ivec2",
         "token": "IVEC2"
       },
@@ -1691,6 +1799,42 @@
       {
         "spelling": "unsafe",
         "token": "UNSAFE"
+      },
+      {
+        "spelling": "usampler1d",
+        "token": "USAMPLER1D"
+      },
+      {
+        "spelling": "usampler1darray",
+        "token": "USAMPLER1DARRAY"
+      },
+      {
+        "spelling": "usampler2d",
+        "token": "USAMPLER2D"
+      },
+      {
+        "spelling": "usampler2darray",
+        "token": "USAMPLER2DARRAY"
+      },
+      {
+        "spelling": "usampler2dms",
+        "token": "USAMPLER2DMS"
+      },
+      {
+        "spelling": "usampler2dmsarray",
+        "token": "USAMPLER2DMSARRAY"
+      },
+      {
+        "spelling": "usampler3d",
+        "token": "USAMPLER3D"
+      },
+      {
+        "spelling": "usamplercube",
+        "token": "USAMPLERCUBE"
+      },
+      {
+        "spelling": "usamplercubearray",
+        "token": "USAMPLERCUBEARRAY"
       },
       {
         "spelling": "use",
@@ -2465,6 +2609,78 @@
           ]
         },
         {
+          "token": "ISAMPLER1D",
+          "canonical": "isampler1D",
+          "kind": "resource",
+          "keywordSpellings": [
+            "isampler1d"
+          ]
+        },
+        {
+          "token": "ISAMPLER1DARRAY",
+          "canonical": "isampler1DArray",
+          "kind": "resource",
+          "keywordSpellings": [
+            "isampler1darray"
+          ]
+        },
+        {
+          "token": "ISAMPLER2D",
+          "canonical": "isampler2D",
+          "kind": "resource",
+          "keywordSpellings": [
+            "isampler2d"
+          ]
+        },
+        {
+          "token": "ISAMPLER2DARRAY",
+          "canonical": "isampler2DArray",
+          "kind": "resource",
+          "keywordSpellings": [
+            "isampler2darray"
+          ]
+        },
+        {
+          "token": "ISAMPLER2DMS",
+          "canonical": "isampler2DMS",
+          "kind": "resource",
+          "keywordSpellings": [
+            "isampler2dms"
+          ]
+        },
+        {
+          "token": "ISAMPLER2DMSARRAY",
+          "canonical": "isampler2DMSArray",
+          "kind": "resource",
+          "keywordSpellings": [
+            "isampler2dmsarray"
+          ]
+        },
+        {
+          "token": "ISAMPLER3D",
+          "canonical": "isampler3D",
+          "kind": "resource",
+          "keywordSpellings": [
+            "isampler3d"
+          ]
+        },
+        {
+          "token": "ISAMPLERCUBE",
+          "canonical": "isamplerCube",
+          "kind": "resource",
+          "keywordSpellings": [
+            "isamplercube"
+          ]
+        },
+        {
+          "token": "ISAMPLERCUBEARRAY",
+          "canonical": "isamplerCubeArray",
+          "kind": "resource",
+          "keywordSpellings": [
+            "isamplercubearray"
+          ]
+        },
+        {
           "token": "SAMPLER",
           "canonical": "sampler",
           "kind": "sampler",
@@ -2640,6 +2856,78 @@
           "kind": "storage-image",
           "keywordSpellings": [
             "uimagecubearray"
+          ]
+        },
+        {
+          "token": "USAMPLER1D",
+          "canonical": "usampler1D",
+          "kind": "resource",
+          "keywordSpellings": [
+            "usampler1d"
+          ]
+        },
+        {
+          "token": "USAMPLER1DARRAY",
+          "canonical": "usampler1DArray",
+          "kind": "resource",
+          "keywordSpellings": [
+            "usampler1darray"
+          ]
+        },
+        {
+          "token": "USAMPLER2D",
+          "canonical": "usampler2D",
+          "kind": "resource",
+          "keywordSpellings": [
+            "usampler2d"
+          ]
+        },
+        {
+          "token": "USAMPLER2DARRAY",
+          "canonical": "usampler2DArray",
+          "kind": "resource",
+          "keywordSpellings": [
+            "usampler2darray"
+          ]
+        },
+        {
+          "token": "USAMPLER2DMS",
+          "canonical": "usampler2DMS",
+          "kind": "resource",
+          "keywordSpellings": [
+            "usampler2dms"
+          ]
+        },
+        {
+          "token": "USAMPLER2DMSARRAY",
+          "canonical": "usampler2DMSArray",
+          "kind": "resource",
+          "keywordSpellings": [
+            "usampler2dmsarray"
+          ]
+        },
+        {
+          "token": "USAMPLER3D",
+          "canonical": "usampler3D",
+          "kind": "resource",
+          "keywordSpellings": [
+            "usampler3d"
+          ]
+        },
+        {
+          "token": "USAMPLERCUBE",
+          "canonical": "usamplerCube",
+          "kind": "resource",
+          "keywordSpellings": [
+            "usamplercube"
+          ]
+        },
+        {
+          "token": "USAMPLERCUBEARRAY",
+          "canonical": "usamplerCubeArray",
+          "kind": "resource",
+          "keywordSpellings": [
+            "usamplercubearray"
           ]
         }
       ],

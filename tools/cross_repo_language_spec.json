@@ -11,7 +11,7 @@
     "id": "crosstl-frontend-language-spec-v0",
     "path": "docs/language/crosstl-frontend-language-spec-v0.json",
     "schema_version": 0,
-    "sha256": "9924f831110bc5c93cd66691eab7606443f137524e2339fb168f08a3bde4c54c",
+    "sha256": "f0188b94432ef1d0a14771b8a750d197a69a150e8db53779d4aea49eb58ef40c",
     "authority_references": [
       {
         "id": "authority.pr720-merged-reference",
@@ -35,11 +35,11 @@
     "source_files": [
       {
         "path": "crosstl/translator/lexer.py",
-        "sha256": "81820686f072df53de25d5e00d194f48f22899c2dbbe8165d40fe3d76e2541d8"
+        "sha256": "2c6c4a32ea916efe7d0edc5555a010a7372c0e18dd9e687fca90281b59cf932f"
       },
       {
         "path": "crosstl/translator/parser.py",
-        "sha256": "8776437d940a6c88cfc401433fdbec43f8b7d43549a2c0e87e6c23aaa39fd50b"
+        "sha256": "79ffc4671dcf296fb253e923c0cc8de138187fb03ef26bda9982f612a5f1cd45"
       },
       {
         "path": "crosstl/translator/ast.py",
@@ -75,7 +75,7 @@
       "snapshot_ref_seals": [
         {
           "ref": "/lexical/keywords",
-          "sha256": "c694139c430c664ee66bf06d114935fe32bf59a34057bb186e23e3fe8f9e7c11"
+          "sha256": "c8441deb3f4a51e3fd2734885cd7f5d2f2f5e0c701535b1aa4f6cd98c5717c4e"
         },
         {
           "ref": "/ast/statementNodes",
@@ -203,7 +203,7 @@
         },
         {
           "ref": "/source/files",
-          "sha256": "5f024911b51fbc8a1b47681feb717af3f7b94341c0348c713f9a0207b0fb967b"
+          "sha256": "8adc690a355db26e7d90eea36250e6fb381f8e93eab645e507ee88d0d777b3b7"
         }
       ],
       "fixture_count": 8,
@@ -606,7 +606,7 @@
         },
         {
           "ref": "/language/types/samplersAndImages",
-          "sha256": "bf7088d69597c97c021ec7fd8e40d40e0ae1d8f39eed721553d8f67cc4b4f5c3"
+          "sha256": "38191a945a5ea7014bb7a24a3df1458aa4fedb5a57c07543f4438aeaf3cf6369"
         },
         {
           "ref": "/language/intrinsics/textureAndImage",
@@ -688,7 +688,7 @@
       "snapshot_ref_seals": [
         {
           "ref": "/language/types",
-          "sha256": "b7ea742b0d785e528792b73caf49a6d274d1406da1d2a416977ccfaafbc9695e"
+          "sha256": "166678606b52382d7bca5e6608f3196c6e3193076106a36e2ee0b75bcb089a8d"
         },
         {
           "ref": "/ast/typeNodes",
