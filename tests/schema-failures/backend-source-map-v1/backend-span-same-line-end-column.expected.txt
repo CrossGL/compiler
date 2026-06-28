@@ -1,0 +1,1 @@
+$.mappings[0].backend.endColumn: expected > startColumn for same-line span

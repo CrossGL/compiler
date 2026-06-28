@@ -333,6 +333,8 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_FIELDS_PARTIAL
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-byte-fields-partial.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_OFFSET
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-byte-end-offset.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN
+  "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-byte-end-column.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ZERO_LENGTH
   "${CMAKE_CURRENT_BINARY_DIR}/crosstl-project-report-backend-source-map-zero-length.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_STAGE_MISMATCH
@@ -487,6 +489,8 @@ set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_FIELDS_PARTIAL_SI
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/directx/simple-byte-fields-partial.backend-source-map.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_OFFSET_SIDECAR
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/directx/simple-byte-end-offset.backend-source-map.json")
+set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN_SIDECAR
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/directx/simple-byte-end-column.backend-source-map.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ZERO_LENGTH_SIDECAR
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ROOT}/out/directx/simple-zero-length.backend-source-map.json")
 set(CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_STAGE_MISMATCH_SIDECAR
@@ -686,6 +690,32 @@ file(SIZE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_OFFS
   CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_OFFSET_SIZE_BYTES)
 file(SHA256 "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_OFFSET_SIDECAR}"
   CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_OFFSET_SHA256)
+
+string(REPLACE [=[      "backend": {
+        "startLine": 1,
+        "startColumn": 1,
+        "offset": 0,
+        "length": 31,
+        "endLine": 1,
+        "endColumn": 32,
+        "endOffset": 31
+      }]=] [=[      "backend": {
+        "startLine": 1,
+        "startColumn": 1,
+        "offset": 0,
+        "length": 31,
+        "endLine": 1,
+        "endColumn": 1,
+        "endOffset": 31
+      }]=]
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN_SIDECAR_JSON
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_SIDECAR_JSON}")
+file(WRITE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN_SIDECAR}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN_SIDECAR_JSON}")
+file(SIZE "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN_SIDECAR}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN_SIZE_BYTES)
+file(SHA256 "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN_SIDECAR}"
+  CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN_SHA256)
 
 string(REPLACE [=[      "location": {
         "file": "out/cgl/simple.cgl",
@@ -1995,6 +2025,12 @@ crossgl_write_crosstl_backend_source_map_report_variant(
   "out/directx/simple-byte-end-offset.backend-source-map.json"
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_OFFSET_SIZE_BYTES}"
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_OFFSET_SHA256}"
+  "1" "1")
+crossgl_write_crosstl_backend_source_map_report_variant(
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN}"
+  "out/directx/simple-byte-end-column.backend-source-map.json"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN_SIZE_BYTES}"
+  "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN_SHA256}"
   "1" "1")
 crossgl_write_crosstl_backend_source_map_report_variant(
   "${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_ZERO_LENGTH}"
@@ -5923,6 +5959,14 @@ crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_sourc
   STDOUT_CONTAINS
     "\"code\": \"project.source-batch.invalid-manifest\""
     "sidecar.mappings[0].backend.endOffset must equal offset + length")
+
+crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_source_map_byte_end_column_fails
+  EXPECTED_RESULT 1
+  ARGS check --source-batch ${CROSSGL_CLI_CROSSTL_PROJECT_REPORT_BACKEND_SOURCE_MAP_BYTE_END_COLUMN}
+    --diagnostics-json
+  STDOUT_CONTAINS
+    "\"code\": \"project.source-batch.invalid-manifest\""
+    "sidecar.mappings[0].backend.endColumn must be greater than startColumn for same-line span")
 
 crossgl_add_cli_surface_test(cglc_cli_check_crosstl_project_report_backend_source_map_zero_length_fails
   EXPECTED_RESULT 1
